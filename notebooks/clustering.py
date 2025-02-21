@@ -9,7 +9,7 @@ def build_graph_from_gdf_with_distance_threshold(
     gdf,
     distance_threshold=1000,
     n_jobs=-1,
-):
+) -> nx.Graph:
     """
     Build a graph from a GeoDataFrame where the nodes are the index of the GeoDataFrame
     and the edges are the distance between the geometries.
@@ -72,7 +72,7 @@ def build_graph_from_gdf_with_distance_threshold(
 
 def get_connected_components_by_distance_threshold(
     G, distance_threshold=None, cluster_id_col_name="cluster_id", cluster_id_prefix="CLUSTER_"
-):
+) -> tuple[pd.DataFrame, nx.Graph]:
     """
     Get the connected components of a graph by a distance threshold. The connected components are
     the nodes that are within the distance threshold of each other.
