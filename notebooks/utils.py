@@ -125,6 +125,7 @@ def get_connected_components_by_distance_threshold(
         {cluster_id_col_name: node_to_parcel_id.values()},
         index=list(node_to_parcel_id.keys()),
     )
+    cluster_labels_df.sort_index(inplace=True)
 
     # add the parcel_id attribute to the nodes
     G_filtered_with_parcel_id = G_filtered.copy()
@@ -134,3 +135,85 @@ def get_connected_components_by_distance_threshold(
         ]
 
     return cluster_labels_df, G_filtered_with_parcel_id
+
+
+def add_parcel_id_to_nodes(G, node_to_parcel_id, cluster_id_col_name="cluster_id"):
+    G_with_parcel_id = G.copy()
+    for node in G_with_parcel_id.nodes:
+        G_with_parcel_id.nodes[node][cluster_id_col_name] = node_to_parcel_id[
+            node
+        ]
+    return G_with_parcel_id
+
+
+def get_intra_parcel_distance_stats(G_filtered, parcel_ids, parcel_id_col="parcel_id"):
+    """
+    Get the inter-khasra distance stats within each parcel.
+
+    Parameters
+    ----------
+    G_filtered : nx.Graph
+        The graph with the edges filtered by the distance threshold.
+    parcel_ids : list
+        The list of parcel_ids to get the distances for.
+
+    Returns
+    -------
+    pd.DataFrame
+        A DataFrame with the parcel_id and corresponding distance stats.
+    """
+
+    # helper function to get the edge weights of a parcel_id
+    def get_edge_weights_by_parcel_id(G_filtered, parcel_id):
+        selected_nodes = {
+            n for n, d in G_filtered.nodes(data=True) if d.get(parcel_id_col) == parcel_id
+        }
+        subgraph = G_filtered.subgraph(selected_nodes)
+        edge_weights = [d["weight"] for _, _, d in subgraph.edges(data=True)]
+        return edge_weights
+
+    distances_list = []
+    for parcel_id in parcel_ids:
+        distances = get_edge_weights_by_parcel_id(G_filtered, parcel_id)
+        if len(distances) == 0:
+            avg_distance = 0
+            min_distance = 0
+            percentile_25th_distance = 0
+            percentile_50th_distance = 0
+            percentile_75th_distace = 0
+            max_distance = 0
+        else:
+            # avg
+            avg_distance = np.mean(distances)
+            # min 25% quartile, median, 75% quantile, max
+            min_distance = np.min(distances)
+            percentile_25th_distance = np.percentile(distances, 20)
+            percentile_50th_distance = np.percentile(distances, 50)
+            percentile_75th_distace = np.percentile(distances, 75)
+            max_distance = np.max(distances)
+
+        distances_list.append({
+            parcel_id_col: parcel_id,
+            "Inter-Khasra Distance Average (m)": avg_distance,
+            "Inter-Khasra Distance Min (m)": min_distance,
+            "Inter-Khasra Distance 25th Percentile (m)": percentile_25th_distance,
+            "Inter-Khasra Distance Median (m)": percentile_50th_distance,
+            "Inter-Khasra Distance 75th Percentile (m)": percentile_75th_distace,
+            "Inter-Khasra Distance Max (m)": max_distance,
+            "raw_distances": distances,
+        })
+    
+    return pd.DataFrame(distances_list).round(2)
+
+def get_closest_parcels(gdf, parcel_id_col="parcel_id"):
+    min_distances = []
+    closest_ids = []
+    for i in range(len(gdf)):
+        geom = gdf.iloc[i].geometry
+        other_geoms = gdf.drop(gdf.index[i])
+        distances = other_geoms.geometry.apply(lambda x: geom.distance(x))
+        min_distance = distances.min().round(2)
+        closest_id = other_geoms.loc[distances.idxmin()][parcel_id_col]
+        min_distances.append(min_distance)
+        closest_ids.append(closest_id)
+    return min_distances, closest_ids
