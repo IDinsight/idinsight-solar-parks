@@ -1,4 +1,5 @@
 **/.DS_Store
 data
+**/cache/**
 **.pyc
 .python-version
