@@ -1,8 +1,13 @@
+import geopandas as gpd
+import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import pandas as pd
-from joblib import Parallel, delayed
 from gridsample.utils import create_ids
+from joblib import Parallel, delayed
+from pydem.dem_processing import DEMProcessor
+from rasterio.features import shapes
+from shapely.geometry import shape
 
 
 def build_graph_from_gdf_with_distance_threshold(
@@ -71,7 +76,10 @@ def build_graph_from_gdf_with_distance_threshold(
 
 
 def get_connected_components_by_distance_threshold(
-    G, distance_threshold=None, cluster_id_col_name="cluster_id", cluster_id_prefix="CLUSTER_"
+    G,
+    distance_threshold=None,
+    cluster_id_col_name="cluster_id",
+    cluster_id_prefix="CLUSTER_",
 ) -> tuple[pd.DataFrame, nx.Graph]:
     """
     Get the connected components of a graph by a distance threshold. The connected components are
@@ -112,7 +120,9 @@ def get_connected_components_by_distance_threshold(
     list_of_sets_of_connected_nodes = list(nx.connected_components(G_filtered))
 
     # create parcel ids
-    parcel_ids = create_ids(len(list_of_sets_of_connected_nodes), prefix=cluster_id_prefix)
+    parcel_ids = create_ids(
+        len(list_of_sets_of_connected_nodes), prefix=cluster_id_prefix
+    )
 
     # create a dictionary that maps each node to its parcel_id.
     node_to_parcel_id = {}
@@ -140,9 +150,7 @@ def get_connected_components_by_distance_threshold(
 def add_parcel_id_to_nodes(G, node_to_parcel_id, cluster_id_col_name="cluster_id"):
     G_with_parcel_id = G.copy()
     for node in G_with_parcel_id.nodes:
-        G_with_parcel_id.nodes[node][cluster_id_col_name] = node_to_parcel_id[
-            node
-        ]
+        G_with_parcel_id.nodes[node][cluster_id_col_name] = node_to_parcel_id[node]
     return G_with_parcel_id
 
 
@@ -166,7 +174,9 @@ def get_intra_parcel_distance_stats(G_filtered, parcel_ids, parcel_id_col="parce
     # helper function to get the edge weights of a parcel_id
     def get_edge_weights_by_parcel_id(G_filtered, parcel_id):
         selected_nodes = {
-            n for n, d in G_filtered.nodes(data=True) if d.get(parcel_id_col) == parcel_id
+            n
+            for n, d in G_filtered.nodes(data=True)
+            if d.get(parcel_id_col) == parcel_id
         }
         subgraph = G_filtered.subgraph(selected_nodes)
         edge_weights = [d["weight"] for _, _, d in subgraph.edges(data=True)]
@@ -192,18 +202,21 @@ def get_intra_parcel_distance_stats(G_filtered, parcel_ids, parcel_id_col="parce
             percentile_75th_distace = np.percentile(distances, 75)
             max_distance = np.max(distances)
 
-        distances_list.append({
-            parcel_id_col: parcel_id,
-            "Inter-Khasra Distance Average (m)": avg_distance,
-            "Inter-Khasra Distance Min (m)": min_distance,
-            "Inter-Khasra Distance 25th Percentile (m)": percentile_25th_distance,
-            "Inter-Khasra Distance Median (m)": percentile_50th_distance,
-            "Inter-Khasra Distance 75th Percentile (m)": percentile_75th_distace,
-            "Inter-Khasra Distance Max (m)": max_distance,
-            "raw_distances": distances,
-        })
-    
+        distances_list.append(
+            {
+                parcel_id_col: parcel_id,
+                "Inter-Khasra Distance Average (m)": avg_distance,
+                "Inter-Khasra Distance Min (m)": min_distance,
+                "Inter-Khasra Distance 25th Percentile (m)": percentile_25th_distance,
+                "Inter-Khasra Distance Median (m)": percentile_50th_distance,
+                "Inter-Khasra Distance 75th Percentile (m)": percentile_75th_distace,
+                "Inter-Khasra Distance Max (m)": max_distance,
+                "raw_distances": distances,
+            }
+        )
+
     return pd.DataFrame(distances_list).round(2)
+
 
 def get_closest_parcels(gdf, parcel_id_col="parcel_id"):
     min_distances = []
@@ -217,3 +230,69 @@ def get_closest_parcels(gdf, parcel_id_col="parcel_id"):
         min_distances.append(min_distance)
         closest_ids.append(closest_id)
     return min_distances, closest_ids
+
+
+def get_steep_shapes(dem_folderpath, dem_filename, projected_crs, plot=True):
+    print(f"Processing {dem_filename}...")
+    dem_filepath = dem_folderpath / f"{dem_filename}.tif"
+    dem_proc = DEMProcessor(dem_filepath)
+    transform = dem_proc.transform  # need this transform later
+
+    try:
+        print("Trying to load pre-calculated slopes and aspects...")
+        slope_pydem = np.load(dem_folderpath / f"{dem_filename}_magnitude.npy")
+        aspect_pydem = np.load(dem_folderpath / f"{dem_filename}_aspect.npy")
+    except FileNotFoundError:
+        print("Pre-calculated file not found. Calculating slopes and aspects...")
+        slope_pydem, aspect_pydem = dem_proc.calc_slopes_directions()
+        np.save(dem_folderpath / f"{dem_filename}_magnitude.npy", slope_pydem)
+        np.save(dem_folderpath / f"{dem_filename}_aspect.npy", aspect_pydem)
+    # convert from radians to degrees
+    aspect = np.degrees(aspect_pydem)
+    slope = np.degrees(slope_pydem)
+
+    # set all values below 0 to 0
+    aspect[aspect < 0] = 0
+    slope[slope < 0] = 0
+
+    # filter to only aspects that are between NE and NW azimuth around north and 7 degrees or more
+    slope_mask = np.where((aspect >= 45) & (aspect < 135) & (slope > 7), True, False)
+
+    # Extract vector shapes and make a GeoDataFrame
+    print("Extracting vector shapes...")
+    vector_shapes = [
+        {"geometry": shape(geom)}
+        for geom, class_value in shapes(slope, mask=slope_mask, transform=transform)
+    ]
+    slope_shapes_gdf = gpd.GeoDataFrame(vector_shapes)
+    slope_shapes_gdf = slope_shapes_gdf.set_crs(4326).to_crs(projected_crs)
+
+    if plot:
+        # Display slope and aspect
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(8, 6))
+        # slope vis
+        ax1.imshow(slope)
+        ax1.set_title(f"{dem_filename} - Slope")
+        ax2.hist(slope.flatten(), bins=100)
+        ax2.set_title("Slope Histogram")
+        # aspect vis
+        ax3.imshow(aspect)
+        ax3.set_title(f"{dem_filename} - Aspect")
+        ax4.hist(aspect.flatten(), bins=100)
+        ax4.set_title("Aspect Histogram")
+        plt.tight_layout()
+        plt.show()
+
+        # Plot the mask with a binary colormap and correct axes
+        x_min = transform[2]
+        x_max = x_min + transform[0] * slope_mask.shape[1]
+        y_max = transform[5]
+        y_min = y_max + transform[4] * slope_mask.shape[0]
+        plt.imshow(slope_mask, extent=[x_min, x_max, y_min, y_max], cmap="binary")
+        plt.colorbar(label="Aspect Mask", ax=ax)
+        plt.title("Aspect Mask")
+        plt.xlabel("Longitude")
+        plt.ylabel("Latitude")
+        plt.show()
+
+    return slope_shapes_gdf
