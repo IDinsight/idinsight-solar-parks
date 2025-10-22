@@ -233,6 +233,7 @@ def get_closest_parcels(gdf, parcel_id_col="parcel_id"):
 
 
 def get_steep_shapes(dem_folderpath, dem_filename, projected_crs, plot=True):
+    ### between NE and NW azimuth around north and 7 degrees or more
     print(f"Processing {dem_filename}...")
     dem_filepath = dem_folderpath / f"{dem_filename}.tif"
     dem_proc = DEMProcessor(dem_filepath)
@@ -257,6 +258,73 @@ def get_steep_shapes(dem_folderpath, dem_filename, projected_crs, plot=True):
 
     # filter to only aspects that are between NE and NW azimuth around north and 7 degrees or more
     slope_mask = np.where((aspect >= 45) & (aspect < 135) & (slope > 7), True, False)
+
+    # Extract vector shapes and make a GeoDataFrame
+    print("Extracting vector shapes...")
+    vector_shapes = [
+        {"geometry": shape(geom)}
+        for geom, class_value in shapes(slope, mask=slope_mask, transform=transform)
+    ]
+    slope_shapes_gdf = gpd.GeoDataFrame(vector_shapes)
+    slope_shapes_gdf = slope_shapes_gdf.set_crs(4326).to_crs(projected_crs)
+
+    if plot:
+        # Display slope and aspect
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(8, 6))
+        # slope vis
+        ax1.imshow(slope)
+        ax1.set_title(f"{dem_filename} - Slope")
+        ax2.hist(slope.flatten(), bins=100)
+        ax2.set_title("Slope Histogram")
+        # aspect vis
+        ax3.imshow(aspect)
+        ax3.set_title(f"{dem_filename} - Aspect")
+        ax4.hist(aspect.flatten(), bins=100)
+        ax4.set_title("Aspect Histogram")
+        plt.tight_layout()
+        plt.show()
+
+        # Plot the mask with a binary colormap and correct axes
+        x_min = transform[2]
+        x_max = x_min + transform[0] * slope_mask.shape[1]
+        y_max = transform[5]
+        y_min = y_max + transform[4] * slope_mask.shape[0]
+        plt.imshow(slope_mask, extent=[x_min, x_max, y_min, y_max], cmap="binary")
+        plt.colorbar(label="Aspect Mask", ax=ax)
+        plt.title("Aspect Mask")
+        plt.xlabel("Longitude")
+        plt.ylabel("Latitude")
+        plt.show()
+
+    return slope_shapes_gdf
+
+
+def get_steep_shapes_other(dem_folderpath, dem_filename, projected_crs, plot=True):
+    ### between NW and NE (long way round) azimuth around north and 10 degrees or more
+    print(f"Processing {dem_filename}...")
+    dem_filepath = dem_folderpath / f"{dem_filename}.tif"
+    dem_proc = DEMProcessor(dem_filepath)
+    transform = dem_proc.transform  # need this transform later
+
+    try:
+        print("Trying to load pre-calculated slopes and aspects...")
+        slope_pydem = np.load(dem_folderpath / f"{dem_filename}_magnitude.npy")
+        aspect_pydem = np.load(dem_folderpath / f"{dem_filename}_aspect.npy")
+    except FileNotFoundError:
+        print("Pre-calculated file not found. Calculating slopes and aspects...")
+        slope_pydem, aspect_pydem = dem_proc.calc_slopes_directions()
+        np.save(dem_folderpath / f"{dem_filename}_magnitude.npy", slope_pydem)
+        np.save(dem_folderpath / f"{dem_filename}_aspect.npy", aspect_pydem)
+    # convert from radians to degrees
+    aspect = np.degrees(aspect_pydem)
+    slope = np.degrees(slope_pydem)
+
+    # set all values below 0 to 0
+    aspect[aspect < 0] = 0
+    slope[slope < 0] = 0
+
+    # filter to only aspects that are between NW and NE (long way round) azimuth around north and 10 degrees or more
+    slope_mask = np.where((aspect < 45) & (aspect <= 135) & (slope > 10), True, False)
 
     # Extract vector shapes and make a GeoDataFrame
     print("Extracting vector shapes...")
