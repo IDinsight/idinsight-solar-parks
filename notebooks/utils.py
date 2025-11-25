@@ -237,7 +237,6 @@ def get_steep_shapes(dem_folderpath, dem_filename: str, input_crs: int, output_c
     if slope_type not in ["north", "other"]:
         raise ValueError("slope_type must be either 'north' or 'other'")
 
-    ### between NE and NW azimuth around north and 7 degrees or more
     print(f"Processing {dem_filename}...")
     dem_filepath = dem_folderpath / f"{dem_filename}.tif"
     dem_proc = DEMProcessor(dem_filepath)
@@ -247,11 +246,14 @@ def get_steep_shapes(dem_folderpath, dem_filename: str, input_crs: int, output_c
         print("Trying to load pre-calculated slopes and aspects...")
         slope_pydem = np.load(dem_folderpath / f"{dem_filename}_magnitude.npy")
         aspect_pydem = np.load(dem_folderpath / f"{dem_filename}_aspect.npy")
+        print("Loaded pre-calculated slopes and aspects.")
     except FileNotFoundError:
         print("Pre-calculated file not found. Calculating slopes and aspects...")
         slope_pydem, aspect_pydem = dem_proc.calc_slopes_directions()
         np.save(dem_folderpath / f"{dem_filename}_magnitude.npy", slope_pydem)
         np.save(dem_folderpath / f"{dem_filename}_aspect.npy", aspect_pydem)
+        print("Calculated and saved slopes and aspects.")
+
     # convert from radians to degrees
     aspect = np.degrees(aspect_pydem)
     slope = np.degrees(slope_pydem)
@@ -261,10 +263,10 @@ def get_steep_shapes(dem_folderpath, dem_filename: str, input_crs: int, output_c
     slope[slope < 0] = 0
 
     if slope_type == "north":
-        # filter to only aspects that are between NE and NW azimuth around north and 7 degrees or more
+        # filter to aspects between NE and NW azimuth around north and 7 degrees or more
         slope_mask = np.where((aspect >= 45) & (aspect < 135) & (slope > 7), True, False)
     if slope_type == "other":
-        # filter to only aspects that are between NW and NE (long way round) azimuth around north and 10 degrees or more
+        # filter to aspects between NW and NE (long way round) azimuth and 10 degrees or more
         slope_mask = np.where((aspect < 45) & (aspect <= 135) & (slope > 10), True, False)
 
     # Extract vector shapes and make a GeoDataFrame
