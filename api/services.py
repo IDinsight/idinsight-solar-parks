@@ -331,9 +331,12 @@ def process_custom_layer_upload(
     if not project:
         raise ValueError(f"Project {project_id} not found")
 
-    gdf = get_khasras_gdf(db, project_id, projected=True)
+    gdf = get_khasras_gdf(db, project_id, projected=False)
     if gdf is None:
         raise ValueError("Khasras must be uploaded first")
+    
+    # Ensure khasras are projected to India CRS for intersection
+    gdf = gdf.to_crs(settings.INDIA_PROJECTED_CRS)
 
     # Read the layer file
     file_extension = Path(filename).suffix.lower()
@@ -365,14 +368,14 @@ def process_custom_layer_upload(
     area_col = f"{'Unusable' if is_unusable else 'Unavailable'} Area - {layer_name} (ha)"
     layer_overlap_gdf[area_col] = layer_overlap_gdf.area / 10_000
 
-    # Save to file storage
+    # Save to file storage (backup)
     layer_file_path = file_storage.save_layer(
         layer_overlap_gdf.to_crs(settings.DEFAULT_CRS),
         project_id,
         layer_name,
     )
 
-    # Store in database
+    # Store layer metadata in database
     layer = LayerModel(
         project_id=project_id,
         name=layer_name,
@@ -384,6 +387,43 @@ def process_custom_layer_upload(
         parameters={"area_col": area_col},
     )
     db.add(layer)
+    db.flush()  # Get the layer.id before adding features
+
+    # Store per-khasra layer features in database
+    layer_overlap_4326 = layer_overlap_gdf.to_crs(settings.DEFAULT_CRS)
+    for idx, row in layer_overlap_4326.iterrows():
+        geom = row.geometry
+        # Convert to MultiPolygon if needed
+        if geom.geom_type == "Polygon":
+            geom = MultiPolygon([geom])
+        elif geom.geom_type == "GeometryCollection":
+            polygons = [g for g in geom.geoms if g.geom_type in ("Polygon", "MultiPolygon")]
+            if polygons:
+                all_polys = []
+                for p in polygons:
+                    if p.geom_type == "Polygon":
+                        all_polys.append(p)
+                    else:
+                        all_polys.extend(p.geoms)
+                geom = MultiPolygon(all_polys) if all_polys else None
+            else:
+                geom = None
+        
+        if geom is None or geom.is_empty:
+            continue
+        
+        feature = LayerFeatureModel(
+            layer_id=layer.id,
+            khasra_id_unique=row["Khasra ID (Unique)"],
+            geometry=from_shape(geom, srid=4326),
+            area_ha=round(row[area_col], 4),
+            properties={
+                "khasra_id": row.get("Khasra ID", ""),
+                "layer_name": layer_name,
+                "is_unusable": is_unusable,
+            },
+        )
+        db.add(feature)
     
     project.status = ProjectStatus.LAYERS_ADDED
     project.updated_at = datetime.utcnow()
@@ -416,6 +456,60 @@ def load_layer_gdf(db: Session, project_id: str, layer_name: str) -> Optional[gp
         return None
     
     return file_storage.load_geodataframe(layer.file_path)
+
+
+def get_layer_features_gdf(db: Session, project_id: str, layer_name: str) -> Optional[gpd.GeoDataFrame]:
+    """Load a layer's features from the database as a GeoDataFrame"""
+    layer = db.query(LayerModel).filter(
+        LayerModel.project_id == project_id,
+        LayerModel.name == layer_name
+    ).first()
+    
+    if not layer:
+        return None
+    
+    features = db.query(LayerFeatureModel).filter(
+        LayerFeatureModel.layer_id == layer.id
+    ).all()
+    
+    if not features:
+        return None
+    
+    data = []
+    for f in features:
+        geom = to_shape(f.geometry)
+        data.append({
+            "khasra_id_unique": f.khasra_id_unique,
+            "area_ha": f.area_ha,
+            "geometry": geom,
+            **(f.properties or {}),
+        })
+    
+    gdf = gpd.GeoDataFrame(data, crs=settings.DEFAULT_CRS)
+    return gdf
+
+
+def get_layer_features_for_khasra(db: Session, project_id: str, khasra_id_unique: str) -> List[Dict]:
+    """Get all layer features that intersect a specific khasra"""
+    layers = get_project_layers(db, project_id)
+    
+    result = []
+    for layer in layers:
+        features = db.query(LayerFeatureModel).filter(
+            LayerFeatureModel.layer_id == layer.id,
+            LayerFeatureModel.khasra_id_unique == khasra_id_unique
+        ).all()
+        
+        for f in features:
+            result.append({
+                "layer_name": layer.name,
+                "layer_type": layer.layer_type,
+                "is_unusable": layer.is_unusable,
+                "area_ha": f.area_ha,
+                "properties": f.properties,
+            })
+    
+    return result
 
 
 # ============ Area Calculations ============

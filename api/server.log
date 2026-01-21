@@ -1,8 +1,49 @@
-INFO:     Started server process [37782]
+INFO:     Will watch for changes in these directories: ['/Users/amiremami/IDinsight Repos/solar/api']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [64161] using WatchFiles
+INFO:     Started server process [64245]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-INFO:     127.0.0.1:58914 - "POST /projects/e279ada2-9d58-4d1e-93bb-c25d05a674b4/khasras HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58923 - "POST /projects/e279ada2-9d58-4d1e-93bb-c25d05a674b4/khasras HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58927 - "POST /projects HTTP/1.1" 201 Created
-INFO:     127.0.0.1:58931 - "POST /projects/76e001f3-702e-4781-b34b-f3c5ca20af49/khasras HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59288 - "POST /auth/login HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:59291 - "POST /auth/login HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:59304 - "POST /token HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:59308 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59327 - "POST /auth/token HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59333 - "POST /auth/token HTTP/1.1" 200 OK
+/Users/amiremami/IDinsight Repos/solar/api/services.py:361: UserWarning: CRS mismatch between the CRS of left geometries and the CRS of right geometries.
+Use `to_crs()` to reproject one of the input geometries to match the CRS of the other.
+
+Left CRS: EPSG:24378
+Right CRS: EPSG:4326
+
+  layer_overlap_gdf = gpd.overlay(layer_gdf, gdf, how="intersection")
+INFO:     127.0.0.1:59335 - "POST /projects/76e001f3-702e-4781-b34b-f3c5ca20af49/layers HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59349 - "POST /auth/token HTTP/1.1" 200 OK
+/Users/amiremami/IDinsight Repos/solar/api/services.py:361: UserWarning: CRS mismatch between the CRS of left geometries and the CRS of right geometries.
+Use `to_crs()` to reproject one of the input geometries to match the CRS of the other.
+
+Left CRS: EPSG:24378
+Right CRS: EPSG:4326
+
+  layer_overlap_gdf = gpd.overlay(layer_gdf, gdf, how="intersection")
+INFO:     127.0.0.1:59351 - "POST /projects/76e001f3-702e-4781-b34b-f3c5ca20af49/layers HTTP/1.1" 200 OK
+WARNING:  WatchFiles detected changes in 'services.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [64245]
+INFO:     Started server process [71283]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:59386 - "POST /auth/token HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59388 - "POST /projects/76e001f3-702e-4781-b34b-f3c5ca20af49/layers HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59398 - "POST /auth/token HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59400 - "POST /projects/76e001f3-702e-4781-b34b-f3c5ca20af49/layers HTTP/1.1" 200 OK
+WARNING:  WatchFiles detected changes in 'services.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [71283]
+INFO:     Started server process [74134]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
