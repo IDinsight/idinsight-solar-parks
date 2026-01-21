@@ -1066,6 +1066,20 @@ def calculate_usable_areas(db: Session, project_id: str) -> gpd.GeoDataFrame:
         "khasras_stats.parquet"
     )
     
+    # Update khasra records in database with calculated areas
+    for _, row in available_gdf.iterrows():
+        khasra_unique_id = row.get("Khasra ID (Unique)")
+        if khasra_unique_id:
+            khasra = db.query(KhasraModel).filter(
+                KhasraModel.project_id == project_id,
+                KhasraModel.khasra_id_unique == khasra_unique_id
+            ).first()
+            if khasra:
+                khasra.original_area_ha = round(row.get("Original Area (ha)", 0), 4)
+                khasra.usable_area_ha = round(row.get("Usable Area (ha)", 0), 4)
+                khasra.unusable_area_ha = round(row.get("Unusable Area (ha)", 0), 4)
+                khasra.usable_available_area_ha = round(row.get("Usable and Available Area (ha)", 0), 4)
+    
     project.stats_file_path = stats_file_path
     project.updated_at = datetime.utcnow()
     db.commit()
