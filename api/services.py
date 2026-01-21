@@ -299,17 +299,26 @@ def process_khasra_upload(
 
 
 def get_khasras_gdf(db: Session, project_id: str, projected: bool = False) -> Optional[gpd.GeoDataFrame]:
-    """Load khasras GeoDataFrame from file storage"""
+    """Load khasras GeoDataFrame from file storage
+    
+    Args:
+        db: Database session
+        project_id: Project ID
+        projected: If True, return GDF in India projected CRS (EPSG:24378) for area calculations
+    """
     project = get_project(db, project_id)
     if not project or not project.khasras_file_path:
         return None
     
+    # Load the main khasras file (always stored in WGS84)
+    gdf = file_storage.load_geodataframe(project.khasras_file_path)
+    
+    if gdf is None:
+        return None
+    
+    # Project to India CRS if requested (for area calculations)
     if projected:
-        gdf = file_storage.load_geodataframe(
-            str(Path(project.khasras_file_path).parent / "khasras_projected.parquet")
-        )
-    else:
-        gdf = file_storage.load_geodataframe(project.khasras_file_path)
+        gdf = gdf.to_crs(settings.INDIA_PROJECTED_CRS)
     
     return gdf
 
