@@ -63,7 +63,7 @@ def create_project(db: Session, name: str, location: str, description: Optional[
     return project_id
 
 
-def get_project(db: Session, project_id: str) -> Optional[ProjectModel]:
+def get_project(db: Session, project_id: str) -> ProjectModel:
     """Get project by ID from database"""
     return db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
 

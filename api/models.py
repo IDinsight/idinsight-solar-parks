@@ -212,6 +212,86 @@ class ClusteringResponse(BaseModel):
     parcels: List[ParcelStats]
 
 
+# ============ Settlement Layer Models ============
+
+class SettlementLayerRequest(BaseModel):
+    """Request to generate settlement layers from VIDA rooftop data"""
+    building_buffer: int = Field(
+        default=10,
+        ge=0,
+        le=100,
+        description="Buffer distance around buildings in meters"
+    )
+    settlement_eps: int = Field(
+        default=50,
+        ge=10,
+        le=500,
+        description="DBSCAN epsilon - max distance between buildings in a settlement (meters)"
+    )
+    min_buildings: int = Field(
+        default=5,
+        ge=2,
+        le=100,
+        description="Minimum number of buildings to form a settlement"
+    )
+
+
+# ============ Calculate Areas Models ============
+
+class CalculateAreasResponse(BaseModel):
+    """Response after calculating usable areas"""
+    project_id: str
+    message: str
+    khasra_count: int
+    total_original_area_ha: float
+    total_usable_area_ha: float
+    total_usable_available_area_ha: float
+
+
+# ============ Statistics Models ============
+
+class KhasraStatsInfo(BaseModel):
+    """Khasra statistics info"""
+    count: int
+    total_area_ha: Optional[float] = None
+
+
+class AreaStatsInfo(BaseModel):
+    """Area statistics after layer processing"""
+    original_area_ha: float
+    usable_area_ha: float
+    usable_area_percent: float
+    usable_available_area_ha: float
+    usable_available_area_percent: float
+
+
+class ParcelStatsInfo(BaseModel):
+    """Parcel statistics info"""
+    total_count: int
+    clustered_count: int
+    unclustered_count: int
+
+
+class LayerStatsInfo(BaseModel):
+    """Layer statistics info"""
+    name: str
+    is_unusable: bool
+    feature_count: int
+    total_area_ha: Optional[float] = None
+
+
+class ProjectStatsResponse(BaseModel):
+    """Response with project statistics"""
+    project_id: str
+    project_name: str
+    location: str
+    status: str
+    khasras: Optional[KhasraStatsInfo] = None
+    areas: Optional[AreaStatsInfo] = None
+    parcels: Optional[ParcelStatsInfo] = None
+    layers: List[LayerStatsInfo] = []
+
+
 # ============ Export/Download Models ============
 
 class ExportFormat(str, Enum):

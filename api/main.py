@@ -8,7 +8,6 @@ and exporting results.
 Now with PostgreSQL/PostGIS persistence and local file storage.
 """
 from datetime import datetime, timedelta
-from io import BytesIO
 from typing import List, Optional
 
 from auth import (
@@ -30,26 +29,29 @@ from fastapi import (
     status,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response, StreamingResponse
+from fastapi.responses import Response
 from fastapi.security import OAuth2PasswordRequestForm
 from models import (
+    AreaStatsInfo,
     AvailableLayersResponse,
+    CalculateAreasResponse,
     ClusteringRequest,
     ClusteringResponse,
-    ErrorResponse,
     ExportFormat,
     ExportRequest,
-    ExportResponse,
     ExportType,
     HealthCheckResponse,
+    KhasraStatsInfo,
     KhasraUploadResponse,
-    LayerAddRequest,
     LayerInfo,
+    LayerStatsInfo,
     LayerUploadResponse,
+    ParcelStatsInfo,
     ProjectCreate,
     ProjectListResponse,
     ProjectResponse,
-    ProjectStatus,
+    ProjectStatsResponse,
+    SettlementLayerRequest,
     Token,
     User,
 )
@@ -236,7 +238,7 @@ async def list_all_projects(
                 updated_at=p.updated_at,
                 khasra_count=p.khasra_count,
                 total_area_ha=p.total_area_ha,
-                layers_added=[l.name for l in layers],
+                layers_added=[layer.name for layer in layers],
             )
         )
     
@@ -274,7 +276,7 @@ async def get_project_details(
         updated_at=project.updated_at,
         khasra_count=project.khasra_count,
         total_area_ha=project.total_area_ha,
-        layers_added=[l.name for l in layers],
+        layers_added=[layer.name for layer in layers],
     )
 
 
@@ -461,9 +463,7 @@ async def upload_custom_layer(
 )
 async def generate_settlement_layer(
     project_id: str,
-    building_buffer: int = Form(10, description="Buffer distance around buildings in meters"),
-    settlement_eps: int = Form(50, description="DBSCAN epsilon - max distance between buildings in a settlement"),
-    min_buildings: int = Form(5, description="Minimum number of buildings to form a settlement"),
+    request: SettlementLayerRequest = SettlementLayerRequest(),
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
@@ -477,11 +477,6 @@ async def generate_settlement_layer(
     4. Creates two layers:
        - **Settlements**: Convex hulls of building clusters (marked as unusable)
        - **Isolated Buildings**: Individual buildings not in settlements (marked as unavailable)
-    
-    **Parameters:**
-    - `building_buffer`: Buffer distance around each building (default: 10m)
-    - `settlement_eps`: Max distance between buildings to be in same settlement (default: 50m)
-    - `min_buildings`: Minimum buildings required to form a settlement (default: 5)
     """
     from services import process_settlement_layer
     
@@ -502,9 +497,9 @@ async def generate_settlement_layer(
         layer_infos = process_settlement_layer(
             db=db,
             project_id=project_id,
-            building_buffer=building_buffer,
-            settlement_eps=settlement_eps,
-            min_buildings=min_buildings,
+            building_buffer=request.building_buffer,
+            settlement_eps=request.settlement_eps,
+            min_buildings=request.min_buildings,
         )
         
         return LayerUploadResponse(
@@ -568,6 +563,7 @@ async def list_project_layers(
 
 @app.post(
     "/projects/{project_id}/calculate-areas",
+    response_model=CalculateAreasResponse,
     tags=["Layers"],
     summary="Calculate usable areas",
 )
@@ -597,14 +593,14 @@ async def calculate_areas(
     try:
         stats_gdf = calculate_usable_areas(db, project_id)
         
-        return {
-            "project_id": project_id,
-            "message": "Areas calculated successfully",
-            "khasra_count": len(stats_gdf),
-            "total_original_area_ha": round(stats_gdf["Original Area (ha)"].sum(), 2),
-            "total_usable_area_ha": round(stats_gdf["Usable Area (ha)"].sum(), 2),
-            "total_usable_available_area_ha": round(stats_gdf["Usable and Available Area (ha)"].sum(), 2),
-        }
+        return CalculateAreasResponse(
+            project_id=project_id,
+            message="Areas calculated successfully",
+            khasra_count=len(stats_gdf),
+            total_original_area_ha=round(stats_gdf["Original Area (ha)"].sum(), 2),
+            total_usable_area_ha=round(stats_gdf["Usable Area (ha)"].sum(), 2),
+            total_usable_available_area_ha=round(stats_gdf["Usable and Available Area (ha)"].sum(), 2),
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -676,9 +672,7 @@ async def cluster_khasras_endpoint(
 )
 async def export_project_data(
     project_id: str,
-    export_type: ExportType = Query(ExportType.ALL, description="Type of data to export"),
-    format: ExportFormat = Query(ExportFormat.GEOJSON, description="Export file format"),
-    include_statistics: bool = Query(True, description="Include summary statistics (for Excel)"),
+    request: ExportRequest = ExportRequest(),
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
@@ -711,9 +705,9 @@ async def export_project_data(
         content, filename = export_data(
             db=db,
             project_id=project_id,
-            export_type=export_type,
-            export_format=format,
-            include_statistics=include_statistics,
+            export_type=request.export_type,
+            export_format=request.format,
+            include_statistics=request.include_statistics,
         )
         
         # Determine media type
@@ -726,7 +720,7 @@ async def export_project_data(
             ExportFormat.EXCEL: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         }
         
-        media_type = media_types.get(format, "application/octet-stream")
+        media_type = media_types.get(request.format, "application/octet-stream")
         
         # If it's a zip file, adjust media type
         if filename.endswith(".zip"):
@@ -751,55 +745,11 @@ async def export_project_data(
         )
 
 
-@app.get(
-    "/projects/{project_id}/download/{data_type}",
-    tags=["Export"],
-    summary="Quick download endpoint",
-)
-async def quick_download(
-    project_id: str,
-    data_type: str,
-    format: ExportFormat = Query(ExportFormat.GEOJSON),
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db),
-):
-    """
-    Quick download endpoint for specific data types.
-    
-    **Data Types:**
-    - `khasras`: Original khasra boundaries
-    - `khasras_stats`: Khasras with area statistics
-    - `parcels`: Clustered parcels
-    - `layers`: All constraint layers
-    """
-    type_mapping = {
-        "khasras": ExportType.KHASRAS,
-        "khasras_stats": ExportType.KHASRAS_WITH_STATS,
-        "parcels": ExportType.PARCELS,
-        "layers": ExportType.LAYERS,
-    }
-    
-    export_type = type_mapping.get(data_type)
-    if not export_type:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid data type. Must be one of: {list(type_mapping.keys())}",
-        )
-    
-    return await export_project_data(
-        project_id=project_id,
-        export_type=export_type,
-        format=format,
-        include_statistics=True,
-        current_user=current_user,
-        db=db,
-    )
-
-
 # ============ Statistics Endpoints ============
 
 @app.get(
-    "/projects/{project_id}/stats",
+    "/projects/{project_id}/WIP_stats",
+    response_model=ProjectStatsResponse,
     tags=["Statistics"],
     summary="Get project statistics",
 )
@@ -809,6 +759,8 @@ async def get_project_stats(
     db: Session = Depends(get_db),
 ):
     """Get summary statistics for a project."""
+    from services import get_khasras_with_stats_gdf, get_parcels_gdf
+    
     project = get_project(db, project_id)
     if not project:
         raise HTTPException(
@@ -816,61 +768,70 @@ async def get_project_stats(
             detail=f"Project {project_id} not found",
         )
     
-    from storage import file_storage
-    
-    stats = {
-        "project_id": project_id,
-        "project_name": project.name,
-        "location": project.location,
-        "status": project.status.value if hasattr(project.status, 'value') else str(project.status),
-    }
+    # Build response
+    khasras_info = None
+    areas_info = None
+    parcels_info = None
+    layers_info = []
     
     # Khasra stats
     if project.khasra_count:
-        stats["khasras"] = {
-            "count": project.khasra_count,
-            "total_area_ha": project.total_area_ha,
-        }
+        khasras_info = KhasraStatsInfo(
+            count=project.khasra_count,
+            total_area_ha=project.total_area_ha,
+        )
     
-    # Stats after layer processing
-    if project.stats_file_path:
-        stats_gdf = file_storage.load_geodataframe(project.stats_file_path)
-        if stats_gdf is not None:
-            stats["areas"] = {
-                "original_area_ha": round(stats_gdf["Original Area (ha)"].sum(), 2),
-                "usable_area_ha": round(stats_gdf["Usable Area (ha)"].sum(), 2),
-                "usable_area_percent": round(
-                    stats_gdf["Usable Area (ha)"].sum() / stats_gdf["Original Area (ha)"].sum() * 100, 2
-                ),
-                "usable_available_area_ha": round(stats_gdf["Usable and Available Area (ha)"].sum(), 2),
-                "usable_available_area_percent": round(
-                    stats_gdf["Usable and Available Area (ha)"].sum() / stats_gdf["Original Area (ha)"].sum() * 100, 2
-                ),
-            }
+    # Area stats from khasras with calculated statistics
+    stats_gdf = get_khasras_with_stats_gdf(db, project_id)
+    if stats_gdf is not None and len(stats_gdf) > 0 and "Original Area (ha)" in stats_gdf.columns:
+        original_total = stats_gdf["Original Area (ha)"].sum()
+        usable_total = stats_gdf["Usable Area (ha)"].sum()
+        usable_available_total = stats_gdf["Usable and Available Area (ha)"].sum()
+        
+        if original_total > 0:
+            areas_info = AreaStatsInfo(
+                original_area_ha=round(original_total, 2),
+                usable_area_ha=round(usable_total, 2),
+                usable_area_percent=round(usable_total / original_total * 100, 2),
+                usable_available_area_ha=round(usable_available_total, 2),
+                usable_available_area_percent=round(usable_available_total / original_total * 100, 2),
+            )
     
-    # Parcel stats
-    if project.parcels_file_path:
-        parcel_gdf = file_storage.load_geodataframe(project.parcels_file_path)
-        if parcel_gdf is not None and "Parcel ID" in parcel_gdf.columns:
-            stats["parcels"] = {
-                "total_count": len(parcel_gdf),
-                "clustered_count": len(parcel_gdf[~parcel_gdf["Parcel ID"].str.contains("UNCLUSTERED")]),
-                "unclustered_count": len(parcel_gdf[parcel_gdf["Parcel ID"].str.contains("UNCLUSTERED")]),
-            }
+    # Parcel stats from database
+    parcel_gdf = get_parcels_gdf(db, project_id)
+    if parcel_gdf is not None and len(parcel_gdf) > 0 and "parcel_id" in parcel_gdf.columns:
+        total_count = len(parcel_gdf)
+        unclustered_count = len(parcel_gdf[parcel_gdf["parcel_id"].str.contains("UNCLUSTERED", na=False)])
+        clustered_count = total_count - unclustered_count
+        
+        parcels_info = ParcelStatsInfo(
+            total_count=total_count,
+            clustered_count=clustered_count,
+            unclustered_count=unclustered_count,
+        )
     
     # Layer stats
     layers = get_project_layers(db, project_id)
-    stats["layers"] = []
     for layer in layers:
-        layer_stat = {
-            "name": layer.name,
-            "is_unusable": layer.is_unusable,
-            "feature_count": layer.feature_count or 0,
-            "total_area_ha": layer.total_area_ha,
-        }
-        stats["layers"].append(layer_stat)
+        layers_info.append(
+            LayerStatsInfo(
+                name=layer.name,
+                is_unusable=layer.is_unusable,
+                feature_count=layer.feature_count or 0,
+                total_area_ha=layer.total_area_ha,
+            )
+        )
     
-    return stats
+    return ProjectStatsResponse(
+        project_id=project_id,
+        project_name=project.name,
+        location=project.location,
+        status=project.status.value if hasattr(project.status, 'value') else str(project.status),
+        khasras=khasras_info,
+        areas=areas_info,
+        parcels=parcels_info,
+        layers=layers_info,
+    )
 
 
 # ============ Run Server ============

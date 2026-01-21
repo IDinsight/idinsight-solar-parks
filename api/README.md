@@ -230,17 +230,11 @@ The distance matrix is cached to disk for performance.
 
 - GeoJSON, KML, Shapefile, Parquet, CSV, Excel
 
----
-
-## Work In Progress (WIP) Endpoints
-
 ### Statistics
 
-| Endpoint | Method | Description | Status |
-|----------|--------|-------------|--------|
-| `/projects/{project_id}/stats` | GET | Get project statistics | ⚠️ Partially working - needs update to use database |
-
-The stats endpoint currently references removed file paths and needs to be refactored to query statistics from the database.
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/projects/{project_id}/stats` | GET | Get project statistics |
 
 ---
 
@@ -255,7 +249,7 @@ curl -X POST "http://localhost:8000/projects" \
   -d '{"name": "Betul Solar Park", "location": "Betul", "description": "Analysis for Betul district"}'
 ```
 
-1. **Upload khasra boundaries**
+2. **Upload khasra boundaries**
 
 ```bash
 curl -X POST "http://localhost:8000/projects/{project_id}/khasras" \
@@ -263,17 +257,16 @@ curl -X POST "http://localhost:8000/projects/{project_id}/khasras" \
   -F "file=@khasras.kml"
 ```
 
-1. **Generate settlement layer (automatic)**
+3. **Generate settlement layer (automatic)**
 
 ```bash
 curl -X POST "http://localhost:8000/projects/{project_id}/layers/settlements" \
   -H "Authorization: Bearer <token>" \
-  -F "building_buffer=10" \
-  -F "settlement_eps=50" \
-  -F "min_buildings=5"
+  -H "Content-Type: application/json" \
+  -d '{"building_buffer": 10, "settlement_eps": 50, "min_buildings": 5}'
 ```
 
-1. **Add custom constraint layers (optional)**
+4. **Add custom constraint layers (optional)**
 
 ```bash
 curl -X POST "http://localhost:8000/projects/{project_id}/layers" \
@@ -283,14 +276,14 @@ curl -X POST "http://localhost:8000/projects/{project_id}/layers" \
   -F "is_unusable=true"
 ```
 
-1. **Calculate usable areas**
+5. **Calculate usable areas**
 
 ```bash
 curl -X POST "http://localhost:8000/projects/{project_id}/calculate-areas" \
   -H "Authorization: Bearer <token>"
 ```
 
-1. **Cluster khasras into parcels**
+6. **Cluster khasras into parcels**
 
 ```bash
 curl -X POST "http://localhost:8000/projects/{project_id}/cluster" \
@@ -299,11 +292,13 @@ curl -X POST "http://localhost:8000/projects/{project_id}/cluster" \
   -d '{"distance_threshold": 25, "min_samples": 2}'
 ```
 
-1. **Export results**
+7. **Export results**
 
 ```bash
-curl -X POST "http://localhost:8000/projects/{project_id}/export?export_type=all&format=excel" \
+curl -X POST "http://localhost:8000/projects/{project_id}/export" \
   -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"export_type": "all", "format": "excel"}' \
   --output export.xlsx
 ```
 
