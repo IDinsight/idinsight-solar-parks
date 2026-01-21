@@ -1,9 +1,8 @@
-INFO:     Started server process [4860]
+INFO:     Started server process [37782]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-INFO:     127.0.0.1:58461 - "POST /projects/0c9daa12-708e-438b-8af4-7ce56656027d/khasras HTTP/1.1" 401 Unauthorized
-INFO:     127.0.0.1:58466 - "POST /auth/token HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58468 - "POST /projects/0c9daa12-708e-438b-8af4-7ce56656027d/khasras HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58478 - "POST /auth/token HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58480 - "GET /projects/0c9daa12-708e-438b-8af4-7ce56656027d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58914 - "POST /projects/e279ada2-9d58-4d1e-93bb-c25d05a674b4/khasras HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58923 - "POST /projects/e279ada2-9d58-4d1e-93bb-c25d05a674b4/khasras HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58927 - "POST /projects HTTP/1.1" 201 Created
+INFO:     127.0.0.1:58931 - "POST /projects/76e001f3-702e-4781-b34b-f3c5ca20af49/khasras HTTP/1.1" 200 OK

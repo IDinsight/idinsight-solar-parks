@@ -3,6 +3,7 @@ Database configuration and models for the Solar Parks API
 Uses SQLAlchemy with GeoAlchemy2 for PostGIS support
 """
 import json
+import uuid
 from datetime import datetime
 from typing import Optional
 from sqlalchemy import (
@@ -16,8 +17,9 @@ from sqlalchemy import (
     ForeignKey,
     create_engine,
     Enum as SQLEnum,
+    UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship, Session
 from geoalchemy2 import Geometry
@@ -73,11 +75,14 @@ class ProjectModel(Base):
 class KhasraModel(Base):
     """Khasra (land parcel) database model with geometry"""
     __tablename__ = "khasras"
+    __table_args__ = (
+        UniqueConstraint('project_id', 'khasra_id_unique', name='uq_khasra_project_unique_id'),
+    )
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     project_id = Column(String(36), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
-    khasra_id = Column(String(100), nullable=False)
-    khasra_id_unique = Column(String(150), nullable=False, unique=True)
+    khasra_id = Column(String(100), nullable=False)  # Original khasra ID (can have duplicates)
+    khasra_id_unique = Column(String(150), nullable=False)  # Project-unique ID (e.g., "KHASRA_001_0")
     
     # Geometry stored in PostGIS (WGS84)
     geometry = Column(Geometry("MULTIPOLYGON", srid=4326), nullable=False)

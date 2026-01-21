@@ -206,17 +206,37 @@ def process_khasra_upload(
     gdf_4326 = gdf.to_crs(settings.DEFAULT_CRS)
     gdf_projected = gdf_4326.to_crs(settings.INDIA_PROJECTED_CRS)
 
-    # Set up ID columns
-    if id_column and id_column in gdf.columns:
+    # Set up ID columns - try multiple common column names
+    khasra_id_assigned = False
+    
+    # First priority: user-specified column
+    if id_column and id_column in gdf_projected.columns:
         gdf_projected["Khasra ID"] = gdf_projected[id_column].astype(str)
-    elif "Name" in gdf_projected.columns:
-        gdf_projected["Khasra ID"] = gdf_projected["Name"].astype(str)
-    elif "name" in gdf_projected.columns:
-        gdf_projected["Khasra ID"] = gdf_projected["name"].astype(str)
-    else:
+        khasra_id_assigned = True
+    
+    # Second priority: try common ID column names
+    if not khasra_id_assigned:
+        common_id_columns = [
+            "Name", "name", "NAME",
+            "id", "ID", "Id",
+            "khasra_id", "Khasra_ID", "KHASRA_ID", "khasra_no", "Khasra_No",
+            "parcel_id", "Parcel_ID", "PARCEL_ID",
+            "plot_id", "Plot_ID", "PLOT_ID",
+            "feature_id", "Feature_ID", "FEATURE_ID",
+            "fid", "FID",
+            "OBJECTID", "ObjectID", "objectid",
+        ]
+        for col in common_id_columns:
+            if col in gdf_projected.columns:
+                gdf_projected["Khasra ID"] = gdf_projected[col].astype(str)
+                khasra_id_assigned = True
+                break
+    
+    # Last resort: auto-generate sequential IDs
+    if not khasra_id_assigned:
         gdf_projected["Khasra ID"] = [f"KHASRA_{i+1:04d}" for i in range(len(gdf_projected))]
 
-    # Create unique IDs
+    # Create unique IDs (project-scoped unique identifier)
     gdf_projected["Khasra ID (Unique)"] = gdf_projected["Khasra ID"] + "_" + [
         str(i) for i in range(len(gdf_projected))
     ]
