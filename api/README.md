@@ -2,6 +2,8 @@
 
 A FastAPI application for analyzing land parcels (khasras) for solar park development.
 
+**Now with PostgreSQL/PostGIS persistence and local file storage!**
+
 ## Features
 
 - **Upload khasra boundaries** from KML or GeoJSON files
@@ -9,6 +11,36 @@ A FastAPI application for analyzing land parcels (khasras) for solar park develo
 - **Cluster khasras** into contiguous parcels using DBSCAN algorithm
 - **Calculate usable areas** after removing constraints
 - **Export results** in multiple formats (GeoJSON, KML, Shapefile, Excel, etc.)
+- **Persistent storage** with PostgreSQL/PostGIS and local file storage
+
+## Prerequisites
+
+### PostgreSQL with PostGIS
+
+1. Install PostgreSQL and PostGIS:
+   - **macOS**: `brew install postgresql postgis`
+   - **Ubuntu/Debian**: `sudo apt install postgresql postgresql-contrib postgis`
+   - **Windows**: Download from https://www.postgresql.org/download/windows/ and install PostGIS extension
+
+2. Create the database:
+```bash
+# Start PostgreSQL
+brew services start postgresql  # macOS
+# or
+sudo systemctl start postgresql  # Linux
+
+# Create database
+createdb solar_parks
+
+# Enable PostGIS extension
+psql solar_parks -c "CREATE EXTENSION postgis;"
+```
+
+3. (Optional) Create a dedicated user:
+```sql
+CREATE USER solar_api WITH PASSWORD 'your_password';
+GRANT ALL PRIVILEGES ON DATABASE solar_parks TO solar_api;
+```
 
 ## Installation
 
@@ -24,11 +56,13 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-3. (Optional) Create a `.env` file for configuration:
+3. Create a `.env` file for configuration:
 ```env
 SECRET_KEY=your-secret-key-here
 DEFAULT_USERNAME=admin
 DEFAULT_PASSWORD=your-secure-password
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/solar_parks
+STORAGE_DIR=./data/storage
 ```
 
 ## Running the Server
@@ -178,6 +212,8 @@ Environment variables can be set in a `.env` file or as system environment varia
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | 1440 (24h) | Token expiration time |
 | `DEFAULT_USERNAME` | admin | Default admin username |
 | `DEFAULT_PASSWORD` | solarparks2024 | Default admin password |
+| `DATABASE_URL` | postgresql://postgres:postgres@localhost:5432/solar_parks | PostgreSQL/PostGIS connection URL |
+| `STORAGE_DIR` | ./data/storage | Directory for file storage (parquet, numpy arrays) |
 
 ## Development
 
@@ -189,15 +225,29 @@ api/
 ├── config.py         # Configuration and settings
 ├── models.py         # Pydantic models
 ├── services.py       # Business logic and geospatial processing
+├── database.py       # SQLAlchemy models and database setup
+├── storage.py        # File storage utilities
 ├── requirements.txt  # Python dependencies
 └── README.md         # This file
 ```
 
-### Running Tests
-```bash
-pytest tests/
+### Data Storage
+
+The API uses a hybrid storage approach:
+
+1. **PostgreSQL/PostGIS**: Stores project metadata, khasra/parcel geometries (for spatial queries), and layer information.
+2. **Local File Storage**: Stores GeoParquet files (for fast GeoDataFrame loading), numpy arrays (distance matrices), and other large data files.
+
+Files are organized by project ID:
 ```
-
-## License
-
-MIT License
+data/storage/
+├── {project_id}/
+│   ├── khasras.parquet
+│   ├── khasras_projected.parquet
+│   ├── khasras_stats.parquet
+│   ├── khasras_clustered.parquet
+│   ├── parcels.parquet
+│   ├── distance_matrix.npy
+│   └── layers/
+│       ├── water_bodies.parquet
+│       └── settlements.parquet

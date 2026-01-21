@@ -4,6 +4,8 @@ Solar Parks Analysis API - FastAPI Application
 A FastAPI application for processing and analyzing solar park land parcels (khasras).
 Provides endpoints for uploading khasra shapes, adding constraint layers, clustering,
 and exporting results.
+
+Now with PostgreSQL/PostGIS persistence and local file storage.
 """
 from datetime import datetime, timedelta
 from typing import List, Optional
@@ -13,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from io import BytesIO
+from sqlalchemy.orm import Session
 
 from auth import (
     authenticate_user,
@@ -21,6 +24,7 @@ from auth import (
     get_current_active_user,
 )
 from config import AVAILABLE_LAYERS, settings
+from database import get_db, init_db
 from models import (
     AvailableLayersResponse,
     ClusteringRequest,
@@ -49,6 +53,7 @@ from services import (
     delete_project,
     export_data,
     get_project,
+    get_project_layers,
     list_projects,
     process_custom_layer_upload,
     process_khasra_upload,
@@ -88,6 +93,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ============ Startup Event ============
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize the database on startup."""
+    init_db()
 
 
 # ============ Health Check ============
@@ -160,6 +173,7 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
 async def create_new_project(
     project: ProjectCreate,
     current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
 ):
     """
     Create a new solar park analysis project.
@@ -167,21 +181,24 @@ async def create_new_project(
     Each project can have its own khasra boundaries, layers, and clustering configuration.
     """
     project_id = create_project(
+        db=db,
         name=project.name,
         location=project.location,
         description=project.description,
     )
-    project_data = get_project(project_id)
+    project_data = get_project(db, project_id)
     
     return ProjectResponse(
-        id=project_data["id"],
-        name=project_data["name"],
-        location=project_data["location"],
-        description=project_data["description"],
-        status=project_data["status"],
-        created_at=project_data["created_at"],
-        updated_at=project_data["updated_at"],
-        layers_added=project_data["layers_added"],
+        id=project_data.id,
+        name=project_data.name,
+        location=project_data.location,
+        description=project_data.description,
+        status=project_data.status,
+        created_at=project_data.created_at,
+        updated_at=project_data.updated_at,
+        khasra_count=project_data.khasra_count,
+        total_area_ha=project_data.total_area_ha,
+        layers_added=[],
     )
 
 
@@ -193,25 +210,26 @@ async def create_new_project(
 )
 async def list_all_projects(
     current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
 ):
     """List all projects for the current user."""
-    projects = list_projects()
+    projects = list_projects(db)
     
     project_responses = []
     for p in projects:
-        khasras_gdf = p.get("khasras_gdf_projected")
+        layers = get_project_layers(db, p.id)
         project_responses.append(
             ProjectResponse(
-                id=p["id"],
-                name=p["name"],
-                location=p["location"],
-                description=p["description"],
-                status=p["status"],
-                created_at=p["created_at"],
-                updated_at=p["updated_at"],
-                khasra_count=len(khasras_gdf) if khasras_gdf is not None else None,
-                total_area_ha=round(khasras_gdf["Original Area (ha)"].sum(), 2) if khasras_gdf is not None else None,
-                layers_added=p["layers_added"],
+                id=p.id,
+                name=p.name,
+                location=p.location,
+                description=p.description,
+                status=p.status,
+                created_at=p.created_at,
+                updated_at=p.updated_at,
+                khasra_count=p.khasra_count,
+                total_area_ha=p.total_area_ha,
+                layers_added=[l.name for l in layers],
             )
         )
     
@@ -227,28 +245,29 @@ async def list_all_projects(
 async def get_project_details(
     project_id: str,
     current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
 ):
     """Get details about a specific project."""
-    project = get_project(project_id)
+    project = get_project(db, project_id)
     if not project:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Project {project_id} not found",
         )
     
-    khasras_gdf = project.get("khasras_gdf_projected")
+    layers = get_project_layers(db, project_id)
     
     return ProjectResponse(
-        id=project["id"],
-        name=project["name"],
-        location=project["location"],
-        description=project["description"],
-        status=project["status"],
-        created_at=project["created_at"],
-        updated_at=project["updated_at"],
-        khasra_count=len(khasras_gdf) if khasras_gdf is not None else None,
-        total_area_ha=round(khasras_gdf["Original Area (ha)"].sum(), 2) if khasras_gdf is not None else None,
-        layers_added=project["layers_added"],
+        id=project.id,
+        name=project.name,
+        location=project.location,
+        description=project.description,
+        status=project.status,
+        created_at=project.created_at,
+        updated_at=project.updated_at,
+        khasra_count=project.khasra_count,
+        total_area_ha=project.total_area_ha,
+        layers_added=[l.name for l in layers],
     )
 
 
@@ -261,9 +280,10 @@ async def get_project_details(
 async def delete_project_endpoint(
     project_id: str,
     current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
 ):
     """Delete a project and all associated data."""
-    if not delete_project(project_id):
+    if not delete_project(db, project_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Project {project_id} not found",
@@ -284,6 +304,7 @@ async def upload_khasras(
     file: UploadFile = File(..., description="KML or GeoJSON file containing khasra boundaries"),
     id_column: Optional[str] = Form(None, description="Column name to use as Khasra ID"),
     current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
 ):
     """
     Upload khasra (land parcel) boundaries as KML or GeoJSON.
@@ -295,7 +316,7 @@ async def upload_khasras(
     - KML (.kml)
     - GeoJSON (.geojson, .json)
     """
-    project = get_project(project_id)
+    project = get_project(db, project_id)
     if not project:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -313,6 +334,7 @@ async def upload_khasras(
     try:
         content = await file.read()
         result = process_khasra_upload(
+            db=db,
             file_content=content,
             filename=file.filename,
             project_id=project_id,
@@ -367,6 +389,7 @@ async def upload_custom_layer(
     layer_name: str = Form(..., description="Name for this layer"),
     is_unusable: bool = Form(True, description="If True, area is marked as unusable. If False, as unavailable."),
     current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
 ):
     """
     Upload a custom constraint layer (e.g., water bodies, forests, restricted areas).
@@ -379,14 +402,14 @@ async def upload_custom_layer(
         - `True` = Areas are completely unsuitable (deducted from usable area)
         - `False` = Areas are unavailable but potentially usable (deducted from available area)
     """
-    project = get_project(project_id)
+    project = get_project(db, project_id)
     if not project:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Project {project_id} not found",
         )
     
-    if project["khasras_gdf"] is None:
+    if not project.khasras_file_path:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Khasras must be uploaded before adding layers",
@@ -403,6 +426,7 @@ async def upload_custom_layer(
     try:
         content = await file.read()
         layer_info = process_custom_layer_upload(
+            db=db,
             file_content=content,
             filename=file.filename,
             project_id=project_id,
@@ -431,29 +455,28 @@ async def upload_custom_layer(
 async def list_project_layers(
     project_id: str,
     current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
 ):
     """Get a list of all layers added to a project."""
-    project = get_project(project_id)
+    project = get_project(db, project_id)
     if not project:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Project {project_id} not found",
         )
     
+    layers_data = get_project_layers(db, project_id)
     layers = []
-    for layer_name, layer_info in project["layers"].items():
-        layer_gdf = project["layer_gdfs"].get(layer_name)
-        area_col = layer_info.get("area_col")
-        
+    for layer in layers_data:
         layers.append(
             LayerInfo(
-                layer_type=layer_info.get("type", "custom").value if hasattr(layer_info.get("type"), "value") else str(layer_info.get("type", "custom")),
-                name=layer_name,
-                description=f"Layer: {layer_name}",
-                is_unusable=layer_info.get("is_unusable", True),
-                parameters={},
-                area_ha=round(layer_gdf[area_col].sum(), 2) if layer_gdf is not None and area_col in layer_gdf.columns else None,
-                feature_count=len(layer_gdf) if layer_gdf is not None else None,
+                layer_type=layer.layer_type,
+                name=layer.name,
+                description=f"Layer: {layer.name}",
+                is_unusable=layer.is_unusable,
+                parameters=layer.parameters or {},
+                area_ha=layer.total_area_ha,
+                feature_count=layer.feature_count,
             )
         )
     
@@ -468,27 +491,28 @@ async def list_project_layers(
 async def calculate_areas(
     project_id: str,
     current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
 ):
     """
     Calculate usable and available areas after applying all constraint layers.
     
     This step should be run after uploading khasras and adding all desired layers.
     """
-    project = get_project(project_id)
+    project = get_project(db, project_id)
     if not project:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Project {project_id} not found",
         )
     
-    if project["khasras_gdf"] is None:
+    if not project.khasras_file_path:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Khasras must be uploaded first",
         )
     
     try:
-        stats_gdf = calculate_usable_areas(project_id)
+        stats_gdf = calculate_usable_areas(db, project_id)
         
         return {
             "project_id": project_id,
@@ -517,6 +541,7 @@ async def cluster_khasras_endpoint(
     project_id: str,
     request: ClusteringRequest,
     current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
 ):
     """
     Cluster adjacent khasras into larger parcels using DBSCAN algorithm.
@@ -527,21 +552,21 @@ async def cluster_khasras_endpoint(
     
     Khasras that don't meet the clustering criteria will be marked as "UNCLUSTERED".
     """
-    project = get_project(project_id)
+    project = get_project(db, project_id)
     if not project:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Project {project_id} not found",
         )
     
-    if project["khasras_gdf"] is None:
+    if not project.khasras_file_path:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Khasras must be uploaded first",
         )
     
     try:
-        result = cluster_khasras(project_id, request)
+        result = cluster_khasras(db, project_id, request)
         
         return ClusteringResponse(
             project_id=project_id,
@@ -572,6 +597,7 @@ async def export_project_data(
     format: ExportFormat = Query(ExportFormat.GEOJSON, description="Export file format"),
     include_statistics: bool = Query(True, description="Include summary statistics (for Excel)"),
     current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
 ):
     """
     Export project data in various formats.
@@ -591,7 +617,7 @@ async def export_project_data(
     - `csv`: CSV without geometry (for spreadsheets)
     - `excel`: Excel workbook with multiple sheets
     """
-    project = get_project(project_id)
+    project = get_project(db, project_id)
     if not project:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -600,6 +626,7 @@ async def export_project_data(
     
     try:
         content, filename = export_data(
+            db=db,
             project_id=project_id,
             export_type=export_type,
             export_format=format,
@@ -651,6 +678,7 @@ async def quick_download(
     data_type: str,
     format: ExportFormat = Query(ExportFormat.GEOJSON),
     current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
 ):
     """
     Quick download endpoint for specific data types.
@@ -681,6 +709,7 @@ async def quick_download(
         format=format,
         include_statistics=True,
         current_user=current_user,
+        db=db,
     )
 
 
@@ -694,69 +723,68 @@ async def quick_download(
 async def get_project_stats(
     project_id: str,
     current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
 ):
     """Get summary statistics for a project."""
-    project = get_project(project_id)
+    project = get_project(db, project_id)
     if not project:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Project {project_id} not found",
         )
     
+    from storage import file_storage
+    
     stats = {
         "project_id": project_id,
-        "project_name": project["name"],
-        "location": project["location"],
-        "status": project["status"].value,
+        "project_name": project.name,
+        "location": project.location,
+        "status": project.status.value if hasattr(project.status, 'value') else str(project.status),
     }
     
     # Khasra stats
-    khasras_gdf = project.get("khasras_gdf_projected")
-    if khasras_gdf is not None:
+    if project.khasra_count:
         stats["khasras"] = {
-            "count": len(khasras_gdf),
-            "total_area_ha": round(khasras_gdf["Original Area (ha)"].sum(), 2),
+            "count": project.khasra_count,
+            "total_area_ha": project.total_area_ha,
         }
     
     # Stats after layer processing
-    stats_gdf = project.get("stats_gdf")
-    if stats_gdf is not None:
-        stats["areas"] = {
-            "original_area_ha": round(stats_gdf["Original Area (ha)"].sum(), 2),
-            "usable_area_ha": round(stats_gdf["Usable Area (ha)"].sum(), 2),
-            "usable_area_percent": round(
-                stats_gdf["Usable Area (ha)"].sum() / stats_gdf["Original Area (ha)"].sum() * 100, 2
-            ),
-            "usable_available_area_ha": round(stats_gdf["Usable and Available Area (ha)"].sum(), 2),
-            "usable_available_area_percent": round(
-                stats_gdf["Usable and Available Area (ha)"].sum() / stats_gdf["Original Area (ha)"].sum() * 100, 2
-            ),
-        }
+    if project.stats_file_path:
+        stats_gdf = file_storage.load_geodataframe(project.stats_file_path)
+        if stats_gdf is not None:
+            stats["areas"] = {
+                "original_area_ha": round(stats_gdf["Original Area (ha)"].sum(), 2),
+                "usable_area_ha": round(stats_gdf["Usable Area (ha)"].sum(), 2),
+                "usable_area_percent": round(
+                    stats_gdf["Usable Area (ha)"].sum() / stats_gdf["Original Area (ha)"].sum() * 100, 2
+                ),
+                "usable_available_area_ha": round(stats_gdf["Usable and Available Area (ha)"].sum(), 2),
+                "usable_available_area_percent": round(
+                    stats_gdf["Usable and Available Area (ha)"].sum() / stats_gdf["Original Area (ha)"].sum() * 100, 2
+                ),
+            }
     
     # Parcel stats
-    parcel_gdf = project.get("parcel_gdf")
-    if parcel_gdf is not None:
-        stats["parcels"] = {
-            "total_count": len(parcel_gdf),
-            "clustered_count": len(parcel_gdf[~parcel_gdf["Parcel ID"].str.contains("UNCLUSTERED")]),
-            "unclustered_count": len(parcel_gdf[parcel_gdf["Parcel ID"].str.contains("UNCLUSTERED")]),
-        }
+    if project.parcels_file_path:
+        parcel_gdf = file_storage.load_geodataframe(project.parcels_file_path)
+        if parcel_gdf is not None and "Parcel ID" in parcel_gdf.columns:
+            stats["parcels"] = {
+                "total_count": len(parcel_gdf),
+                "clustered_count": len(parcel_gdf[~parcel_gdf["Parcel ID"].str.contains("UNCLUSTERED")]),
+                "unclustered_count": len(parcel_gdf[parcel_gdf["Parcel ID"].str.contains("UNCLUSTERED")]),
+            }
     
     # Layer stats
+    layers = get_project_layers(db, project_id)
     stats["layers"] = []
-    for layer_name, layer_info in project["layers"].items():
-        layer_gdf = project["layer_gdfs"].get(layer_name)
-        area_col = layer_info.get("area_col")
-        
+    for layer in layers:
         layer_stat = {
-            "name": layer_name,
-            "is_unusable": layer_info.get("is_unusable", True),
-            "feature_count": len(layer_gdf) if layer_gdf is not None else 0,
+            "name": layer.name,
+            "is_unusable": layer.is_unusable,
+            "feature_count": layer.feature_count or 0,
+            "total_area_ha": layer.total_area_ha,
         }
-        
-        if layer_gdf is not None and area_col and area_col in layer_gdf.columns:
-            layer_stat["total_area_ha"] = round(layer_gdf[area_col].sum(), 2)
-        
         stats["layers"].append(layer_stat)
     
     return stats
