@@ -20,7 +20,7 @@ class FileStorage:
     """Handles local file storage for project data"""
     
     def __init__(self, base_path: Optional[Path] = None):
-        self.base_path = base_path or settings.STORAGE_DIR
+        self.base_path = base_path or settings.DATA_DIR
         self.base_path.mkdir(parents=True, exist_ok=True)
     
     def _get_project_dir(self, project_id: str) -> Path:

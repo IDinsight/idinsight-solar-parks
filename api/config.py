@@ -38,10 +38,7 @@ class Settings(BaseSettings):
 
     # File storage
     BASE_DIR: Path = Path(__file__).parent.parent
-    DATA_DIR: Path = BASE_DIR / "data"
-    UPLOAD_DIR: Path = DATA_DIR / "uploads"
-    OUTPUT_DIR: Path = DATA_DIR / "outputs"
-    STORAGE_DIR: Path = DATA_DIR / "storage"  # For persistent file storage
+    DATA_DIR: Path = Path(os.getenv("DATA_DIR", str(Path(__file__).parent.parent / "data")))
 
     # Geospatial settings
     INDIA_PROJECTED_CRS: str = "EPSG:24378"  # India projected CRS for area calculations
@@ -63,12 +60,6 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-
-# Ensure directories exist
-settings.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-settings.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-settings.STORAGE_DIR.mkdir(parents=True, exist_ok=True)
-
 
 # Layer configuration - defines what layers are available and their parameters
 AVAILABLE_LAYERS = {

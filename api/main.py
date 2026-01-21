@@ -416,7 +416,7 @@ async def upload_custom_layer(
             detail=f"Project {project_id} not found",
         )
     
-    if not project.khasras_file_path:
+    if not project.khasra_count or project.khasra_count == 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Khasras must be uploaded before adding layers",
@@ -492,7 +492,7 @@ async def generate_settlement_layer(
             detail=f"Project {project_id} not found",
         )
     
-    if not project.khasras_file_path:
+    if not project.khasra_count or project.khasra_count == 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Khasras must be uploaded before generating settlement layers",
@@ -588,7 +588,7 @@ async def calculate_areas(
             detail=f"Project {project_id} not found",
         )
     
-    if not project.khasras_file_path:
+    if not project.khasra_count or project.khasra_count == 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Khasras must be uploaded first",
@@ -642,7 +642,7 @@ async def cluster_khasras_endpoint(
             detail=f"Project {project_id} not found",
         )
     
-    if not project.khasras_file_path:
+    if not project.khasra_count or project.khasra_count == 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Khasras must be uploaded first",

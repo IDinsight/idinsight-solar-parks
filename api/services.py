@@ -247,15 +247,7 @@ def process_khasra_upload(
     gdf_4326["Khasra ID (Unique)"] = gdf_projected["Khasra ID (Unique)"]
     gdf_4326["Original Area (ha)"] = gdf_projected["Original Area (ha)"]
 
-    # Save to file storage
-    khasras_file_path = file_storage.save_geodataframe(
-        gdf_4326, project_id, "khasras.parquet"
-    )
-    khasras_projected_file_path = file_storage.save_geodataframe(
-        gdf_projected, project_id, "khasras_projected.parquet"
-    )
-
-    # Store in database (for querying)
+    # Store in database (primary storage)
     # First, delete any existing khasras for this project
     db.query(KhasraModel).filter(KhasraModel.project_id == project_id).delete()
     
@@ -276,7 +268,6 @@ def process_khasra_upload(
 
     # Update project
     bounds = gdf_4326.total_bounds
-    project.khasras_file_path = khasras_file_path
     project.khasra_count = len(gdf_projected)
     project.total_area_ha = round(gdf_projected["Original Area (ha)"].sum(), 2)
     project.bounds_json = {
@@ -299,28 +290,112 @@ def process_khasra_upload(
 
 
 def get_khasras_gdf(db: Session, project_id: str, projected: bool = False) -> Optional[gpd.GeoDataFrame]:
-    """Load khasras GeoDataFrame from file storage
+    """Load khasras GeoDataFrame from database
     
     Args:
         db: Database session
         project_id: Project ID
         projected: If True, return GDF in India projected CRS (EPSG:24378) for area calculations
     """
-    project = get_project(db, project_id)
-    if not project or not project.khasras_file_path:
+    # Query khasras from database
+    khasras = db.query(KhasraModel).filter(KhasraModel.project_id == project_id).all()
+    
+    if not khasras:
         return None
     
-    # Load the main khasras file (always stored in WGS84)
-    gdf = file_storage.load_geodataframe(project.khasras_file_path)
+    # Build GeoDataFrame from database records
+    data = []
+    for k in khasras:
+        geom = to_shape(k.geometry)
+        row = {
+            "geometry": geom,
+            "Khasra ID": k.khasra_id,
+            "Khasra ID (Unique)": k.khasra_id_unique,
+            "Original Area (ha)": k.original_area_ha,
+            "parcel_id": k.parcel_id,
+        }
+        # Add any additional properties
+        if k.properties:
+            row.update(k.properties)
+        data.append(row)
     
-    if gdf is None:
-        return None
+    gdf = gpd.GeoDataFrame(data, crs=settings.DEFAULT_CRS)
     
     # Project to India CRS if requested (for area calculations)
     if projected:
         gdf = gdf.to_crs(settings.INDIA_PROJECTED_CRS)
     
     return gdf
+
+
+def get_khasras_with_stats_gdf(db: Session, project_id: str) -> Optional[gpd.GeoDataFrame]:
+    """Load khasras GeoDataFrame with all calculated stats from database"""
+    khasras = db.query(KhasraModel).filter(KhasraModel.project_id == project_id).all()
+    
+    if not khasras:
+        return None
+    
+    data = []
+    for k in khasras:
+        geom = to_shape(k.geometry)
+        row = {
+            "geometry": geom,
+            "Khasra ID": k.khasra_id,
+            "Khasra ID (Unique)": k.khasra_id_unique,
+            "Original Area (ha)": k.original_area_ha or 0,
+            "Usable Area (ha)": k.usable_area_ha or 0,
+            "Unusable Area (ha)": k.unusable_area_ha or 0,
+            "Usable and Available Area (ha)": k.usable_available_area_ha or 0,
+            "Parcel ID": k.parcel_id,
+        }
+        # Calculate percentages
+        orig = row["Original Area (ha)"]
+        if orig > 0:
+            row["Usable Area (%)"] = round(row["Usable Area (ha)"] / orig * 100, 2)
+            row["Unusable Area (%)"] = round(row["Unusable Area (ha)"] / orig * 100, 2)
+            row["Usable and Available Area (%)"] = round(row["Usable and Available Area (ha)"] / orig * 100, 2)
+        else:
+            row["Usable Area (%)"] = 0
+            row["Unusable Area (%)"] = 0
+            row["Usable and Available Area (%)"] = 0
+        
+        if k.properties:
+            row.update(k.properties)
+        data.append(row)
+    
+    return gpd.GeoDataFrame(data, crs=settings.DEFAULT_CRS)
+
+
+def get_parcels_gdf(db: Session, project_id: str) -> Optional[gpd.GeoDataFrame]:
+    """Load parcels GeoDataFrame from database"""
+    parcels = db.query(ParcelModel).filter(ParcelModel.project_id == project_id).all()
+    
+    if not parcels:
+        return None
+    
+    data = []
+    for p in parcels:
+        geom = to_shape(p.geometry) if p.geometry else None
+        row = {
+            "geometry": geom,
+            "Parcel ID": p.parcel_id,
+            "Khasra Count": p.khasra_count,
+            "Khasra IDs": p.khasra_ids,
+            "Original Area (ha)": p.original_area_ha or 0,
+            "Usable Area (ha)": p.usable_area_ha or 0,
+            "Unusable Area (ha)": p.unusable_area_ha or 0,
+            "Usable and Available Area (ha)": p.usable_available_area_ha or 0,
+            "Building Count": p.building_count or 0,
+        }
+        # Add layer-specific areas
+        if p.layer_areas:
+            row.update(p.layer_areas)
+        data.append(row)
+    
+    gdf = gpd.GeoDataFrame(data, crs=settings.DEFAULT_CRS)
+    # Filter out rows with no geometry
+    gdf = gdf[gdf.geometry.notna()]
+    return gdf if len(gdf) > 0 else None
 
 
 # ============ Layer Processing ============
@@ -408,19 +483,9 @@ def process_custom_layer_upload(
         area_col = f"{'Unusable' if is_unusable else 'Unavailable'} Area - {layer_name} (ha)"
         layer_overlap_gdf[area_col] = layer_overlap_gdf.area / 10_000
 
-        update_layer_status(db, layer, "in_progress", "Saving layer to file storage...")
-        
-        # Save to file storage (backup)
-        layer_file_path = file_storage.save_layer(
-            layer_overlap_gdf.to_crs(settings.DEFAULT_CRS),
-            project_id,
-            layer_name,
-        )
-
         update_layer_status(db, layer, "in_progress", "Storing layer features in database...")
         
         # Update layer metadata
-        layer.file_path = layer_file_path
         layer.feature_count = len(layer_overlap_gdf)
         layer.total_area_ha = round(layer_overlap_gdf[area_col].sum(), 2)
         layer.parameters = {"area_col": area_col}
@@ -495,17 +560,41 @@ def get_project_layers(db: Session, project_id: str) -> List[LayerModel]:
     return db.query(LayerModel).filter(LayerModel.project_id == project_id).all()
 
 
+def load_layer_gdf_by_id(db: Session, layer_id: int) -> Optional[gpd.GeoDataFrame]:
+    """Load a layer's GeoDataFrame from database by layer ID"""
+    features = db.query(LayerFeatureModel).filter(
+        LayerFeatureModel.layer_id == layer_id
+    ).all()
+    
+    if not features:
+        return None
+    
+    data = []
+    for f in features:
+        geom = to_shape(f.geometry)
+        row = {
+            "geometry": geom,
+            "khasra_id_unique": f.khasra_id_unique,
+            "area_ha": f.area_ha,
+        }
+        if f.properties:
+            row.update(f.properties)
+        data.append(row)
+    
+    return gpd.GeoDataFrame(data, crs=settings.DEFAULT_CRS)
+
+
 def load_layer_gdf(db: Session, project_id: str, layer_name: str) -> Optional[gpd.GeoDataFrame]:
-    """Load a layer's GeoDataFrame from file storage"""
+    """Load a layer's GeoDataFrame from database (layer_features table)"""
     layer = db.query(LayerModel).filter(
         LayerModel.project_id == project_id,
         LayerModel.name == layer_name
     ).first()
     
-    if not layer or not layer.file_path:
+    if not layer:
         return None
     
-    return file_storage.load_geodataframe(layer.file_path)
+    return load_layer_gdf_by_id(db, layer.id)
 
 
 def get_layer_features_gdf(db: Session, project_id: str, layer_name: str) -> Optional[gpd.GeoDataFrame]:
@@ -657,22 +746,22 @@ def process_settlement_layer(
 
         update_layer_status(db, settlements_layer, "in_progress", f"Downloading rooftop data for {len(s2_cell_ids)} S2 cells...")
         
-        # Download rooftop data
-        raw_data_dir = settings.STORAGE_DIR / project_id / "raw"
-        raw_data_dir.mkdir(parents=True, exist_ok=True)
+        # Download rooftop data to shared folder (not per-project)
+        shared_rooftop_dir = settings.DATA_DIR / "shared_vida_s2_rooftop_data"
+        shared_rooftop_dir.mkdir(parents=True, exist_ok=True)
         
         download_VIDA_rooftops_data_by_s2(
             s2_cell_ids=s2_cell_ids,
             country_iso_code="IND",
-            target_data_dir=raw_data_dir / "rooftops",
+            target_data_dir=shared_rooftop_dir,
         )
 
         update_layer_status(db, settlements_layer, "in_progress", "Loading and combining rooftop data...")
         
-        # Load and combine rooftop data
+        # Load and combine rooftop data from shared folder
         rooftop_gdf_list = []
         for s2_cell_id in s2_cell_ids:
-            s2_rooftops_path = raw_data_dir / "rooftops" / f"{s2_cell_id}.parquet"
+            s2_rooftops_path = shared_rooftop_dir / f"{s2_cell_id}.parquet"
             if s2_rooftops_path.exists():
                 rooftop_gdf = gpd.read_parquet(s2_rooftops_path)
                 rooftop_gdf_list.append(rooftop_gdf)
@@ -837,17 +926,9 @@ def _save_builtin_layer_with_status(
     layer_gdf: gpd.GeoDataFrame,
     area_col: str,
 ) -> LayerInfo:
-    """Helper function to save a builtin layer to database and file storage with status tracking"""
+    """Helper function to save a builtin layer to database with status tracking"""
     
-    # Save to file storage
-    layer_file_path = file_storage.save_layer(
-        layer_gdf.to_crs(settings.DEFAULT_CRS),
-        project_id,
-        layer.name,
-    )
-
     # Update layer metadata
-    layer.file_path = layer_file_path
     layer.feature_count = len(layer_gdf)
     layer.total_area_ha = round(layer_gdf[area_col].sum(), 2)
     db.flush()
@@ -915,25 +996,18 @@ def _save_builtin_layer(
     layer_type: str,
     parameters: Dict,
 ) -> LayerInfo:
-    """Helper function to save a builtin layer to database and file storage"""
+    """Helper function to save a builtin layer to database"""
     
-    # Save to file storage
-    layer_file_path = file_storage.save_layer(
-        layer_gdf.to_crs(settings.DEFAULT_CRS),
-        project_id,
-        layer_name,
-    )
-
     # Store layer metadata in database
     layer = LayerModel(
         project_id=project_id,
         name=layer_name,
         layer_type=layer_type,
         is_unusable=is_unusable,
-        file_path=layer_file_path,
         feature_count=len(layer_gdf),
         total_area_ha=round(layer_gdf[area_col].sum(), 2),
         parameters=parameters,
+        status="successful",
     )
     db.add(layer)
     db.flush()
@@ -987,7 +1061,10 @@ def _save_builtin_layer(
 # ============ Area Calculations ============
 
 def calculate_usable_areas(db: Session, project_id: str) -> gpd.GeoDataFrame:
-    """Calculate usable and available areas after applying all layers"""
+    """Calculate usable and available areas after applying all layers
+    
+    All data is loaded from the database, no file dependencies.
+    """
     project = get_project(db, project_id)
     if not project:
         raise ValueError(f"Project {project_id} not found")
@@ -999,13 +1076,13 @@ def calculate_usable_areas(db: Session, project_id: str) -> gpd.GeoDataFrame:
     available_gdf = gdf.copy()
     available_gdf["Original Area (ha)"] = available_gdf.geometry.area / 10_000
 
-    # Get all layers
-    layers = get_project_layers(db, project_id)
+    # Get all successful layers
+    layers = [layer_model for layer_model in get_project_layers(db, project_id) if layer_model.status == "successful"]
 
     # Apply unusable layers (cut out from geometry)
     for layer in layers:
         if layer.is_unusable:
-            layer_gdf = file_storage.load_geodataframe(layer.file_path)
+            layer_gdf = load_layer_gdf_by_id(db, layer.id)
             if layer_gdf is not None and len(layer_gdf) > 0:
                 layer_gdf = layer_gdf.to_crs(settings.INDIA_PROJECTED_CRS)
                 available_gdf = difference_overlay_without_discard(available_gdf, layer_gdf)
@@ -1024,7 +1101,7 @@ def calculate_usable_areas(db: Session, project_id: str) -> gpd.GeoDataFrame:
     # Apply unavailable layers
     for layer in layers:
         if not layer.is_unusable:
-            layer_gdf = file_storage.load_geodataframe(layer.file_path)
+            layer_gdf = load_layer_gdf_by_id(db, layer.id)
             if layer_gdf is not None and len(layer_gdf) > 0:
                 layer_gdf = layer_gdf.to_crs(settings.INDIA_PROJECTED_CRS)
                 available_gdf = difference_overlay_without_discard(available_gdf, layer_gdf)
@@ -1044,28 +1121,28 @@ def calculate_usable_areas(db: Session, project_id: str) -> gpd.GeoDataFrame:
         * 100
     )
 
-    # Merge in layer-specific area columns
+    # Add layer-specific area columns from layer_features
     for layer in layers:
-        layer_gdf = file_storage.load_geodataframe(layer.file_path)
-        if layer_gdf is not None and layer.parameters:
+        if layer.parameters:
             area_col = layer.parameters.get("area_col")
-            if area_col and area_col in layer_gdf.columns:
-                merge_cols = ["Khasra ID (Unique)", area_col]
-                if all(c in layer_gdf.columns for c in merge_cols):
-                    available_gdf = available_gdf.merge(
-                        layer_gdf[merge_cols],
-                        on="Khasra ID (Unique)",
-                        how="left",
-                    )
-                    available_gdf[area_col] = available_gdf[area_col].fillna(0)
+            if area_col:
+                # Get per-khasra areas from layer_features
+                features = db.query(LayerFeatureModel).filter(
+                    LayerFeatureModel.layer_id == layer.id
+                ).all()
+                
+                khasra_areas = {}
+                for f in features:
+                    if f.khasra_id_unique:
+                        if f.khasra_id_unique not in khasra_areas:
+                            khasra_areas[f.khasra_id_unique] = 0
+                        khasra_areas[f.khasra_id_unique] += f.area_ha or 0
+                
+                # Add column to available_gdf
+                available_gdf[area_col] = available_gdf["Khasra ID (Unique)"].map(
+                    lambda x: khasra_areas.get(x, 0)
+                )
 
-    # Save stats file
-    stats_file_path = file_storage.save_geodataframe(
-        available_gdf.to_crs(settings.DEFAULT_CRS),
-        project_id,
-        "khasras_stats.parquet"
-    )
-    
     # Update khasra records in database with calculated areas
     for _, row in available_gdf.iterrows():
         khasra_unique_id = row.get("Khasra ID (Unique)")
@@ -1080,7 +1157,6 @@ def calculate_usable_areas(db: Session, project_id: str) -> gpd.GeoDataFrame:
                 khasra.unusable_area_ha = round(row.get("Unusable Area (ha)", 0), 4)
                 khasra.usable_available_area_ha = round(row.get("Usable and Available Area (ha)", 0), 4)
     
-    project.stats_file_path = stats_file_path
     project.updated_at = datetime.utcnow()
     db.commit()
 
@@ -1173,12 +1249,8 @@ def cluster_khasras(
     if not project:
         raise ValueError(f"Project {project_id} not found")
 
-    # Load stats GDF or calculate if not exists
-    if project.stats_file_path:
-        stats_gdf = file_storage.load_geodataframe(project.stats_file_path)
-        stats_gdf = stats_gdf.to_crs(settings.INDIA_PROJECTED_CRS)
-    else:
-        stats_gdf = calculate_usable_areas(db, project_id)
+    # Calculate usable areas (always from DB)
+    stats_gdf = calculate_usable_areas(db, project_id)
 
     gdf = get_khasras_gdf(db, project_id, projected=True)
 
@@ -1221,23 +1293,19 @@ def cluster_khasras(
         area_col="Usable Area (ha)",
     )
 
-    # Save clustered GDF
-    clustered_file_path = file_storage.save_geodataframe(
-        gdf_with_cluster_id.to_crs(settings.DEFAULT_CRS),
-        project_id,
-        "khasras_clustered.parquet"
-    )
-    project.clustered_file_path = clustered_file_path
+    # Update khasra records with parcel IDs
+    for _, row in gdf_with_cluster_id.iterrows():
+        khasra_unique_id = row.get("Khasra ID (Unique)")
+        if khasra_unique_id:
+            khasra = db.query(KhasraModel).filter(
+                KhasraModel.project_id == project_id,
+                KhasraModel.khasra_id_unique == khasra_unique_id
+            ).first()
+            if khasra:
+                khasra.parcel_id = row[cluster_id_col]
 
     # Aggregate to parcel level
     parcel_gdf = aggregate_to_parcels(gdf_with_cluster_id, cluster_id_col)
-    
-    parcels_file_path = file_storage.save_geodataframe(
-        parcel_gdf.to_crs(settings.DEFAULT_CRS),
-        project_id,
-        "parcels.parquet"
-    )
-    project.parcels_file_path = parcels_file_path
 
     # Store parcels in database
     db.query(ParcelModel).filter(ParcelModel.project_id == project_id).delete()
@@ -1367,7 +1435,10 @@ def export_data(
     export_format: ExportFormat,
     include_statistics: bool = True,
 ) -> Tuple[bytes, str]:
-    """Export project data in the specified format"""
+    """Export project data in the specified format
+    
+    All data is loaded from the database.
+    """
     project = get_project(db, project_id)
     if not project:
         raise ValueError(f"Project {project_id} not found")
@@ -1378,30 +1449,27 @@ def export_data(
     gdfs_to_export = {}
     
     if export_type in [ExportType.KHASRAS, ExportType.ALL]:
-        if project.khasras_file_path:
-            gdf = file_storage.load_geodataframe(project.khasras_file_path)
-            if gdf is not None:
-                gdfs_to_export["khasras"] = gdf
+        gdf = get_khasras_gdf(db, project_id, projected=False)
+        if gdf is not None:
+            gdfs_to_export["khasras"] = gdf
 
     if export_type in [ExportType.KHASRAS_WITH_STATS, ExportType.ALL]:
-        if project.stats_file_path:
-            gdf = file_storage.load_geodataframe(project.stats_file_path)
-            if gdf is not None:
-                gdfs_to_export["khasras_with_stats"] = gdf
+        # Get khasras with calculated stats from DB
+        gdf = get_khasras_with_stats_gdf(db, project_id)
+        if gdf is not None:
+            gdfs_to_export["khasras_with_stats"] = gdf
 
     if export_type in [ExportType.PARCELS, ExportType.ALL]:
-        if project.parcels_file_path:
-            gdf = file_storage.load_geodataframe(project.parcels_file_path)
-            if gdf is not None:
-                gdfs_to_export["parcels"] = gdf
+        gdf = get_parcels_gdf(db, project_id)
+        if gdf is not None:
+            gdfs_to_export["parcels"] = gdf
 
     if export_type in [ExportType.LAYERS, ExportType.ALL]:
         layers = get_project_layers(db, project_id)
         for layer in layers:
-            if layer.file_path:
-                gdf = file_storage.load_geodataframe(layer.file_path)
-                if gdf is not None:
-                    gdfs_to_export[f"layer_{layer.name}"] = gdf
+            gdf = load_layer_gdf_by_id(db, layer.id)
+            if gdf is not None:
+                gdfs_to_export[f"layer_{layer.name}"] = gdf
 
     if not gdfs_to_export:
         raise ValueError("No data available to export")

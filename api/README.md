@@ -62,7 +62,7 @@ SECRET_KEY=your-secret-key-here
 DEFAULT_USERNAME=admin
 DEFAULT_PASSWORD=your-secure-password
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/solar_parks
-STORAGE_DIR=./data/storage
+DATA_DIR=./data
 ```
 
 ## Running the Server
@@ -213,7 +213,7 @@ Environment variables can be set in a `.env` file or as system environment varia
 | `DEFAULT_USERNAME` | admin | Default admin username |
 | `DEFAULT_PASSWORD` | solarparks2024 | Default admin password |
 | `DATABASE_URL` | postgresql://postgres:postgres@localhost:5432/solar_parks | PostgreSQL/PostGIS connection URL |
-| `STORAGE_DIR` | ./data/storage | Directory for file storage (parquet, numpy arrays) |
+| `DATA_DIR` | ./data/storage | Directory for file storage (parquet, numpy arrays) |
 
 ## Development
 

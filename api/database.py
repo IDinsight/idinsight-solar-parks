@@ -57,17 +57,13 @@ class ProjectModel(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # File paths for stored data
-    khasras_file_path = Column(String(500), nullable=True)
-    stats_file_path = Column(String(500), nullable=True)
-    clustered_file_path = Column(String(500), nullable=True)
-    parcels_file_path = Column(String(500), nullable=True)
-    distance_matrix_path = Column(String(500), nullable=True)
-    
     # Cached statistics
     khasra_count = Column(Integer, nullable=True)
     total_area_ha = Column(Float, nullable=True)
     bounds_json = Column(JSONB, nullable=True)
+    
+    # Distance matrix cache file path (for clustering)
+    distance_matrix_path = Column(String, nullable=True)
     
     # Relationships
     khasras = relationship("KhasraModel", back_populates="project", cascade="all, delete-orphan")
@@ -118,9 +114,6 @@ class LayerModel(Base):
     # Processing status
     status = Column(String(20), default="in_progress")  # in_progress, successful, failed
     details = Column(Text, nullable=True)  # Current processing step or error message
-    
-    # File path for layer data
-    file_path = Column(String(500), nullable=True)
     
     # Statistics
     feature_count = Column(Integer, nullable=True)
