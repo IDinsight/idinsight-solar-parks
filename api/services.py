@@ -322,6 +322,7 @@ def update_layer_status(db: Session, layer: LayerModel, status: str, details: st
     layer.details = details
     layer.updated_at = datetime.utcnow()
     db.commit()
+    print(f"[LAYER STATUS] Layer '{layer.name}' {status.upper()}: {details}")
 
 
 def process_custom_layer_upload(
@@ -681,8 +682,9 @@ def process_settlement_layer(
         
         # Keep only geometry and necessary columns
         keep_cols = ["geometry"]
-        if "Khasra ID (Unique)" in rooftops_in_khasras.columns:
-            keep_cols.append("Khasra ID (Unique)")
+        print(rooftops_in_khasras.columns)
+        if "khasra_id_unique" in rooftops_in_khasras.columns:
+            keep_cols.append("khasra_id_unique")
         rooftops_in_khasras = rooftops_in_khasras[keep_cols]
 
         if len(rooftops_in_khasras) == 0:
