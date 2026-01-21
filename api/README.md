@@ -1,3 +1,18 @@
+DONE:
+
+- Khasra upload
+- Settlement layer
+- Basic clustering (untested)
+- Export and stat calculations
+
+TO DO:
+
+- also save usable khasra shape
+- add the other layers
+- test clustering
+- export a coloured in KML, I dare you.
+- export stats excel as expected
+
 # Solar Parks Analysis API
 
 A FastAPI application for analyzing land parcels (khasras) for solar park development in India.
@@ -249,7 +264,7 @@ curl -X POST "http://localhost:8000/projects" \
   -d '{"name": "Betul Solar Park", "location": "Betul", "description": "Analysis for Betul district"}'
 ```
 
-2. **Upload khasra boundaries**
+1. **Upload khasra boundaries**
 
 ```bash
 curl -X POST "http://localhost:8000/projects/{project_id}/khasras" \
@@ -257,7 +272,7 @@ curl -X POST "http://localhost:8000/projects/{project_id}/khasras" \
   -F "file=@khasras.kml"
 ```
 
-3. **Generate settlement layer (automatic)**
+1. **Generate settlement layer (automatic)**
 
 ```bash
 curl -X POST "http://localhost:8000/projects/{project_id}/layers/settlements" \
@@ -266,7 +281,7 @@ curl -X POST "http://localhost:8000/projects/{project_id}/layers/settlements" \
   -d '{"building_buffer": 10, "settlement_eps": 50, "min_buildings": 5}'
 ```
 
-4. **Add custom constraint layers (optional)**
+1. **Add custom constraint layers (optional)**
 
 ```bash
 curl -X POST "http://localhost:8000/projects/{project_id}/layers" \
@@ -276,14 +291,14 @@ curl -X POST "http://localhost:8000/projects/{project_id}/layers" \
   -F "is_unusable=true"
 ```
 
-5. **Calculate usable areas**
+1. **Calculate usable areas**
 
 ```bash
 curl -X POST "http://localhost:8000/projects/{project_id}/calculate-areas" \
   -H "Authorization: Bearer <token>"
 ```
 
-6. **Cluster khasras into parcels**
+1. **Cluster khasras into parcels**
 
 ```bash
 curl -X POST "http://localhost:8000/projects/{project_id}/cluster" \
@@ -292,7 +307,7 @@ curl -X POST "http://localhost:8000/projects/{project_id}/cluster" \
   -d '{"distance_threshold": 25, "min_samples": 2}'
 ```
 
-7. **Export results**
+1. **Export results**
 
 ```bash
 curl -X POST "http://localhost:8000/projects/{project_id}/export" \
