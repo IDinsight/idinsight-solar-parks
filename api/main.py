@@ -8,14 +8,8 @@ and exporting results.
 Now with PostgreSQL/PostGIS persistence and local file storage.
 """
 from datetime import datetime, timedelta
-from typing import List, Optional
-
-from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile, status
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response, StreamingResponse
-from fastapi.security import OAuth2PasswordRequestForm
 from io import BytesIO
-from sqlalchemy.orm import Session
+from typing import List, Optional
 
 from auth import (
     authenticate_user,
@@ -25,6 +19,19 @@ from auth import (
 )
 from config import AVAILABLE_LAYERS, settings
 from database import get_db, init_db
+from fastapi import (
+    Depends,
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    UploadFile,
+    status,
+)
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response, StreamingResponse
+from fastapi.security import OAuth2PasswordRequestForm
 from models import (
     AvailableLayersResponse,
     ClusteringRequest,
@@ -58,7 +65,7 @@ from services import (
     process_custom_layer_upload,
     process_khasra_upload,
 )
-
+from sqlalchemy.orm import Session
 
 # ============ App Initialization ============
 
@@ -446,6 +453,72 @@ async def upload_custom_layer(
         )
 
 
+@app.post(
+    "/projects/{project_id}/layers/settlements",
+    response_model=LayerUploadResponse,
+    tags=["Layers"],
+    summary="Generate settlement layer from buildings",
+)
+async def generate_settlement_layer(
+    project_id: str,
+    building_buffer: int = Form(10, description="Buffer distance around buildings in meters"),
+    settlement_eps: int = Form(50, description="DBSCAN epsilon - max distance between buildings in a settlement"),
+    min_buildings: int = Form(5, description="Minimum number of buildings to form a settlement"),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Automatically generate settlement and isolated building layers from VIDA rooftop data.
+    
+    This endpoint:
+    1. Downloads building footprints from VIDA for the project area
+    2. Buffers buildings by `building_buffer` meters
+    3. Clusters buildings using DBSCAN to identify settlements
+    4. Creates two layers:
+       - **Settlements**: Convex hulls of building clusters (marked as unusable)
+       - **Isolated Buildings**: Individual buildings not in settlements (marked as unavailable)
+    
+    **Parameters:**
+    - `building_buffer`: Buffer distance around each building (default: 10m)
+    - `settlement_eps`: Max distance between buildings to be in same settlement (default: 50m)
+    - `min_buildings`: Minimum buildings required to form a settlement (default: 5)
+    """
+    from services import process_settlement_layer
+    
+    project = get_project(db, project_id)
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project {project_id} not found",
+        )
+    
+    if not project.khasras_file_path:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Khasras must be uploaded before generating settlement layers",
+        )
+    
+    try:
+        layer_infos = process_settlement_layer(
+            db=db,
+            project_id=project_id,
+            building_buffer=building_buffer,
+            settlement_eps=settlement_eps,
+            min_buildings=min_buildings,
+        )
+        
+        return LayerUploadResponse(
+            project_id=project_id,
+            message="Successfully generated settlement layers",
+            layers_added=list(layer_infos),
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error generating settlement layer: {str(e)}",
+        )
+
+
 @app.get(
     "/projects/{project_id}/layers",
     response_model=List[LayerInfo],
@@ -457,7 +530,15 @@ async def list_project_layers(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
-    """Get a list of all layers added to a project."""
+    """
+    Get a list of all layers added to a project.
+    
+    Each layer includes:
+    - `status`: Processing status (in_progress, successful, failed)
+    - `details`: Current processing step or completion message
+    - `area_ha`: Total area in hectares (available when successful)
+    - `feature_count`: Number of features (available when successful)
+    """
     project = get_project(db, project_id)
     if not project:
         raise HTTPException(
@@ -477,6 +558,8 @@ async def list_project_layers(
                 parameters=layer.parameters or {},
                 area_ha=layer.total_area_ha,
                 feature_count=layer.feature_count,
+                status=layer.status,
+                details=layer.details,
             )
         )
     

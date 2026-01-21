@@ -6,27 +6,29 @@ import json
 import uuid
 from datetime import datetime
 from typing import Optional
+
+from config import settings
+from geoalchemy2 import Geometry
+from geoalchemy2.shape import from_shape, to_shape
+from models import ProjectStatus
 from sqlalchemy import (
-    Column,
-    String,
-    Text,
-    DateTime,
     Boolean,
-    Integer,
+    Column,
+    DateTime,
     Float,
     ForeignKey,
-    create_engine,
-    Enum as SQLEnum,
+    Integer,
+    String,
+    Text,
     UniqueConstraint,
+    create_engine,
+)
+from sqlalchemy import (
+    Enum as SQLEnum,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship, Session
-from geoalchemy2 import Geometry
-from geoalchemy2.shape import to_shape, from_shape
-
-from config import settings
-from models import ProjectStatus
+from sqlalchemy.orm import Session, relationship, sessionmaker
 
 # Database setup
 engine = create_engine(
@@ -113,6 +115,10 @@ class LayerModel(Base):
     layer_type = Column(String(50), nullable=False)
     is_unusable = Column(Boolean, default=True)
     
+    # Processing status
+    status = Column(String(20), default="in_progress")  # in_progress, successful, failed
+    details = Column(Text, nullable=True)  # Current processing step or error message
+    
     # File path for layer data
     file_path = Column(String(500), nullable=True)
     
@@ -124,6 +130,7 @@ class LayerModel(Base):
     parameters = Column(JSONB, nullable=True)
     
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
     project = relationship("ProjectModel", back_populates="layers")

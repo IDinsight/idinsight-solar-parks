@@ -2,10 +2,10 @@
 Pydantic models for request/response validation
 """
 from datetime import datetime
-from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
 from enum import Enum
+from typing import Any, Dict, List, Optional
 
+from pydantic import BaseModel, Field
 
 # ============ Authentication Models ============
 
@@ -103,6 +103,14 @@ class LayerType(str, Enum):
     SLOPE_NORTH = "slope_north"
     SLOPE_OTHER = "slope_other"
     CUSTOM = "custom"
+    BUILTIN = "builtin"
+
+
+class LayerStatus(str, Enum):
+    """Layer processing status"""
+    IN_PROGRESS = "in_progress"
+    SUCCESSFUL = "successful"
+    FAILED = "failed"
 
 
 class LayerParameter(BaseModel):
@@ -132,6 +140,8 @@ class LayerInfo(BaseModel):
     parameters: Dict[str, Any]
     area_ha: Optional[float] = None
     feature_count: Optional[int] = None
+    status: Optional[str] = None  # in_progress, successful, failed
+    details: Optional[str] = None  # Current processing step or error message
 
 
 class LayerUploadResponse(BaseModel):
