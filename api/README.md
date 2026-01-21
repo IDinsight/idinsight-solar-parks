@@ -1,74 +1,107 @@
 # Solar Parks Analysis API
 
-A FastAPI application for analyzing land parcels (khasras) for solar park development.
+A FastAPI application for analyzing land parcels (khasras) for solar park development in India.
 
-**Now with PostgreSQL/PostGIS persistence and local file storage!**
+## Architecture
+
+The API uses a **database-first** approach:
+
+- **PostgreSQL/PostGIS** stores all project data including geometries (khasras, layers, parcels)
+- **Local file storage** is only used for the distance matrix cache (expensive to compute)
+- GeoDataFrames are constructed on-the-fly from database records when needed
 
 ## Features
 
 - **Upload khasra boundaries** from KML or GeoJSON files
-- **Add constraint layers** (buildings, settlements, water, slopes, cropland, etc.)
-- **Cluster khasras** into contiguous parcels using DBSCAN algorithm
+- **Add constraint layers** (buildings, settlements, water bodies, etc.)
+- **Generate settlement layers** automatically from VIDA rooftop data
 - **Calculate usable areas** after removing constraints
+- **Cluster khasras** into contiguous parcels using DBSCAN algorithm
 - **Export results** in multiple formats (GeoJSON, KML, Shapefile, Excel, etc.)
-- **Persistent storage** with PostgreSQL/PostGIS and local file storage
 
 ## Prerequisites
 
-### PostgreSQL with PostGIS
+### Docker
 
-1. Install PostgreSQL and PostGIS:
-   - **macOS**: `brew install postgresql postgis`
-   - **Ubuntu/Debian**: `sudo apt install postgresql postgresql-contrib postgis`
-   - **Windows**: Download from https://www.postgresql.org/download/windows/ and install PostGIS extension
+The API uses a **PostGIS Docker image** (`postgis/postgis:16-3.4-alpine`) for the database. Make sure Docker is installed and running:
 
-2. Create the database:
-```bash
-# Start PostgreSQL
-brew services start postgresql  # macOS
-# or
-sudo systemctl start postgresql  # Linux
-
-# Create database
-createdb solar_parks
-
-# Enable PostGIS extension
-psql solar_parks -c "CREATE EXTENSION postgis;"
-```
-
-3. (Optional) Create a dedicated user:
-```sql
-CREATE USER solar_api WITH PASSWORD 'your_password';
-GRANT ALL PRIVILEGES ON DATABASE solar_parks TO solar_api;
-```
+- **macOS**: [Docker Desktop for Mac](https://docs.docker.com/desktop/install/mac-install/)
+- **Linux**: [Docker Engine](https://docs.docker.com/engine/install/)
+- **Windows**: [Docker Desktop for Windows](https://docs.docker.com/desktop/install/windows-install/)
 
 ## Installation
 
 1. Create a virtual environment:
+
 ```bash
 cd api
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
 
-2. Install dependencies:
+1. Install dependencies:
+
 ```bash
-pip install -r requirements.txt
+make install
+# or manually: pip install -r requirements.txt
 ```
 
-3. Create a `.env` file for configuration:
-```env
-SECRET_KEY=your-secret-key-here
-DEFAULT_USERNAME=admin
-DEFAULT_PASSWORD=your-secure-password
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/solar_parks
-DATA_DIR=./data
+1. Create a `.env` file (copy from `.env.example`):
+
+```bash
+cp .env.example .env
+# Edit .env with your settings
 ```
+
+## Configuration
+
+Environment variables (set in `.env` file):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SECRET_KEY` | (required) | JWT signing key - change in production |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | 1440 (24h) | Token expiration time |
+| `DEFAULT_USERNAME` | admin | Default admin username |
+| `DEFAULT_PASSWORD` | solarparks2024 | Default admin password |
+| `POSTGRES_USER` | postgres | PostgreSQL username |
+| `POSTGRES_PASSWORD` | postgres | PostgreSQL password |
+| `POSTGRES_HOST` | localhost | PostgreSQL host |
+| `POSTGRES_PORT` | 5432 | PostgreSQL port |
+| `POSTGRES_DB` | solar_parks | PostgreSQL database name |
+| `DATA_DIR` | ./data | Directory for cache files (distance matrices) |
 
 ## Running the Server
 
+### Quick Start (Recommended)
+
+Use the Makefile commands to manage the database and server:
+
 ```bash
-# Development mode with auto-reload
+# Full setup: install deps, setup database, and run server
+make full-setup
+
+# Or step by step:
+make setup-db   # Start PostGIS Docker container and initialize tables
+make run        # Run the FastAPI server
+```
+
+### Makefile Commands
+
+| Command | Description |
+|---------|-------------|
+| `make install` | Install Python dependencies |
+| `make setup-db` | Start PostGIS Docker container and initialize database |
+| `make teardown-db` | Stop and remove the PostGIS container |
+| `make run` | Run the FastAPI server (assumes database is running) |
+| `make run-with-db` | Setup database and run server |
+| `make full-setup` | Install deps, setup database, and run server |
+| `make clean-docker` | Prune unused Docker resources |
+
+### Manual Server Start
+
+If you prefer to run the server manually (with database already running):
+
+```bash
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 # Or run directly
@@ -77,16 +110,25 @@ python main.py
 
 The API will be available at `http://localhost:8000`
 
+## Startup Routine
+
+On startup, the API:
+
+1. Connects to PostgreSQL database
+2. Creates all tables if they don't exist (via `init_db()`)
+3. Initializes the data directory for cache files
+
 ## API Documentation
 
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
+- **Swagger UI**: <http://localhost:8000/docs\>
+- **ReDoc**: <http://localhost:8000/redoc\>
 
 ## Authentication
 
-The API uses JWT (JSON Web Token) authentication. 
+The API uses JWT (JSON Web Token) authentication.
 
 ### Default Credentials
+
 - Username: `admin`
 - Password: `solarparks2024`
 
@@ -101,41 +143,111 @@ curl -X POST "http://localhost:8000/auth/token" \
 ### Using the Token
 
 Include the token in the `Authorization` header:
+
 ```bash
 curl -X GET "http://localhost:8000/projects" \
   -H "Authorization: Bearer <your-token>"
 ```
 
-## API Endpoints
+---
+
+## Working Endpoints
+
+### Health Check
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check (no auth required) |
+
+### Authentication
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/auth/token` | POST | Get JWT access token |
+| `/auth/me` | GET | Get current user info |
 
 ### Projects
-- `POST /projects` - Create a new project
-- `GET /projects` - List all projects
-- `GET /projects/{project_id}` - Get project details
-- `DELETE /projects/{project_id}` - Delete a project
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/projects` | POST | Create a new project |
+| `/projects` | GET | List all projects |
+| `/projects/{project_id}` | GET | Get project details |
+| `/projects/{project_id}` | DELETE | Delete a project and all data |
 
 ### Khasras (Land Parcels)
-- `POST /projects/{project_id}/khasras` - Upload khasra shapes (KML/GeoJSON)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/projects/{project_id}/khasras` | POST | Upload khasra shapes (KML/GeoJSON) |
+
+Uploads khasra boundaries and stores them in the database. Each khasra geometry is stored in PostGIS with WGS84 (EPSG:4326) coordinates.
 
 ### Layers
-- `GET /layers/available` - Get available layer types and parameters
-- `POST /projects/{project_id}/layers` - Upload a custom constraint layer
-- `GET /projects/{project_id}/layers` - List project layers
-- `POST /projects/{project_id}/calculate-areas` - Calculate usable areas
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/layers/available` | GET | Get available layer types and parameters |
+| `/projects/{project_id}/layers` | POST | Upload a custom constraint layer |
+| `/projects/{project_id}/layers` | GET | List project layers |
+| `/projects/{project_id}/layers/settlements` | POST | Auto-generate settlement layers from VIDA data |
+| `/projects/{project_id}/calculate-areas` | POST | Calculate usable areas after applying layers |
+
+**Layer Processing:**
+
+- Layers can be marked as `is_unusable=true` (area deducted from usable) or `is_unusable=false` (area deducted from available)
+- Settlement layer generation fetches building footprints from VIDA S2 rooftop data, clusters them using DBSCAN, and creates settlement polygons
 
 ### Clustering
-- `POST /projects/{project_id}/cluster` - Cluster khasras into parcels
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/projects/{project_id}/cluster` | POST | Cluster khasras into parcels |
+
+Clusters adjacent khasras using DBSCAN algorithm. Parameters:
+
+- `distance_threshold`: Max distance (meters) between khasras to be considered adjacent
+- `min_samples`: Minimum khasras to form a cluster
+
+The distance matrix is cached to disk for performance.
 
 ### Export
-- `POST /projects/{project_id}/export` - Export project data
-- `GET /projects/{project_id}/download/{data_type}` - Quick download
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/projects/{project_id}/export` | POST | Export project data |
+| `/projects/{project_id}/download/{data_type}` | GET | Quick download endpoint |
+
+**Export Types:**
+
+- `khasras`: Original khasra boundaries
+- `khasras_with_stats`: Khasras with calculated area statistics
+- `parcels`: Clustered parcel boundaries
+- `layers`: All constraint layers
+- `all`: Everything
+
+**Export Formats:**
+
+- GeoJSON, KML, Shapefile, Parquet, CSV, Excel
+
+---
+
+## Work In Progress (WIP) Endpoints
 
 ### Statistics
-- `GET /projects/{project_id}/stats` - Get project statistics
 
-## Workflow Example
+| Endpoint | Method | Description | Status |
+|----------|--------|-------------|--------|
+| `/projects/{project_id}/stats` | GET | Get project statistics | ⚠️ Partially working - needs update to use database |
+
+The stats endpoint currently references removed file paths and needs to be refactored to query statistics from the database.
+
+---
+
+## Typical Workflow
 
 1. **Create a project**
+
 ```bash
 curl -X POST "http://localhost:8000/projects" \
   -H "Authorization: Bearer <token>" \
@@ -143,14 +255,26 @@ curl -X POST "http://localhost:8000/projects" \
   -d '{"name": "Betul Solar Park", "location": "Betul", "description": "Analysis for Betul district"}'
 ```
 
-2. **Upload khasra boundaries**
+1. **Upload khasra boundaries**
+
 ```bash
 curl -X POST "http://localhost:8000/projects/{project_id}/khasras" \
   -H "Authorization: Bearer <token>" \
   -F "file=@khasras.kml"
 ```
 
-3. **Add constraint layers**
+1. **Generate settlement layer (automatic)**
+
+```bash
+curl -X POST "http://localhost:8000/projects/{project_id}/layers/settlements" \
+  -H "Authorization: Bearer <token>" \
+  -F "building_buffer=10" \
+  -F "settlement_eps=50" \
+  -F "min_buildings=5"
+```
+
+1. **Add custom constraint layers (optional)**
+
 ```bash
 curl -X POST "http://localhost:8000/projects/{project_id}/layers" \
   -H "Authorization: Bearer <token>" \
@@ -159,13 +283,15 @@ curl -X POST "http://localhost:8000/projects/{project_id}/layers" \
   -F "is_unusable=true"
 ```
 
-4. **Calculate usable areas**
+1. **Calculate usable areas**
+
 ```bash
 curl -X POST "http://localhost:8000/projects/{project_id}/calculate-areas" \
   -H "Authorization: Bearer <token>"
 ```
 
-5. **Cluster khasras into parcels**
+1. **Cluster khasras into parcels**
+
 ```bash
 curl -X POST "http://localhost:8000/projects/{project_id}/cluster" \
   -H "Authorization: Bearer <token>" \
@@ -173,81 +299,73 @@ curl -X POST "http://localhost:8000/projects/{project_id}/cluster" \
   -d '{"distance_threshold": 25, "min_samples": 2}'
 ```
 
-6. **Export results**
+1. **Export results**
+
 ```bash
 curl -X POST "http://localhost:8000/projects/{project_id}/export?export_type=all&format=excel" \
   -H "Authorization: Bearer <token>" \
   --output export.xlsx
 ```
 
-## Layer Types
+---
 
-### Unusable Layers (deducted from total area)
-- **Settlements**: Clustered building areas
-- **Water Bodies**: Rivers, lakes, ponds
-- **Steep Slopes**: North-facing slopes >7°, other slopes >10°
+## Project Structure
 
-### Unavailable Layers (usable but not currently available)
-- **Cropland**: Agricultural areas
-- **Isolated Buildings**: Individual buildings with buffer zones
-
-## Export Formats
-
-| Format | Extension | Description |
-|--------|-----------|-------------|
-| GeoJSON | .geojson | Web-friendly, good for mapping applications |
-| KML | .kml | Google Earth compatible |
-| Shapefile | .shp (zipped) | ESRI format for GIS software |
-| Parquet | .parquet | Efficient storage for large datasets |
-| CSV | .csv | Tabular data without geometry |
-| Excel | .xlsx | Multi-sheet workbook with statistics |
-
-## Configuration
-
-Environment variables can be set in a `.env` file or as system environment variables:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SECRET_KEY` | auto-generated | JWT signing key |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | 1440 (24h) | Token expiration time |
-| `DEFAULT_USERNAME` | admin | Default admin username |
-| `DEFAULT_PASSWORD` | solarparks2024 | Default admin password |
-| `DATABASE_URL` | postgresql://postgres:postgres@localhost:5432/solar_parks | PostgreSQL/PostGIS connection URL |
-| `DATA_DIR` | ./data/storage | Directory for file storage (parquet, numpy arrays) |
-
-## Development
-
-### Project Structure
 ```
 api/
 ├── main.py           # FastAPI application and endpoints
 ├── auth.py           # Authentication (JWT)
 ├── config.py         # Configuration and settings
-├── models.py         # Pydantic models
-├── services.py       # Business logic and geospatial processing
+├── models.py         # Pydantic request/response models
 ├── database.py       # SQLAlchemy models and database setup
-├── storage.py        # File storage utilities
+├── services.py       # Business logic and geospatial processing
+├── storage.py        # File storage utilities (for distance matrix cache)
 ├── requirements.txt  # Python dependencies
+├── .env.example      # Example environment variables
 └── README.md         # This file
 ```
 
-### Data Storage
+## Data Storage
 
-The API uses a hybrid storage approach:
+### Database (PostgreSQL/PostGIS)
 
-1. **PostgreSQL/PostGIS**: Stores project metadata, khasra/parcel geometries (for spatial queries), and layer information.
-2. **Local File Storage**: Stores GeoParquet files (for fast GeoDataFrame loading), numpy arrays (distance matrices), and other large data files.
+All spatial data is stored in the database:
 
-Files are organized by project ID:
+| Table | Description |
+|-------|-------------|
+| `projects` | Project metadata, stats, and distance_matrix_path |
+| `khasras` | Khasra geometries and calculated statistics |
+| `layers` | Layer metadata (name, type, is_unusable) |
+| `layer_features` | Individual layer feature geometries |
+| `parcels` | Clustered parcel geometries and stats |
+
+### File Storage
+
+Only the distance matrix is stored as a file (numpy `.npy`):
+
 ```
-data/storage/
+data/
 ├── {project_id}/
-│   ├── khasras.parquet
-│   ├── khasras_projected.parquet
-│   ├── khasras_stats.parquet
-│   ├── khasras_clustered.parquet
-│   ├── parcels.parquet
-│   ├── distance_matrix.npy
-│   └── layers/
-│       ├── water_bodies.parquet
-│       └── settlements.parquet
+│   └── distance_matrix.npy    # Precomputed pairwise distances
+└── shared_vida_s2_rooftop_data/
+    └── {geohash}.gpkg         # Cached VIDA building footprints
+```
+
+## Coordinate Reference Systems
+
+- **Storage**: WGS84 (EPSG:4326) - all geometries in database
+- **Area calculations**: India Projected CRS (EPSG:24378) - projected on-the-fly
+- **Distance matrix**: India Projected CRS for accurate distance calculations
+
+## Layer Types
+
+### Unusable Layers (deducted from total usable area)
+
+- **Settlements**: Clustered building areas
+- **Water Bodies**: Rivers, lakes, ponds
+- **Steep Slopes**: Areas with unsuitable terrain
+
+### Unavailable Layers (usable but not currently available)
+
+- **Cropland**: Agricultural areas
+- **Isolated Buildings**: Individual buildings with buffer zones
