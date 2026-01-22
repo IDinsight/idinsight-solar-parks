@@ -10,7 +10,7 @@ DONE:
 
 TO DO:
 
-- make layers show up online
+- make layers show up online...
 - use alembic for migrations
 - also save usable khasra shape
 - add the other layers
