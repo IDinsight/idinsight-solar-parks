@@ -199,10 +199,10 @@ def process_khasra_upload(
 
     # Ensure CRS
     if gdf.crs is None:
-        gdf = gdf.set_crs(settings.DEFAULT_CRS)
+        gdf = gdf.set_crs("EPSG:4326")
     
-    gdf_4326 = gdf.to_crs(settings.DEFAULT_CRS)
-    gdf_projected = gdf_4326.to_crs(settings.INDIA_PROJECTED_CRS)
+    gdf_4326 = gdf.to_crs("EPSG:4326")
+    gdf_projected = gdf_4326.to_crs(f"EPSG:{settings.INDIA_PROJECTED_CRS}")
 
     # Set up ID columns - try multiple common column names
     khasra_id_assigned = False
@@ -285,7 +285,7 @@ def process_khasra_upload(
         "khasra_count": len(gdf_projected),
         "total_area_ha": project.total_area_ha,
         "bounds": project.bounds_json,
-        "crs": settings.DEFAULT_CRS,
+        "crs": "EPSG:4326",
     }
 
 
@@ -319,11 +319,11 @@ def get_khasras_gdf(db: Session, project_id: str, projected: bool = False) -> Op
             row.update(k.properties)
         data.append(row)
     
-    gdf = gpd.GeoDataFrame(data, crs=settings.DEFAULT_CRS)
+    gdf = gpd.GeoDataFrame(data, crs="EPSG:4326")
     
     # Project to India CRS if requested (for area calculations)
     if projected:
-        gdf = gdf.to_crs(settings.INDIA_PROJECTED_CRS)
+        gdf = gdf.to_crs(f"EPSG:{settings.INDIA_PROJECTED_CRS}")
     
     return gdf
 
@@ -363,7 +363,7 @@ def get_khasras_with_stats_gdf(db: Session, project_id: str) -> Optional[gpd.Geo
             row.update(k.properties)
         data.append(row)
     
-    return gpd.GeoDataFrame(data, crs=settings.DEFAULT_CRS)
+    return gpd.GeoDataFrame(data, crs="EPSG:4326")
 
 
 def get_parcels_gdf(db: Session, project_id: str) -> Optional[gpd.GeoDataFrame]:
@@ -392,7 +392,7 @@ def get_parcels_gdf(db: Session, project_id: str) -> Optional[gpd.GeoDataFrame]:
             row.update(p.layer_areas)
         data.append(row)
     
-    gdf = gpd.GeoDataFrame(data, crs=settings.DEFAULT_CRS)
+    gdf = gpd.GeoDataFrame(data, crs="EPSG:4326")
     # Filter out rows with no geometry
     gdf = gdf[gdf.geometry.notna()]
     return gdf if len(gdf) > 0 else None
@@ -443,7 +443,7 @@ def process_custom_layer_upload(
             raise ValueError("Khasras must be uploaded first")
         
         # Ensure khasras are projected to India CRS for intersection
-        gdf = gdf.to_crs(settings.INDIA_PROJECTED_CRS)
+        gdf = gdf.to_crs(f"EPSG:{settings.INDIA_PROJECTED_CRS}")
 
         update_layer_status(db, layer, "in_progress", "Reading uploaded file...")
         
@@ -468,8 +468,8 @@ def process_custom_layer_upload(
         
         # Ensure CRS and project
         if layer_gdf.crs is None:
-            layer_gdf = layer_gdf.set_crs(settings.DEFAULT_CRS)
-        layer_gdf = layer_gdf.to_crs(settings.INDIA_PROJECTED_CRS)
+            layer_gdf = layer_gdf.set_crs("EPSG:4326")
+        layer_gdf = layer_gdf.to_crs(f"EPSG:{settings.INDIA_PROJECTED_CRS}")
 
         update_layer_status(db, layer, "in_progress", "Intersecting layer with khasras...")
         
@@ -492,7 +492,7 @@ def process_custom_layer_upload(
         db.flush()
 
         # Store per-khasra layer features in database
-        layer_overlap_4326 = layer_overlap_gdf.to_crs(settings.DEFAULT_CRS)
+        layer_overlap_4326 = layer_overlap_gdf.to_crs("EPSG:4326")
         for idx, row in layer_overlap_4326.iterrows():
             geom = row.geometry
             # Convert to MultiPolygon if needed
@@ -581,7 +581,7 @@ def load_layer_gdf_by_id(db: Session, layer_id: int) -> Optional[gpd.GeoDataFram
             row.update(f.properties)
         data.append(row)
     
-    return gpd.GeoDataFrame(data, crs=settings.DEFAULT_CRS)
+    return gpd.GeoDataFrame(data, crs="EPSG:4326")
 
 
 def load_layer_gdf(db: Session, project_id: str, layer_name: str) -> Optional[gpd.GeoDataFrame]:
@@ -624,7 +624,7 @@ def get_layer_features_gdf(db: Session, project_id: str, layer_name: str) -> Opt
             **(f.properties or {}),
         })
     
-    gdf = gpd.GeoDataFrame(data, crs=settings.DEFAULT_CRS)
+    gdf = gpd.GeoDataFrame(data, crs="EPSG:4326")
     return gdf
 
 
@@ -722,8 +722,8 @@ def process_settlement_layer(
             raise ValueError("Khasras must be uploaded first")
         
         # Project khasras
-        gdf = gdf.to_crs(settings.INDIA_PROJECTED_CRS)
-        gdf_4326 = gdf.to_crs(settings.DEFAULT_CRS)
+        gdf = gdf.to_crs(f"EPSG:{settings.INDIA_PROJECTED_CRS}")
+        gdf_4326 = gdf.to_crs("EPSG:4326")
 
         update_layer_status(db, settlements_layer, "in_progress", "Importing VIDA rooftop utilities...")
         
@@ -770,7 +770,7 @@ def process_settlement_layer(
             raise ValueError("No rooftop data found for the given area")
 
         rooftop_gdf = pd.concat(rooftop_gdf_list, ignore_index=True)
-        rooftop_gdf = rooftop_gdf.to_crs(settings.INDIA_PROJECTED_CRS)
+        rooftop_gdf = rooftop_gdf.to_crs(f"EPSG:{settings.INDIA_PROJECTED_CRS}")
 
         update_layer_status(db, settlements_layer, "in_progress", f"Filtering {len(rooftop_gdf)} buildings to khasras...")
         
@@ -1013,7 +1013,7 @@ def _save_builtin_layer(
     db.flush()
 
     # Store per-khasra layer features in database
-    layer_4326 = layer_gdf.to_crs(settings.DEFAULT_CRS)
+    layer_4326 = layer_gdf.to_crs("EPSG:4326")
     for idx, row in layer_4326.iterrows():
         geom = row.geometry
         # Convert to MultiPolygon if needed
@@ -1084,7 +1084,7 @@ def calculate_usable_areas(db: Session, project_id: str) -> gpd.GeoDataFrame:
         if layer.is_unusable:
             layer_gdf = load_layer_gdf_by_id(db, layer.id)
             if layer_gdf is not None and len(layer_gdf) > 0:
-                layer_gdf = layer_gdf.to_crs(settings.INDIA_PROJECTED_CRS)
+                layer_gdf = layer_gdf.to_crs(f"EPSG:{settings.INDIA_PROJECTED_CRS}")
                 available_gdf = difference_overlay_without_discard(available_gdf, layer_gdf)
 
     available_gdf["Usable Area (ha)"] = available_gdf.area / 10_000
@@ -1103,7 +1103,7 @@ def calculate_usable_areas(db: Session, project_id: str) -> gpd.GeoDataFrame:
         if not layer.is_unusable:
             layer_gdf = load_layer_gdf_by_id(db, layer.id)
             if layer_gdf is not None and len(layer_gdf) > 0:
-                layer_gdf = layer_gdf.to_crs(settings.INDIA_PROJECTED_CRS)
+                layer_gdf = layer_gdf.to_crs(f"EPSG:{settings.INDIA_PROJECTED_CRS}")
                 available_gdf = difference_overlay_without_discard(available_gdf, layer_gdf)
 
     available_gdf["Usable and Available Area (ha)"] = available_gdf.area / 10_000
@@ -1307,10 +1307,13 @@ def cluster_khasras(
     # Aggregate to parcel level
     parcel_gdf = aggregate_to_parcels(gdf_with_cluster_id, cluster_id_col)
 
+    # Convert to WGS84 for database storage
+    parcel_gdf_4326 = parcel_gdf.to_crs("EPSG:4326")
+
     # Store parcels in database
     db.query(ParcelModel).filter(ParcelModel.project_id == project_id).delete()
     
-    for _, row in parcel_gdf.iterrows():
+    for _, row in parcel_gdf_4326.iterrows():
         geom = ensure_multipolygon(row.geometry)
         parcel = ParcelModel(
             project_id=project_id,

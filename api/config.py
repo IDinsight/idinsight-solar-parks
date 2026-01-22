@@ -41,8 +41,7 @@ class Settings(BaseSettings):
     DATA_DIR: Path = Path(os.getenv("DATA_DIR", str(Path(__file__).parent.parent / "data")))
 
     # Geospatial settings
-    INDIA_PROJECTED_CRS: str = "EPSG:24378"  # India projected CRS for area calculations
-    DEFAULT_CRS: str = "EPSG:4326"  # WGS84
+    INDIA_PROJECTED_CRS: int = int(os.getenv("INDIA_PROJECTED_CRS", "24378"))  # India projected CRS for area calculations
 
     # Processing defaults
     MAX_DISTANCE_CONSIDERED: int = 100  # meters for distance matrix
