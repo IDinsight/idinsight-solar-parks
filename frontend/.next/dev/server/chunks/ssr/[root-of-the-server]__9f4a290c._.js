@@ -72,9 +72,9 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f40$
 ;
 ;
 const metadata = {
-    title: 'v0 App',
-    description: 'Created with v0',
-    generator: 'v0.app',
+    title: 'Solar Park Analysis - Parcel Identification',
+    description: 'Identify optimal land parcels for solar park development',
+    generator: 'Next.js',
     icons: {
         icon: [
             {

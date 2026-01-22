@@ -21,10 +21,13 @@ export default function UploadSection({ onFileUpload, isProcessing }: UploadSect
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file && file.name.endsWith(".kml")) {
-      parseKMLPreview(file)
-    } else {
-      alert("Please select a valid KML file")
+    if (file) {
+      const fileName = file.name.toLowerCase()
+      if (fileName.endsWith(".kml") || fileName.endsWith(".geojson") || fileName.endsWith(".json")) {
+        parseFilePreview(file)
+      } else {
+        alert("Please select a valid KML or GeoJSON file")
+      }
     }
   }
 
@@ -33,10 +36,75 @@ export default function UploadSection({ onFileUpload, isProcessing }: UploadSect
     e.stopPropagation()
 
     const file = e.dataTransfer.files?.[0]
-    if (file && file.name.endsWith(".kml")) {
+    if (file) {
+      const fileName = file.name.toLowerCase()
+      if (fileName.endsWith(".kml") || fileName.endsWith(".geojson") || fileName.endsWith(".json")) {
+        parseFilePreview(file)
+      } else {
+        alert("Please drop a valid KML or GeoJSON file")
+      }
+    }
+  }
+
+  const parseFilePreview = async (file: File) => {
+    const fileName = file.name.toLowerCase()
+
+    if (fileName.endsWith(".kml")) {
       parseKMLPreview(file)
-    } else {
-      alert("Please drop a valid KML file")
+    } else if (fileName.endsWith(".geojson") || fileName.endsWith(".json")) {
+      parseGeoJSONPreview(file)
+    }
+  }
+
+  const parseGeoJSONPreview = async (file: File) => {
+    try {
+      const content = await file.text()
+      const geojson = JSON.parse(content)
+
+      if (!geojson.features || !Array.isArray(geojson.features)) {
+        alert("Invalid GeoJSON file. Must contain a 'features' array.")
+        return
+      }
+
+      // Extract all unique column names from properties
+      const allColumns = new Set<string>()
+      geojson.features.forEach((f: any) => {
+        if (f.properties) {
+          Object.keys(f.properties).forEach((col) => allColumns.add(col))
+        }
+      })
+
+      const columnList = Array.from(allColumns).sort()
+      setColumns(columnList)
+      setSelectedIdColumn(columnList[0] || "name")
+
+      // Calculate center from features
+      const coords = geojson.features.flatMap((f: any) => {
+        if (!f.geometry) return []
+        if (f.geometry.type === "Point") return [f.geometry.coordinates]
+        if (f.geometry.type === "LineString") return f.geometry.coordinates
+        if (f.geometry.type === "Polygon") return f.geometry.coordinates[0]
+        if (f.geometry.type === "MultiPolygon") return f.geometry.coordinates[0][0]
+        return []
+      })
+
+      if (coords.length > 0) {
+        const lngs = coords.map((c: number[]) => c[0])
+        const lats = coords.map((c: number[]) => c[1])
+        const centerLng = (Math.min(...lngs) + Math.max(...lngs)) / 2
+        const centerLat = (Math.min(...lats) + Math.max(...lats)) / 2
+        setMapCenter([centerLat, centerLng])
+        setMapZoom(10)
+      }
+
+      setPreviewData({
+        type: "FeatureCollection",
+        features: geojson.features,
+        file,
+      })
+    } catch (error) {
+      console.error("Error parsing GeoJSON file:", error)
+      alert("Error parsing GeoJSON file. Please ensure it is valid GeoJSON format.")
     }
   }
 
@@ -98,22 +166,12 @@ export default function UploadSection({ onFileUpload, isProcessing }: UploadSect
               }
             }
 
-            let layer = "Other"
-            const text = `${name} ${description}`.toLowerCase()
-            if (text.includes("building")) layer = "Buildings"
-            else if (text.includes("settlement") || text.includes("city") || text.includes("town"))
-              layer = "Settlements"
-            else if (text.includes("crop") || text.includes("agriculture") || text.includes("farm")) layer = "Crops"
-            else if (text.includes("water") || text.includes("river") || text.includes("lake")) layer = "Water"
-            else if (text.includes("slope") || text.includes("elevation") || text.includes("terrain")) layer = "Slopes"
-
             return {
               type: "Feature",
               geometry,
               properties: {
                 name,
                 description,
-                layer,
                 ...extData,
               },
             }
@@ -192,9 +250,8 @@ export default function UploadSection({ onFileUpload, isProcessing }: UploadSect
                     {columns.map((col) => (
                       <th
                         key={col}
-                        className={`px-4 py-3 text-left font-semibold text-slate-900 ${
-                          col === selectedIdColumn ? "bg-blue-100" : ""
-                        }`}
+                        className={`px-4 py-3 text-left font-semibold text-slate-900 ${col === selectedIdColumn ? "bg-blue-100" : ""
+                          }`}
                       >
                         {col}
                       </th>
@@ -207,9 +264,8 @@ export default function UploadSection({ onFileUpload, isProcessing }: UploadSect
                       {columns.map((col) => (
                         <td
                           key={col}
-                          className={`px-4 py-3 text-slate-700 ${
-                            col === selectedIdColumn ? "bg-blue-50 font-semibold" : ""
-                          }`}
+                          className={`px-4 py-3 text-slate-700 ${col === selectedIdColumn ? "bg-blue-50 font-semibold" : ""
+                            }`}
                         >
                           {feature.properties[col] || "-"}
                         </td>
@@ -271,7 +327,7 @@ export default function UploadSection({ onFileUpload, isProcessing }: UploadSect
     <div className="w-full">
       <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
         <FileUp className="w-5 h-5 text-blue-600" />
-        Upload KML File
+        Upload Khasra Boundaries
       </h2>
 
       <div
@@ -281,20 +337,20 @@ export default function UploadSection({ onFileUpload, isProcessing }: UploadSect
         onClick={() => fileInputRef.current?.click()}
       >
         <Upload className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-        <p className="text-base text-slate-600 font-medium">Drag & drop your KML file here</p>
+        <p className="text-base text-slate-600 font-medium">Drag & drop your KML or GeoJSON file here</p>
         <p className="text-sm text-slate-500 mt-2">or click to browse</p>
       </div>
 
       <input
         ref={fileInputRef}
         type="file"
-        accept=".kml"
+        accept=".kml,.geojson,.json"
         onChange={handleFileChange}
         className="hidden"
         disabled={isProcessing}
       />
 
-      <p className="text-xs text-slate-500 mt-4">✓ Supports .kml files from Google Earth</p>
+      <p className="text-xs text-slate-500 mt-4">✓ Supports .kml and .geojson files</p>
     </div>
   )
 }

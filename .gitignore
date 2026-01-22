@@ -5,4 +5,5 @@ data
 .python-version
 **/secrets.yaml
 **/node_modules/**
+frontend/.next/**
 **/.env

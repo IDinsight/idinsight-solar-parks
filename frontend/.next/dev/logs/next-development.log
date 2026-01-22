@@ -1,5 +1,278 @@
-[00:00:01.694] Server  LOG     ✓ Ready in 1529ms
-[00:00:10.056] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:00:10.751] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
-[00:00:10.751] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
-[00:00:10.751] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3000/","r":"","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769057949964}
+[00:00:00.647] Server  LOG     ✓ Ready in 478ms
+[00:00:06.103] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:00:06.311] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[00:00:06.311] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/workflow","route":"/workflow"}
+[00:00:06.311] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/workflow color: rgb(120, 120, 120) color: inherit {"dp":"/workflow","o":"http://localhost:3000/workflow","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769059598741}
+[00:00:06.311] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/login color: rgb(120, 120, 120) color: inherit {"dp":"/login","o":"http://localhost:3000/login","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769059598821}
+[00:00:23.645] Server  LOG     ✓ Compiled in 212ms
+[00:01:04.471] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:01:04.580] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[00:01:04.580] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/login","route":"/login"}
+[00:01:04.580] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/login color: rgb(120, 120, 120) color: inherit {"dp":"/login","o":"http://localhost:3000/login","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769059657091}
+[00:01:07.380] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/dashboard color: rgb(120, 120, 120) color: inherit {"dp":"/dashboard","o":"http://localhost:3000/dashboard","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769059659889}
+[00:01:08.832] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/workflow color: rgb(120, 120, 120) color: inherit {"dp":"/workflow","o":"http://localhost:3000/workflow","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769059661341}
+[00:01:40.760] Browser ERROR   Failed to load project: {"code":"ERR_BAD_REQUEST","config":{"adapter":["xhr","http","fetch"],"allowAbsoluteUrls":true,"baseURL":"http://localhost:8000","env":{},"headers":{"Accept":"application/json, text/plain, */*","Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsImV4cCI6MTc2OTE0NjA1OX0.s7bteEw-6y2uTP1HU3GKWnN8L4FyXf435V_C8E0mbOw","Content-Type":"application/json"},"maxBodyLength":-1,"maxContentLength":-1,"method":"get","timeout":0,"transformRequest":[null],"transformResponse":[null],"transitional":{"clarifyTimeoutError":false,"forcedJSONParsing":true,"silentJSONParsing":true},"url":"/projects/6c5b1ab7-21c5-4f02-9912-d37865e0fa59","xsrfCookieName":"XSRF-TOKEN","xsrfHeaderName":"X-XSRF-TOKEN"},"message":"Request failed with status code 404","name":"AxiosError","stack":"AxiosError: Request failed with status code 404\n    at settle (http://localhost:3000/_next/static/chunks/node_modules__pnpm_99ecbe7f._.js:4271:16)\n    at XMLHttpRequest.onloadend (http://localhost:3000/_next/static/chunks/node_modules__pnpm_99ecbe7f._.js:4786:225)\n    at Axios.request (http://localhost:3000/_next/static/chunks/node_modules__pnpm_99ecbe7f._.js:5590:49)\n    at async Module.getProject (http://localhost:3000/_next/static/chunks/_175833e0._.js:108:22)\n    at async loadProjectState (http://localhost:3000/_next/static/chunks/_04491ffe._.js:1482:29)","status":404}
+[00:01:40.760] Browser ERROR   Failed to load project: {"code":"ERR_BAD_REQUEST","config":{"adapter":["xhr","http","fetch"],"allowAbsoluteUrls":true,"baseURL":"http://localhost:8000","env":{},"headers":{"Accept":"application/json, text/plain, */*","Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsImV4cCI6MTc2OTE0NjA1OX0.s7bteEw-6y2uTP1HU3GKWnN8L4FyXf435V_C8E0mbOw","Content-Type":"application/json"},"maxBodyLength":-1,"maxContentLength":-1,"method":"get","timeout":0,"transformRequest":[null],"transformResponse":[null],"transitional":{"clarifyTimeoutError":false,"forcedJSONParsing":true,"silentJSONParsing":true},"url":"/projects/6c5b1ab7-21c5-4f02-9912-d37865e0fa59","xsrfCookieName":"XSRF-TOKEN","xsrfHeaderName":"X-XSRF-TOKEN"},"message":"Request failed with status code 404","name":"AxiosError","stack":"AxiosError: Request failed with status code 404\n    at settle (http://localhost:3000/_next/static/chunks/node_modules__pnpm_99ecbe7f._.js:4271:16)\n    at XMLHttpRequest.onloadend (http://localhost:3000/_next/static/chunks/node_modules__pnpm_99ecbe7f._.js:4786:225)\n    at Axios.request (http://localhost:3000/_next/static/chunks/node_modules__pnpm_99ecbe7f._.js:5590:49)\n    at async Module.getProject (http://localhost:3000/_next/static/chunks/_175833e0._.js:108:22)\n    at async loadProjectState (http://localhost:3000/_next/static/chunks/_04491ffe._.js:1482:29)","status":404}
+[00:01:44.344] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/dashboard color: rgb(120, 120, 120) color: inherit {"dp":"/dashboard","o":"http://localhost:3000/dashboard","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769059696854}
+[00:01:45.837] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:01:45.973] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[00:01:45.973] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/dashboard","route":"/dashboard"}
+[00:01:45.973] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/dashboard color: rgb(120, 120, 120) color: inherit {"dp":"/dashboard","o":"http://localhost:3000/dashboard","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769059698463}
+[00:01:45.973] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/login color: rgb(120, 120, 120) color: inherit {"dp":"/login","o":"http://localhost:3000/login","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769059698483}
+[00:01:47.549] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:01:47.657] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[00:01:47.657] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/login","route":"/login"}
+[00:01:47.657] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/login color: rgb(120, 120, 120) color: inherit {"dp":"/login","o":"http://localhost:3000/login","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769059700168}
+[00:01:50.685] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/dashboard color: rgb(120, 120, 120) color: inherit {"dp":"/dashboard","o":"http://localhost:3000/dashboard","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769059703195}
+[00:01:56.728] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/workflow color: rgb(120, 120, 120) color: inherit {"dp":"/workflow","o":"http://localhost:3000/workflow","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769059709239}
+[00:05:29.685] Server  LOG     ✓ Compiled in 161ms
+[00:05:40.441] Server  LOG     ✓ Compiled in 88ms
+[00:05:50.698] Server  LOG     ✓ Compiled in 27ms
+[00:05:58.059] Server  LOG     ✓ Compiled in 56ms
+[00:05:58.176] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:05:58.360] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[00:05:58.360] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/workflow","route":"/workflow"}
+[00:05:58.360] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/workflow color: rgb(120, 120, 120) color: inherit {"dp":"/workflow","o":"http://localhost:3000/workflow","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769059950862}
+[00:05:58.360] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/login color: rgb(120, 120, 120) color: inherit {"dp":"/login","o":"http://localhost:3000/login","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769059950871}
+[00:07:04.022] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:07:04.129] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[00:07:04.129] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/login","route":"/login"}
+[00:07:04.129] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/login color: rgb(120, 120, 120) color: inherit {"dp":"/login","o":"http://localhost:3000/login","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769060016641}
+[00:07:09.554] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/dashboard color: rgb(120, 120, 120) color: inherit {"dp":"/dashboard","o":"http://localhost:3000/dashboard","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769060022065}
+[00:07:10.523] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/workflow color: rgb(120, 120, 120) color: inherit {"dp":"/workflow","o":"http://localhost:3000/workflow","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769060023034}
+[00:07:22.761] Browser ERROR   Failed to load project: {"code":"ERR_BAD_REQUEST","config":{"adapter":["xhr","http","fetch"],"allowAbsoluteUrls":true,"baseURL":"http://localhost:8000","env":{},"headers":{"Accept":"application/json, text/plain, */*","Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsImV4cCI6MTc2OTE0NjQyMn0.t8nnXNfTubMUdrFoAvatlYGh9r6iqBJVsJ5UehvwFfs","Content-Type":"application/json"},"maxBodyLength":-1,"maxContentLength":-1,"method":"get","timeout":0,"transformRequest":[null],"transformResponse":[null],"transitional":{"clarifyTimeoutError":false,"forcedJSONParsing":true,"silentJSONParsing":true},"url":"/projects/2d8c6a78-e942-4bc7-bba6-c5c06dbd2c34","xsrfCookieName":"XSRF-TOKEN","xsrfHeaderName":"X-XSRF-TOKEN"},"message":"Request failed with status code 404","name":"AxiosError","stack":"AxiosError: Request failed with status code 404\n    at settle (http://localhost:3000/_next/static/chunks/node_modules__pnpm_99ecbe7f._.js:4271:16)\n    at XMLHttpRequest.onloadend (http://localhost:3000/_next/static/chunks/node_modules__pnpm_99ecbe7f._.js:4786:225)\n    at Axios.request (http://localhost:3000/_next/static/chunks/node_modules__pnpm_99ecbe7f._.js:5590:49)\n    at async Module.getProject (http://localhost:3000/_next/static/chunks/_175833e0._.js:108:22)\n    at async loadProjectState (http://localhost:3000/_next/static/chunks/_04491ffe._.js:1489:29)","status":404}
+[00:07:22.761] Browser ERROR   Failed to load project: {"code":"ERR_BAD_REQUEST","config":{"adapter":["xhr","http","fetch"],"allowAbsoluteUrls":true,"baseURL":"http://localhost:8000","env":{},"headers":{"Accept":"application/json, text/plain, */*","Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsImV4cCI6MTc2OTE0NjQyMn0.t8nnXNfTubMUdrFoAvatlYGh9r6iqBJVsJ5UehvwFfs","Content-Type":"application/json"},"maxBodyLength":-1,"maxContentLength":-1,"method":"get","timeout":0,"transformRequest":[null],"transformResponse":[null],"transitional":{"clarifyTimeoutError":false,"forcedJSONParsing":true,"silentJSONParsing":true},"url":"/projects/2d8c6a78-e942-4bc7-bba6-c5c06dbd2c34","xsrfCookieName":"XSRF-TOKEN","xsrfHeaderName":"X-XSRF-TOKEN"},"message":"Request failed with status code 404","name":"AxiosError","stack":"AxiosError: Request failed with status code 404\n    at settle (http://localhost:3000/_next/static/chunks/node_modules__pnpm_99ecbe7f._.js:4271:16)\n    at XMLHttpRequest.onloadend (http://localhost:3000/_next/static/chunks/node_modules__pnpm_99ecbe7f._.js:4786:225)\n    at Axios.request (http://localhost:3000/_next/static/chunks/node_modules__pnpm_99ecbe7f._.js:5590:49)\n    at async Module.getProject (http://localhost:3000/_next/static/chunks/_175833e0._.js:108:22)\n    at async loadProjectState (http://localhost:3000/_next/static/chunks/_04491ffe._.js:1489:29)","status":404}
+[00:07:36.651] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:07:36.808] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[00:07:36.808] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/workflow","route":"/workflow"}
+[00:07:36.808] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/workflow color: rgb(120, 120, 120) color: inherit {"dp":"/workflow","o":"http://localhost:3000/workflow","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769060049308}
+[00:07:36.808] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/login color: rgb(120, 120, 120) color: inherit {"dp":"/login","o":"http://localhost:3000/login","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769060049320}
+[00:07:41.551] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/dashboard color: rgb(120, 120, 120) color: inherit {"dp":"/dashboard","o":"http://localhost:3000/dashboard","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769060054061}
+[00:07:47.479] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/workflow color: rgb(120, 120, 120) color: inherit {"dp":"/workflow","o":"http://localhost:3000/workflow","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769060059990}
+[00:10:44.423] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:10:44.591] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[00:10:44.591] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/workflow","route":"/workflow"}
+[00:10:44.591] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/workflow color: rgb(120, 120, 120) color: inherit {"dp":"/workflow","o":"http://localhost:3000/workflow","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769060237094}
+[00:10:44.591] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/login color: rgb(120, 120, 120) color: inherit {"dp":"/login","o":"http://localhost:3000/login","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769060237104}
+[00:10:48.221] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/dashboard color: rgb(120, 120, 120) color: inherit {"dp":"/dashboard","o":"http://localhost:3000/dashboard","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769060240734}
+[00:10:49.089] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/workflow color: rgb(120, 120, 120) color: inherit {"dp":"/workflow","o":"http://localhost:3000/workflow","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769060241602}
+[00:11:24.257] Server  LOG     ✓ Compiled in 106ms
+[00:11:24.761] Browser ERROR   The final argument passed to %s changed size between renders. The order and size of this array must remain constant.
+
+Previous: %s
+Incoming: %s useEffect [[object Object], [object Object]] []
+[00:11:33.136] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:11:33.287] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[00:11:33.287] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/workflow","route":"/workflow"}
+[00:11:33.287] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/workflow color: rgb(120, 120, 120) color: inherit {"dp":"/workflow","o":"http://localhost:3000/workflow","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769060285791}
+[00:11:33.287] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/login color: rgb(120, 120, 120) color: inherit {"dp":"/login","o":"http://localhost:3000/login","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769060285801}
+[00:11:36.882] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/dashboard color: rgb(120, 120, 120) color: inherit {"dp":"/dashboard","o":"http://localhost:3000/dashboard","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769060289394}
+[00:11:37.662] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/workflow color: rgb(120, 120, 120) color: inherit {"dp":"/workflow","o":"http://localhost:3000/workflow","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769060290174}
+[00:12:09.124] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/dashboard color: rgb(120, 120, 120) color: inherit {"dp":"/dashboard","o":"http://localhost:3000/dashboard","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769060321636}
+[00:12:13.541] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/workflow color: rgb(120, 120, 120) color: inherit {"dp":"/workflow","o":"http://localhost:3000/workflow","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769060326053}
+[00:13:19.423] Server  LOG     ✓ Compiled in 29ms
+[00:13:28.138] Server  LOG     ✓ Compiled in 24ms
+[00:13:46.018] Server  LOG     ✓ Compiled in 54ms
+[00:14:00.551] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:14:00.703] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[00:14:00.703] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/workflow","route":"/workflow"}
+[00:14:00.703] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/workflow color: rgb(120, 120, 120) color: inherit {"dp":"/workflow","o":"http://localhost:3000/workflow","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769060433208}
+[00:14:00.703] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/login color: rgb(120, 120, 120) color: inherit {"dp":"/login","o":"http://localhost:3000/login","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769060433220}
+[00:14:05.751] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/dashboard color: rgb(120, 120, 120) color: inherit {"dp":"/dashboard","o":"http://localhost:3000/dashboard","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769060438268}
+[00:14:06.850] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/workflow color: rgb(120, 120, 120) color: inherit {"dp":"/workflow","o":"http://localhost:3000/workflow","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769060439367}
+[00:15:40.110] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:15:40.271] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[00:15:40.271] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/workflow","route":"/workflow"}
+[00:15:40.271] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/workflow color: rgb(120, 120, 120) color: inherit {"dp":"/workflow","o":"http://localhost:3000/workflow","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769060532743}
+[00:15:40.271] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/login color: rgb(120, 120, 120) color: inherit {"dp":"/login","o":"http://localhost:3000/login","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769060532789}
+[00:15:40.866] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:15:40.983] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[00:15:40.983] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/login","route":"/login"}
+[00:15:40.983] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/login color: rgb(120, 120, 120) color: inherit {"dp":"/login","o":"http://localhost:3000/login","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769060533501}
+[00:15:43.743] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/dashboard color: rgb(120, 120, 120) color: inherit {"dp":"/dashboard","o":"http://localhost:3000/dashboard","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769060536261}
+[00:15:44.841] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/workflow color: rgb(120, 120, 120) color: inherit {"dp":"/workflow","o":"http://localhost:3000/workflow","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769060537358}
+[00:15:48.465] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/dashboard color: rgb(120, 120, 120) color: inherit {"dp":"/dashboard","o":"http://localhost:3000/dashboard","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769060540982}
+[00:15:49.214] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/workflow color: rgb(120, 120, 120) color: inherit {"dp":"/workflow","o":"http://localhost:3000/workflow","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769060541732}
+[00:15:53.712] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/dashboard color: rgb(120, 120, 120) color: inherit {"dp":"/dashboard","o":"http://localhost:3000/dashboard","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769060546229}
+[00:16:24.362] Server  LOG     ✓ Compiled in 124ms
+[00:16:30.150] Server  LOG     ✓ Compiled in 19ms
+[00:36:27.633] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/workflow color: rgb(120, 120, 120) color: inherit {"dp":"/workflow","o":"http://localhost:3000/workflow","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769061780156}
+[00:52:33.667] Server  LOG     ✓ Compiled in 57ms
+[00:52:34.059] Browser ERROR   ./app/workflow/page.tsx:550:15
+Parsing ecmascript source code failed
+  548 |                   </div>
+  549 |                 </button>
+> 550 |               </div>
+      |               ^
+  551 |             </div>
+  552 |           )}
+  553 |         </div>
+
+Expression expected
+
+Import traces:
+  Client Component Browser:
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+[00:52:34.059] Browser ERROR   ./app/workflow/page.tsx:543:17
+Parsing ecmascript source code failed
+  541 |                   disabled={isProcessing}
+  542 |                   className="p-6 border-2 border-slate-200 rounded-lg hover:border-red-500 hover:bg-red-50 transition-all text-center space-y-3"
+> 543 |                 >
+      |                 ^
+  544 |                   <Download className="w-10 h-10 text-red-600 mx-auto" />
+  545 |                   <div>
+  546 |                     <h3 className="text-lg font-semibold text-slate-900">Parquet</h3>
+
+Unexpected token. Did you mean `{'>'}` or `&gt;`?
+
+Import traces:
+  Client Component Browser:
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+[00:52:34.059] Browser ERROR   ./app/workflow/page.tsx:550:16
+Parsing ecmascript source code failed
+  548 |                   </div>
+  549 |                 </button>
+> 550 |               </div>
+      |                ^^^^^
+  551 |             </div>
+  552 |           )}
+  553 |         </div>
+
+Unterminated regexp literal
+
+Import traces:
+  Client Component Browser:
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+[00:56:10.537] Server  LOG     ✓ Compiled in 24ms
+[00:56:13.757] Server  LOG     ✓ Compiled in 23ms
+[00:56:37.481] Server  LOG     ✓ Compiled in 26ms
+[00:56:46.016] Server  LOG     ✓ Compiled in 23ms
+[00:56:48.056] Server  LOG     ✓ Compiled in 28ms
+[00:56:51.891] Server  LOG     ✓ Compiled in 28ms
+[00:56:52.059] Browser ERROR   ./app/workflow/page.tsx:579:2
+Parsing ecmascript source code failed
+  577 |     </main>
+  578 |   )
+> 579 | }
+      |  ^
+  580 |
+
+Expected '}', got '<eof>'
+
+Import traces:
+  Client Component Browser:
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+[00:56:52.059] Browser ERROR   ./app/workflow/page.tsx:236:3
+Parsing ecmascript source code failed
+  234 |   }
+  235 |
+> 236 |   if (!currentProject) {
+      |   ^
+  237 |     return <div>Loading...</div>
+  238 |   }
+  239 |
+
+Expected a semicolon
+
+Import traces:
+  Client Component Browser:
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+[00:56:56.060] Browser ERROR   ./app/workflow/page.tsx:580:2
+Parsing ecmascript source code failed
+  578 |     </main>
+  579 |   )
+> 580 | }
+      |  ^
+  581 |
+
+Expected '}', got '<eof>'
+
+Import traces:
+  Client Component Browser:
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+[00:56:56.060] Browser ERROR   ./app/workflow/page.tsx:237:3
+Parsing ecmascript source code failed
+  235 |   }
+  236 |
+> 237 |   if (!currentProject) {
+      |   ^
+  238 |     return <div>Loading...</div>
+  239 |   }
+  240 |
+
+Expected a semicolon
+
+Import traces:
+  Client Component Browser:
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+[00:56:59.821] Server  LOG     ✓ Compiled in 22ms
+[00:57:01.940] Server  LOG     ✓ Compiled in 17ms
+[00:57:32.017] Server  LOG     ✓ Compiled in 27ms
+[00:58:20.890] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/dashboard color: rgb(120, 120, 120) color: inherit {"dp":"/dashboard","o":"http://localhost:3000/dashboard","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769063093420}
+[00:59:06.586] Server  LOG     ✓ Compiled in 45ms
+[00:59:52.599] Server  LOG     ✓ Compiled in 53ms
+[01:00:24.419] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/workflow color: rgb(120, 120, 120) color: inherit {"dp":"/workflow","o":"http://localhost:3000/workflow","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769063216952}
+[01:02:49.094] Server  LOG     ✓ Compiled in 21ms
+[01:05:27.547] Server  LOG     ✓ Compiled in 49ms
+[01:05:28.059] Browser ERROR   ./app/workflow/page.tsx:221:35
+Parsing ecmascript source code failed
+  219 |
+  220 |       // if export type is all, use zip extension regardless of format
+> 221 |       if (type === ExportType.ALL and ) {
+      |                                   ^^^
+  222 |         extensions[format] = 'zip'
+  223 |     }
+  224 |       
+
+Expected ')', got 'and'
+
+Import traces:
+  Client Component Browser:
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+[01:05:36.182] Server  LOG     ✓ Compiled in 30ms
+[01:05:38.863] Server  LOG     ✓ Compiled in 30ms
+[01:08:23.562] Server  LOG     ✓ Compiled in 16ms
+[01:08:25.162] Server  LOG     ✓ Compiled in 18ms
+[01:08:26.594] Server  LOG     ✓ Compiled in 25ms
+[01:08:31.806] Server  LOG     ✓ Compiled in 20ms
+[01:08:33.599] Server  LOG     ✓ Compiled in 17ms
