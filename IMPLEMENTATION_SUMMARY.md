@@ -265,7 +265,7 @@ All endpoints from the backend are now integrated:
 - ✅ Authentication (`/auth/token`, `/auth/me`)
 - ✅ Projects (`/projects`, `/projects/{id}`)
 - ✅ Khasras (`/projects/{id}/khasras`)
-- ✅ Layers (`/layers/available`, `/projects/{id}/layers/*`)
+- ✅ Layers (`/layers/available_builtin`, `/projects/{id}/layers/*`)
 - ✅ Clustering (`/projects/{id}/cluster`)
 - ✅ Export (`/projects/{id}/export`)
 - ✅ Areas (`/projects/{id}/calculate-areas`)

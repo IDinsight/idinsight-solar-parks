@@ -39,6 +39,7 @@ function WorkflowContent() {
     const [selectedLayers, setSelectedLayers] = useState<string[]>([])
     const [layersComplete, setLayersComplete] = useState(false)
     const [layerData, setLayerData] = useState<any>(null)
+    const [layersGeoJSON, setLayersGeoJSON] = useState<Record<string, any> | null>(null)
 
     // Step 3: Clustering
     const [clusteringComplete, setClusteringComplete] = useState(false)
@@ -47,6 +48,22 @@ function WorkflowContent() {
     // Map state
     const [mapCenter, setMapCenter] = useState<[number, number]>([20, 0])
     const [mapZoom, setMapZoom] = useState(5)
+
+    // Fetch layers GeoJSON when on page 2 or later
+    useEffect(() => {
+        const fetchLayersGeoJSON = async () => {
+            if (currentProject?.id && currentPage >= 2) {
+                try {
+                    const layers = await api.getProjectLayersGeoJSON(currentProject.id)
+                    setLayersGeoJSON(layers)
+                } catch (error) {
+                    console.error("Error fetching layers GeoJSON:", error)
+                }
+            }
+        }
+        fetchLayersGeoJSON()
+    }, [currentProject?.id, currentPage, layersComplete])
+
 
     useEffect(() => {
         if (!currentProject) {
@@ -373,7 +390,7 @@ function WorkflowContent() {
                                                     type="checkbox"
                                                     checked={selectedLayers.includes(layer)}
                                                     onChange={() => handleLayerChange(layer)}
-                                                    disabled={layersComplete}
+                                                    // disabled={layersComplete}
                                                     className="w-4 h-4 text-blue-600 rounded"
                                                 />
                                                 <span className="text-sm text-slate-700 font-medium">{layer}</span>
@@ -388,10 +405,10 @@ function WorkflowContent() {
 
                                         <button
                                             onClick={handleAddLayers}
-                                            disabled={isProcessing || selectedLayers.length === 0 || layersComplete}
+                                            disabled={isProcessing || selectedLayers.length === 0}
                                             className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold rounded-lg transition-colors"
                                         >
-                                            {isProcessing ? 'Processing...' : layersComplete ? 'Layers Added ✓' : 'Add Layers'}
+                                            {isProcessing ? 'Processing...' : layersComplete ? 'Rerun Layers' : 'Add Layers'}
                                         </button>
                                     </div>
                                 </div>
@@ -403,6 +420,7 @@ function WorkflowContent() {
                                             center={mapCenter}
                                             zoom={mapZoom}
                                             clusters={[]}
+                                            layersData={layersGeoJSON || undefined}
                                         />
                                     ) : (
                                         <div className="w-full h-full bg-slate-100 flex items-center justify-center rounded-lg border-2 border-dashed border-slate-300">
@@ -474,6 +492,7 @@ function WorkflowContent() {
                                                 center={mapCenter}
                                                 zoom={mapZoom}
                                                 clusters={clusterResult?.parcels || []}
+                                                layersData={layersGeoJSON || undefined}
                                             />
                                         ) : (
                                             <div className="w-full h-full bg-slate-100 flex items-center justify-center rounded-lg border-2 border-dashed border-slate-300">

@@ -7,6 +7,8 @@ and exporting results.
 
 Now with PostgreSQL/PostGIS persistence and local file storage.
 """
+
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
@@ -24,7 +26,6 @@ from fastapi import (
     File,
     Form,
     HTTPException,
-    Query,
     UploadFile,
     status,
 )
@@ -39,7 +40,6 @@ from models import (
     ClusteringResponse,
     ExportFormat,
     ExportRequest,
-    ExportType,
     HealthCheckResponse,
     KhasraStatsInfo,
     KhasraUploadResponse,
@@ -59,17 +59,33 @@ from services import (
     calculate_usable_areas,
     cluster_khasras,
     create_project,
+    delete_khasras,
     delete_project,
-    delete_project_khasras,
     export_data,
-    get_khasras_summary,
+    get_khasras,
+    get_khasras_with_stats_gdf,
+    get_layers_geojson,
+    get_layers_metadata,
+    get_parcels_gdf,
     get_project,
-    get_project_layers,
     list_projects,
     process_custom_layer_upload,
     process_khasra_upload,
+    process_settlement_layer,
 )
 from sqlalchemy.orm import Session
+
+# ============ Lifespan Event Handler ============
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Handle startup and shutdown events."""
+    # Startup
+    init_db()
+    yield
+    # Shutdown (if needed in the future)
+
 
 # ============ App Initialization ============
 
@@ -94,6 +110,7 @@ Use the `/auth/token` endpoint to obtain an access token.
     version=settings.APP_VERSION,
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # CORS middleware
@@ -106,15 +123,8 @@ app.add_middleware(
 )
 
 
-# ============ Startup Event ============
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize the database on startup."""
-    init_db()
-
-
 # ============ Health Check ============
+
 
 @app.get(
     "/health",
@@ -122,7 +132,7 @@ async def startup_event():
     tags=["Health"],
     summary="Health check endpoint",
 )
-async def health_check():
+async def health_check_endpoint():
     """Check if the API is running and healthy."""
     return HealthCheckResponse(
         status="healthy",
@@ -133,16 +143,19 @@ async def health_check():
 
 # ============ Authentication Endpoints ============
 
+
 @app.post(
     "/auth/token",
     response_model=Token,
     tags=["Authentication"],
     summary="Get access token",
 )
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+async def login_for_access_toke_endpoint(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+):
     """
     Authenticate with username and password to receive a JWT access token.
-    
+
     Default credentials:
     - Username: `admin`
     - Password: `admin`
@@ -167,12 +180,13 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     tags=["Authentication"],
     summary="Get current user",
 )
-async def read_users_me(current_user: User = Depends(get_current_active_user)):
+async def read_users_me_endpoint(current_user: User = Depends(get_current_active_user)):
     """Get information about the currently authenticated user."""
     return current_user
 
 
 # ============ Project Endpoints ============
+
 
 @app.post(
     "/projects",
@@ -181,14 +195,14 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
     tags=["Projects"],
     summary="Create a new project",
 )
-async def create_new_project(
+async def create_project_endpoint(
     project: ProjectCreate,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
     """
     Create a new solar park analysis project.
-    
+
     Each project can have its own khasra boundaries, layers, and clustering configuration.
     """
     project_id = create_project(
@@ -198,7 +212,7 @@ async def create_new_project(
         description=project.description,
     )
     project_data = get_project(db, project_id)
-    
+
     return ProjectResponse(
         id=project_data.id,
         name=project_data.name,
@@ -219,16 +233,16 @@ async def create_new_project(
     tags=["Projects"],
     summary="List all projects",
 )
-async def list_all_projects(
+async def list_projects_endpoint(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
     """List all projects for the current user."""
     projects = list_projects(db)
-    
+
     project_responses = []
     for p in projects:
-        layers = get_project_layers(db, p.id)
+        layers = get_layers_metadata(db, p.id)
         project_responses.append(
             ProjectResponse(
                 id=p.id,
@@ -243,7 +257,7 @@ async def list_all_projects(
                 layers_added=[layer.name for layer in layers],
             )
         )
-    
+
     return ProjectListResponse(projects=project_responses, total=len(project_responses))
 
 
@@ -253,7 +267,7 @@ async def list_all_projects(
     tags=["Projects"],
     summary="Get project details",
 )
-async def get_project_details(
+async def get_project_details_endpoint(
     project_id: str,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
@@ -265,9 +279,9 @@ async def get_project_details(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Project {project_id} not found",
         )
-    
-    layers = get_project_layers(db, project_id)
-    
+
+    layers = get_layers_metadata(db, project_id)
+
     return ProjectResponse(
         id=project.id,
         name=project.name,
@@ -304,23 +318,24 @@ async def delete_project_endpoint(
 
 # ============ Khasra Upload Endpoints ============
 
+
 @app.get(
     "/projects/{project_id}/khasras",
     response_model=Dict[str, Any],
     tags=["Khasras"],
     summary="Get khasra summary for a project",
 )
-async def get_khasras(
+async def get_khasras_endpoint(
     project_id: str,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
     """
     Get summary information about khasras uploaded for a project.
-    
+
     Returns count, total area, and upload date if khasras exist.
     """
-    summary = get_khasras_summary(db, project_id)
+    summary = get_khasras(db, project_id)
     return summary
 
 
@@ -330,19 +345,23 @@ async def get_khasras(
     tags=["Khasras"],
     summary="Upload khasra shapes",
 )
-async def upload_khasras(
+async def upload_khasras_endpoint(
     project_id: str,
-    file: UploadFile = File(..., description="KML or GeoJSON file containing khasra boundaries"),
-    id_column: Optional[str] = Form(None, description="Column name to use as Khasra ID"),
+    file: UploadFile = File(
+        ..., description="KML or GeoJSON file containing khasra boundaries"
+    ),
+    id_column: Optional[str] = Form(
+        None, description="Column name to use as Khasra ID"
+    ),
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
     """
     Upload khasra (land parcel) boundaries as KML or GeoJSON.
-    
+
     The file should contain a single layer with polygon geometries representing khasras.
     Each khasra should have a unique ID (specify the column name if not 'Name').
-    
+
     **Supported formats:**
     - KML (.kml)
     - GeoJSON (.geojson, .json)
@@ -353,7 +372,7 @@ async def upload_khasras(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Project {project_id} not found",
         )
-    
+
     # Validate file type
     filename = file.filename.lower()
     if not any(filename.endswith(ext) for ext in [".kml", ".geojson", ".json"]):
@@ -361,7 +380,7 @@ async def upload_khasras(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="File must be KML or GeoJSON format",
         )
-    
+
     try:
         content = await file.read()
         result = process_khasra_upload(
@@ -371,7 +390,7 @@ async def upload_khasras(
             project_id=project_id,
             id_column=id_column,
         )
-        
+
         return KhasraUploadResponse(
             project_id=project_id,
             message=f"Successfully uploaded {result['khasra_count']} khasras",
@@ -393,23 +412,23 @@ async def upload_khasras(
     tags=["Khasras"],
     summary="Delete khasras for a project",
 )
-async def delete_khasras(
+async def delete_khasras_endpoint(
     project_id: str,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
     """
     Delete all khasras for a project.
-    
+
     **Warning:** This will also delete all dependent data including:
     - Settlement layers
     - Building layers
     - Clustering results
     - Generated statistics
-    
+
     The project status will be reset to CREATED.
     """
-    success = delete_project_khasras(db, project_id)
+    success = delete_khasras(db, project_id)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -420,18 +439,19 @@ async def delete_khasras(
 
 # ============ Layer Endpoints ============
 
+
 @app.get(
-    "/layers/available",
+    "/layers/available_builtin",
     response_model=AvailableLayersResponse,
     tags=["Layers"],
     summary="Get available layer types",
 )
-async def get_available_layers(
+async def get_available_layers_endpoint(
     current_user: User = Depends(get_current_active_user),
 ):
     """
     Get information about available layer types and their configurable parameters.
-    
+
     Each layer can be marked as:
     - **Unusable**: Area is completely unsuitable for solar (e.g., water, steep slopes)
     - **Unavailable**: Area is not currently available but could potentially be used (e.g., cropland)
@@ -440,27 +460,32 @@ async def get_available_layers(
 
 
 @app.post(
-    "/projects/{project_id}/layers",
+    "/projects/{project_id}/layers/custom_upload",
     response_model=LayerUploadResponse,
     tags=["Layers"],
     summary="Upload a custom layer",
 )
-async def upload_custom_layer(
+async def upload_custom_layer_endpoint(
     project_id: str,
-    file: UploadFile = File(..., description="KML or GeoJSON file containing layer geometries"),
+    file: UploadFile = File(
+        ..., description="KML or GeoJSON file containing layer geometries"
+    ),
     layer_name: str = Form(..., description="Name for this layer"),
-    is_unusable: bool = Form(True, description="If True, area is marked as unusable. If False, as unavailable."),
+    is_unusable: bool = Form(
+        True,
+        description="If True, area is marked as unusable. If False, as unavailable.",
+    ),
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
     """
     Upload a custom constraint layer (e.g., water bodies, forests, restricted areas).
-    
+
     The layer will be intersected with khasra boundaries to calculate overlap areas.
-    
+
     **Parameters:**
     - `layer_name`: A descriptive name for the layer
-    - `is_unusable`: 
+    - `is_unusable`:
         - `True` = Areas are completely unsuitable (deducted from usable area)
         - `False` = Areas are unavailable but potentially usable (deducted from available area)
     """
@@ -470,13 +495,13 @@ async def upload_custom_layer(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Project {project_id} not found",
         )
-    
+
     if not project.khasra_count or project.khasra_count == 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Khasras must be uploaded before adding layers",
         )
-    
+
     # Validate file type
     filename = file.filename.lower()
     if not any(filename.endswith(ext) for ext in [".kml", ".geojson", ".json"]):
@@ -484,7 +509,7 @@ async def upload_custom_layer(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="File must be KML or GeoJSON format",
         )
-    
+
     try:
         content = await file.read()
         layer_info = process_custom_layer_upload(
@@ -495,7 +520,7 @@ async def upload_custom_layer(
             layer_name=layer_name,
             is_unusable=is_unusable,
         )
-        
+
         return LayerUploadResponse(
             project_id=project_id,
             message=f"Successfully added layer '{layer_name}'",
@@ -514,7 +539,7 @@ async def upload_custom_layer(
     tags=["Layers"],
     summary="Generate settlement layer from buildings",
 )
-async def generate_settlement_layer(
+async def generate_settlement_layer_endpoint(
     project_id: str,
     request: SettlementLayerRequest = SettlementLayerRequest(),
     current_user: User = Depends(get_current_active_user),
@@ -522,7 +547,7 @@ async def generate_settlement_layer(
 ):
     """
     Automatically generate settlement and isolated building layers from VIDA rooftop data.
-    
+
     This endpoint:
     1. Downloads building footprints from VIDA for the project area
     2. Buffers buildings by `building_buffer` meters
@@ -531,21 +556,20 @@ async def generate_settlement_layer(
        - **Settlements**: Convex hulls of building clusters (marked as unusable)
        - **Isolated Buildings**: Individual buildings not in settlements (marked as unavailable)
     """
-    from services import process_settlement_layer
-    
+
     project = get_project(db, project_id)
     if not project:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Project {project_id} not found",
         )
-    
+
     if not project.khasra_count or project.khasra_count == 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Khasras must be uploaded before generating settlement layers",
         )
-    
+
     try:
         layer_infos = process_settlement_layer(
             db=db,
@@ -554,7 +578,7 @@ async def generate_settlement_layer(
             settlement_eps=request.settlement_eps,
             min_buildings=request.min_buildings,
         )
-        
+
         return LayerUploadResponse(
             project_id=project_id,
             message="Successfully generated settlement layers",
@@ -573,14 +597,14 @@ async def generate_settlement_layer(
     tags=["Layers"],
     summary="List project layers",
 )
-async def list_project_layers(
+async def get_layers_metadata_endpoint(
     project_id: str,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
     """
     Get a list of all layers added to a project.
-    
+
     Each layer includes:
     - `status`: Processing status (in_progress, successful, failed)
     - `details`: Current processing step or completion message
@@ -593,8 +617,8 @@ async def list_project_layers(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Project {project_id} not found",
         )
-    
-    layers_data = get_project_layers(db, project_id)
+
+    layers_data = get_layers_metadata(db, project_id)
     layers = []
     for layer in layers_data:
         layers.append(
@@ -610,8 +634,34 @@ async def list_project_layers(
                 details=layer.details,
             )
         )
-    
+
     return layers
+
+
+@app.get(
+    "/projects/{project_id}/layers/geojson",
+    response_model=Dict[str, Any],
+    tags=["Layers"],
+    summary="Get project layers as GeoJSON",
+)
+async def get_layers_geojson_endpoint(
+    project_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get all layer geometries for a project as GeoJSON features.
+    Returns a dictionary with layer names as keys and GeoJSON FeatureCollections as values.
+    """
+
+    project = get_project(db, project_id)
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project {project_id} not found",
+        )
+
+    return get_layers_geojson(db, project_id)
 
 
 @app.post(
@@ -620,14 +670,14 @@ async def list_project_layers(
     tags=["Layers"],
     summary="Calculate usable areas",
 )
-async def calculate_areas(
+async def calculate_areas_endpoint(
     project_id: str,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
     """
     Calculate usable and available areas after applying all constraint layers.
-    
+
     This step should be run after uploading khasras and adding all desired layers.
     """
     project = get_project(db, project_id)
@@ -636,23 +686,25 @@ async def calculate_areas(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Project {project_id} not found",
         )
-    
+
     if not project.khasra_count or project.khasra_count == 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Khasras must be uploaded first",
         )
-    
+
     try:
         stats_gdf = calculate_usable_areas(db, project_id)
-        
+
         return CalculateAreasResponse(
             project_id=project_id,
             message="Areas calculated successfully",
             khasra_count=len(stats_gdf),
             total_original_area_ha=round(stats_gdf["Original Area (ha)"].sum(), 2),
             total_usable_area_ha=round(stats_gdf["Usable Area (ha)"].sum(), 2),
-            total_usable_available_area_ha=round(stats_gdf["Usable and Available Area (ha)"].sum(), 2),
+            total_usable_available_area_ha=round(
+                stats_gdf["Usable and Available Area (ha)"].sum(), 2
+            ),
         )
     except Exception as e:
         raise HTTPException(
@@ -662,6 +714,7 @@ async def calculate_areas(
 
 
 # ============ Clustering Endpoints ============
+
 
 @app.post(
     "/projects/{project_id}/cluster",
@@ -677,11 +730,11 @@ async def cluster_khasras_endpoint(
 ):
     """
     Cluster adjacent khasras into larger parcels using DBSCAN algorithm.
-    
+
     **Parameters:**
     - `distance_threshold`: Maximum distance (meters) between khasra boundaries to be considered adjacent
     - `min_samples`: Minimum number of khasras required to form a cluster
-    
+
     Khasras that don't meet the clustering criteria will be marked as "UNCLUSTERED".
     """
     project = get_project(db, project_id)
@@ -690,16 +743,16 @@ async def cluster_khasras_endpoint(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Project {project_id} not found",
         )
-    
+
     if not project.khasra_count or project.khasra_count == 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Khasras must be uploaded first",
         )
-    
+
     try:
         result = cluster_khasras(db, project_id, request)
-        
+
         return ClusteringResponse(
             project_id=project_id,
             message=f"Successfully clustered khasras into {result['total_parcels']} parcels",
@@ -718,12 +771,13 @@ async def cluster_khasras_endpoint(
 
 # ============ Export/Download Endpoints ============
 
+
 @app.post(
     "/projects/{project_id}/export",
     tags=["Export"],
     summary="Export project data",
 )
-async def export_project_data(
+async def export_project_data_endpoint(
     project_id: str,
     request: ExportRequest = ExportRequest(),
     current_user: User = Depends(get_current_active_user),
@@ -731,14 +785,14 @@ async def export_project_data(
 ):
     """
     Export project data in various formats.
-    
+
     **Export Types:**
     - `khasras`: Original khasra boundaries
     - `khasras_with_stats`: Khasras with calculated area statistics
     - `parcels`: Clustered parcel boundaries and statistics
     - `layers`: All constraint layers
     - `all`: Everything
-    
+
     **Formats:**
     - `geojson`: GeoJSON format (good for web mapping)
     - `kml`: KML format (for Google Earth)
@@ -753,7 +807,7 @@ async def export_project_data(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Project {project_id} not found",
         )
-    
+
     try:
         content, filename = export_data(
             db=db,
@@ -762,7 +816,7 @@ async def export_project_data(
             export_format=request.format,
             include_statistics=request.include_statistics,
         )
-        
+
         # Determine media type
         media_types = {
             ExportFormat.GEOJSON: "application/geo+json",
@@ -772,13 +826,13 @@ async def export_project_data(
             ExportFormat.CSV: "application/zip",
             ExportFormat.EXCEL: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         }
-        
+
         media_type = media_types.get(request.format, "application/octet-stream")
-        
+
         # If it's a zip file, adjust media type
         if filename.endswith(".zip"):
             media_type = "application/zip"
-        
+
         return Response(
             content=content,
             media_type=media_type,
@@ -800,71 +854,83 @@ async def export_project_data(
 
 # ============ Statistics Endpoints ============
 
+
 @app.get(
     "/projects/{project_id}/WIP_stats",
     response_model=ProjectStatsResponse,
     tags=["Statistics"],
     summary="Get project statistics",
 )
-async def get_project_stats(
+async def get_project_stats_endpoint(
     project_id: str,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
     """Get summary statistics for a project."""
-    from services import get_khasras_with_stats_gdf, get_parcels_gdf
-    
+
     project = get_project(db, project_id)
     if not project:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Project {project_id} not found",
         )
-    
+
     # Build response
     khasras_info = None
     areas_info = None
     parcels_info = None
     layers_info = []
-    
+
     # Khasra stats
     if project.khasra_count:
         khasras_info = KhasraStatsInfo(
             count=project.khasra_count,
             total_area_ha=project.total_area_ha,
         )
-    
+
     # Area stats from khasras with calculated statistics
     stats_gdf = get_khasras_with_stats_gdf(db, project_id)
-    if stats_gdf is not None and len(stats_gdf) > 0 and "Original Area (ha)" in stats_gdf.columns:
+    if (
+        stats_gdf is not None
+        and len(stats_gdf) > 0
+        and "Original Area (ha)" in stats_gdf.columns
+    ):
         original_total = stats_gdf["Original Area (ha)"].sum()
         usable_total = stats_gdf["Usable Area (ha)"].sum()
         usable_available_total = stats_gdf["Usable and Available Area (ha)"].sum()
-        
+
         if original_total > 0:
             areas_info = AreaStatsInfo(
                 original_area_ha=round(original_total, 2),
                 usable_area_ha=round(usable_total, 2),
                 usable_area_percent=round(usable_total / original_total * 100, 2),
                 usable_available_area_ha=round(usable_available_total, 2),
-                usable_available_area_percent=round(usable_available_total / original_total * 100, 2),
+                usable_available_area_percent=round(
+                    usable_available_total / original_total * 100, 2
+                ),
             )
-    
+
     # Parcel stats from database
     parcel_gdf = get_parcels_gdf(db, project_id)
-    if parcel_gdf is not None and len(parcel_gdf) > 0 and "parcel_id" in parcel_gdf.columns:
+    if (
+        parcel_gdf is not None
+        and len(parcel_gdf) > 0
+        and "parcel_id" in parcel_gdf.columns
+    ):
         total_count = len(parcel_gdf)
-        unclustered_count = len(parcel_gdf[parcel_gdf["parcel_id"].str.contains("UNCLUSTERED", na=False)])
+        unclustered_count = len(
+            parcel_gdf[parcel_gdf["parcel_id"].str.contains("UNCLUSTERED", na=False)]
+        )
         clustered_count = total_count - unclustered_count
-        
+
         parcels_info = ParcelStatsInfo(
             total_count=total_count,
             clustered_count=clustered_count,
             unclustered_count=unclustered_count,
         )
-    
+
     # Layer stats
-    layers = get_project_layers(db, project_id)
+    layers = get_layers_metadata(db, project_id)
     for layer in layers:
         layers_info.append(
             LayerStatsInfo(
@@ -874,12 +940,14 @@ async def get_project_stats(
                 total_area_ha=layer.total_area_ha,
             )
         )
-    
+
     return ProjectStatsResponse(
         project_id=project_id,
         project_name=project.name,
         location=project.location,
-        status=project.status.value if hasattr(project.status, 'value') else str(project.status),
+        status=project.status.value
+        if hasattr(project.status, "value")
+        else str(project.status),
         khasras=khasras_info,
         areas=areas_info,
         parcels=parcels_info,
@@ -891,6 +959,7 @@ async def get_project_stats(
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
         "main:app",
         host="0.0.0.0",

@@ -211,9 +211,9 @@ Uploads khasra boundaries and stores them in the database. Each khasra geometry 
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/layers/available` | GET | Get available layer types and parameters |
-| `/projects/{project_id}/layers` | POST | Upload a custom constraint layer |
+| `/layers/available_builtin` | GET | Get available layer types and parameters |
 | `/projects/{project_id}/layers` | GET | List project layers |
+| `/projects/{project_id}/layers/custom_upload` | POST | Upload a custom constraint layer |
 | `/projects/{project_id}/layers/settlements` | POST | Auto-generate settlement layers from VIDA data |
 | `/projects/{project_id}/calculate-areas` | POST | Calculate usable areas after applying layers |
 
@@ -293,7 +293,7 @@ curl -X POST "http://localhost:8000/projects/{project_id}/layers/settlements" \
 1. **Add custom constraint layers (optional)**
 
 ```bash
-curl -X POST "http://localhost:8000/projects/{project_id}/layers" \
+curl -X POST "http://localhost:8000/projects/{project_id}/layers/custom_upload" \
   -H "Authorization: Bearer <token>" \
   -F "file=@water_bodies.kml" \
   -F "layer_name=Water Bodies" \

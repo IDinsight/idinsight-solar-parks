@@ -65,8 +65,8 @@
 
 ### Layers
 
-- `GET /layers/available` - Get available layer types
-- `POST /projects/{id}/layers` - Upload custom layer
+- `GET /layers/available_builtin` - Get available layer types
+- `POST /projects/{id}/layers/custom_upload` - Upload custom layer
 - `POST /projects/{id}/layers/settlements` - Generate settlement layers from VIDA
 - `GET /projects/{id}/layers` - List project layers
 - `POST /projects/{id}/calculate-areas` - Calculate usable areas

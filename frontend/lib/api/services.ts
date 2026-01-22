@@ -99,7 +99,7 @@ export async function deleteKhasras(projectId: string): Promise<void> {
 // ============ Layers ============
 
 export async function getAvailableLayers(): Promise<AvailableLayersResponse> {
-    const response = await apiClient.get<AvailableLayersResponse>('/layers/available')
+    const response = await apiClient.get<AvailableLayersResponse>('/layers/available_builtin')
     return response.data
 }
 
@@ -115,7 +115,7 @@ export async function uploadCustomLayer(
     formData.append('is_unusable', String(isUnusable))
 
     const response = await apiClient.post<LayerUploadResponse>(
-        `/projects/${projectId}/layers`,
+        `/projects/${projectId}/layers/custom_upload`,
         formData,
         {
             headers: {
@@ -141,6 +141,12 @@ export async function listProjectLayers(projectId: string): Promise<LayerInfo[]>
     const response = await apiClient.get<LayerInfo[]>(`/projects/${projectId}/layers`)
     return response.data
 }
+
+export async function getProjectLayersGeoJSON(projectId: string): Promise<Record<string, any>> {
+    const response = await apiClient.get<Record<string, any>>(`/projects/${projectId}/layers/geojson`)
+    return response.data
+}
+
 
 export async function calculateAreas(projectId: string): Promise<CalculateAreasResponse> {
     const response = await apiClient.post<CalculateAreasResponse>(
