@@ -4,15 +4,18 @@ DONE:
 - Settlement layer
 - Basic clustering (untested)
 - Export and stat calculations
+- Add settlement layer
+- export stats excel as expected
+- project management page
 
 TO DO:
 
+- make layers show up online
 - use alembic for migrations
 - also save usable khasra shape
 - add the other layers
 - test clustering
 - export a coloured in KML, I dare you.
-- export stats excel as expected
 
 Later:
 - user management
