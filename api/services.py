@@ -98,6 +98,78 @@ def update_project_status(db: Session, project_id: str, status: ProjectStatus):
         db.commit()
 
 
+def get_khasras_summary(db: Session, project_id: str) -> Dict[str, Any]:
+    """Get summary of khasras for a project with GeoJSON geometries"""
+    project = get_project(db, project_id)
+    if not project:
+        return {"exists": False}
+    
+    # Check if project has khasras
+    khasras = db.query(KhasraModel).filter(KhasraModel.project_id == project_id).all()
+    
+    if not khasras:
+        return {"exists": False}
+    
+    # Convert to GeoJSON features
+    features = []
+    for k in khasras:
+        geom = to_shape(k.geometry)
+        features.append({
+            "type": "Feature",
+            "geometry": mapping(geom),
+            "properties": {
+                "khasra_id": k.khasra_id,
+                "khasra_id_unique": k.khasra_id_unique,
+                "original_area_ha": k.original_area_ha,
+                **(k.properties or {})
+            }
+        })
+    
+    return {
+        "exists": True,
+        "count": len(khasras),
+        "total_area_ha": project.total_area_ha,
+        "uploaded_at": project.updated_at.isoformat() if project.updated_at else None,
+        "geojson": {
+            "type": "FeatureCollection",
+            "features": features
+        },
+        "bounds": project.bounds_json,
+    }
+
+
+def delete_project_khasras(db: Session, project_id: str) -> bool:
+    """Delete all khasras and dependent data for a project"""
+    project = get_project(db, project_id)
+    if not project:
+        return False
+    
+    # Check if there are any khasras to delete
+    khasra_count = db.query(KhasraModel).filter(KhasraModel.project_id == project_id).count()
+    if khasra_count == 0:
+        return False
+    
+    # Delete all khasras (cascades to related data)
+    db.query(KhasraModel).filter(KhasraModel.project_id == project_id).delete()
+    
+    # Delete all layers
+    db.query(LayerModel).filter(LayerModel.project_id == project_id).delete()
+    
+    # Delete all parcels (clustering results)
+    db.query(ParcelModel).filter(ParcelModel.project_id == project_id).delete()
+    
+    # Reset project status and stats
+    project.status = ProjectStatus.CREATED
+    project.khasra_count = None
+    project.total_area_ha = None
+    project.bounds_json = None
+    project.updated_at = datetime.utcnow()
+    
+    db.commit()
+    
+    return True
+
+
 # ============ Geometry Utilities ============
 
 def clean_non_polygons(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:

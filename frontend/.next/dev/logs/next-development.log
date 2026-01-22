@@ -276,3 +276,860 @@ Import traces:
 [01:08:26.594] Server  LOG     ✓ Compiled in 25ms
 [01:08:31.806] Server  LOG     ✓ Compiled in 20ms
 [01:08:33.599] Server  LOG     ✓ Compiled in 17ms
+[01:10:38.486] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/dashboard color: rgb(120, 120, 120) color: inherit {"dp":"/dashboard","o":"http://localhost:3000/dashboard","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769063831020}
+[01:16:44.976] Server  LOG     ✓ Compiled in 20ms
+[01:17:17.785] Server  ERROR   ⨯ ./components/upload-section.tsx:9:1
+Module not found: Can't resolve '@/lib/stores/project-store'
+   7 | import MapComponent from "./map-container"
+   8 | import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
+>  9 | import { useProjectStore } from "@/lib/stores/project-store"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import type { KhasraSummary } from "@/lib/api/types"
+  11 |
+  12 | interface UploadSectionProps {
+
+Import map: aliased to relative './lib/stores/project-store' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/upload-section.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/upload-section.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+[01:17:17.786] Server  ERROR   ⨯ ./components/upload-section.tsx:9:1
+Module not found: Can't resolve '@/lib/stores/project-store'
+   7 | import MapComponent from "./map-container"
+   8 | import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
+>  9 | import { useProjectStore } from "@/lib/stores/project-store"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import type { KhasraSummary } from "@/lib/api/types"
+  11 |
+  12 | interface UploadSectionProps {
+
+Import map: aliased to relative './lib/stores/project-store' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/upload-section.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/upload-section.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+[01:17:17.787] Server  ERROR   ⨯ ./components/upload-section.tsx:9:1
+Module not found: Can't resolve '@/lib/stores/project-store'
+   7 | import MapComponent from "./map-container"
+   8 | import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
+>  9 | import { useProjectStore } from "@/lib/stores/project-store"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import type { KhasraSummary } from "@/lib/api/types"
+  11 |
+  12 | interface UploadSectionProps {
+
+Import map: aliased to relative './lib/stores/project-store' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/upload-section.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/upload-section.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+[01:17:17.788] Server  ERROR   ⨯ ./components/upload-section.tsx:9:1
+Module not found: Can't resolve '@/lib/stores/project-store'
+   7 | import MapComponent from "./map-container"
+   8 | import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
+>  9 | import { useProjectStore } from "@/lib/stores/project-store"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import type { KhasraSummary } from "@/lib/api/types"
+  11 |
+  12 | interface UploadSectionProps {
+
+Import map: aliased to relative './lib/stores/project-store' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/upload-section.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/upload-section.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+[01:17:17.790] Server  ERROR   ⨯ ./components/upload-section.tsx:9:1
+Module not found: Can't resolve '@/lib/stores/project-store'
+   7 | import MapComponent from "./map-container"
+   8 | import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
+>  9 | import { useProjectStore } from "@/lib/stores/project-store"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import type { KhasraSummary } from "@/lib/api/types"
+  11 |
+  12 | interface UploadSectionProps {
+
+Import map: aliased to relative './lib/stores/project-store' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/upload-section.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/upload-section.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+[01:17:17.791] Server  ERROR   ⨯ ./components/upload-section.tsx:9:1
+Module not found: Can't resolve '@/lib/stores/project-store'
+   7 | import MapComponent from "./map-container"
+   8 | import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
+>  9 | import { useProjectStore } from "@/lib/stores/project-store"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import type { KhasraSummary } from "@/lib/api/types"
+  11 |
+  12 | interface UploadSectionProps {
+
+Import map: aliased to relative './lib/stores/project-store' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/upload-section.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/upload-section.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+[01:17:17.792] Server  ERROR   ⨯ ./components/upload-section.tsx:9:1
+Module not found: Can't resolve '@/lib/stores/project-store'
+   7 | import MapComponent from "./map-container"
+   8 | import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
+>  9 | import { useProjectStore } from "@/lib/stores/project-store"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import type { KhasraSummary } from "@/lib/api/types"
+  11 |
+  12 | interface UploadSectionProps {
+
+Import map: aliased to relative './lib/stores/project-store' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/upload-section.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/upload-section.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+[01:17:17.793] Server  ERROR   ⨯ ./components/upload-section.tsx:9:1
+Module not found: Can't resolve '@/lib/stores/project-store'
+   7 | import MapComponent from "./map-container"
+   8 | import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
+>  9 | import { useProjectStore } from "@/lib/stores/project-store"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import type { KhasraSummary } from "@/lib/api/types"
+  11 |
+  12 | interface UploadSectionProps {
+
+Import map: aliased to relative './lib/stores/project-store' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/upload-section.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/upload-section.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+[01:17:17.794] Server  ERROR   ⨯ ./components/upload-section.tsx:9:1
+Module not found: Can't resolve '@/lib/stores/project-store'
+   7 | import MapComponent from "./map-container"
+   8 | import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
+>  9 | import { useProjectStore } from "@/lib/stores/project-store"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import type { KhasraSummary } from "@/lib/api/types"
+  11 |
+  12 | interface UploadSectionProps {
+
+Import map: aliased to relative './lib/stores/project-store' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/upload-section.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/upload-section.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+[01:17:17.795] Server  ERROR   ⨯ ./components/upload-section.tsx:9:1
+Module not found: Can't resolve '@/lib/stores/project-store'
+   7 | import MapComponent from "./map-container"
+   8 | import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
+>  9 | import { useProjectStore } from "@/lib/stores/project-store"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import type { KhasraSummary } from "@/lib/api/types"
+  11 |
+  12 | interface UploadSectionProps {
+
+Import map: aliased to relative './lib/stores/project-store' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/upload-section.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/upload-section.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+[01:17:17.796] Server  ERROR   ⨯ ./components/upload-section.tsx:9:1
+Module not found: Can't resolve '@/lib/stores/project-store'
+   7 | import MapComponent from "./map-container"
+   8 | import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
+>  9 | import { useProjectStore } from "@/lib/stores/project-store"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import type { KhasraSummary } from "@/lib/api/types"
+  11 |
+  12 | interface UploadSectionProps {
+
+Import map: aliased to relative './lib/stores/project-store' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/upload-section.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/upload-section.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+[01:17:17.797] Server  ERROR   ⨯ ./components/upload-section.tsx:9:1
+Module not found: Can't resolve '@/lib/stores/project-store'
+   7 | import MapComponent from "./map-container"
+   8 | import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
+>  9 | import { useProjectStore } from "@/lib/stores/project-store"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import type { KhasraSummary } from "@/lib/api/types"
+  11 |
+  12 | interface UploadSectionProps {
+
+Import map: aliased to relative './lib/stores/project-store' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/upload-section.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/upload-section.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+[01:17:17.798] Server  ERROR   ⨯ ./components/upload-section.tsx:9:1
+Module not found: Can't resolve '@/lib/stores/project-store'
+   7 | import MapComponent from "./map-container"
+   8 | import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
+>  9 | import { useProjectStore } from "@/lib/stores/project-store"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import type { KhasraSummary } from "@/lib/api/types"
+  11 |
+  12 | interface UploadSectionProps {
+
+Import map: aliased to relative './lib/stores/project-store' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/upload-section.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/upload-section.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+[01:17:17.799] Server  ERROR   ⨯ ./components/upload-section.tsx:9:1
+Module not found: Can't resolve '@/lib/stores/project-store'
+   7 | import MapComponent from "./map-container"
+   8 | import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
+>  9 | import { useProjectStore } from "@/lib/stores/project-store"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import type { KhasraSummary } from "@/lib/api/types"
+  11 |
+  12 | interface UploadSectionProps {
+
+Import map: aliased to relative './lib/stores/project-store' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/upload-section.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/upload-section.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+[01:17:17.800] Server  ERROR   ⨯ ./components/upload-section.tsx:9:1
+Module not found: Can't resolve '@/lib/stores/project-store'
+   7 | import MapComponent from "./map-container"
+   8 | import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
+>  9 | import { useProjectStore } from "@/lib/stores/project-store"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import type { KhasraSummary } from "@/lib/api/types"
+  11 |
+  12 | interface UploadSectionProps {
+
+Import map: aliased to relative './lib/stores/project-store' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/upload-section.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/upload-section.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+[01:17:17.801] Server  ERROR   ⨯ ./components/upload-section.tsx:9:1
+Module not found: Can't resolve '@/lib/stores/project-store'
+   7 | import MapComponent from "./map-container"
+   8 | import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
+>  9 | import { useProjectStore } from "@/lib/stores/project-store"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import type { KhasraSummary } from "@/lib/api/types"
+  11 |
+  12 | interface UploadSectionProps {
+
+Import map: aliased to relative './lib/stores/project-store' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/upload-section.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/upload-section.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+[01:17:17.816] Server  LOG     ✓ Compiled in 23ms
+[01:17:18.059] Browser ERROR   ./components/upload-section.tsx:9:1
+Module not found: Can't resolve '@/lib/stores/project-store'
+   7 | import MapComponent from "./map-container"
+   8 | import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
+>  9 | import { useProjectStore } from "@/lib/stores/project-store"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import type { KhasraSummary } from "@/lib/api/types"
+  11 |
+  12 | interface UploadSectionProps {
+
+Import map: aliased to relative './lib/stores/project-store' inside of [project]/
+
+Import traces:
+  Client Component Browser:
+    ./components/upload-section.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/upload-section.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+[01:17:48.021] Server  ERROR   ⨯ ./components/upload-section.tsx:9:1
+Module not found: Can't resolve '@/lib/stores/project-store'
+   7 | import MapComponent from "./map-container"
+   8 | import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
+>  9 | import { useProjectStore } from "@/lib/stores/project-store"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import type { KhasraSummary } from "@/lib/api/types"
+  11 |
+  12 | interface UploadSectionProps {
+
+Import map: aliased to relative './lib/stores/project-store' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/upload-section.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/upload-section.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+[01:17:48.023] Server  ERROR   ⨯ ./components/upload-section.tsx:9:1
+Module not found: Can't resolve '@/lib/stores/project-store'
+   7 | import MapComponent from "./map-container"
+   8 | import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
+>  9 | import { useProjectStore } from "@/lib/stores/project-store"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import type { KhasraSummary } from "@/lib/api/types"
+  11 |
+  12 | interface UploadSectionProps {
+
+Import map: aliased to relative './lib/stores/project-store' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/upload-section.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/upload-section.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+[01:17:48.025] Server  ERROR   ⨯ ./components/upload-section.tsx:9:1
+Module not found: Can't resolve '@/lib/stores/project-store'
+   7 | import MapComponent from "./map-container"
+   8 | import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
+>  9 | import { useProjectStore } from "@/lib/stores/project-store"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import type { KhasraSummary } from "@/lib/api/types"
+  11 |
+  12 | interface UploadSectionProps {
+
+Import map: aliased to relative './lib/stores/project-store' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/upload-section.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/upload-section.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+[01:17:48.027] Server  ERROR   ⨯ ./components/upload-section.tsx:9:1
+Module not found: Can't resolve '@/lib/stores/project-store'
+   7 | import MapComponent from "./map-container"
+   8 | import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
+>  9 | import { useProjectStore } from "@/lib/stores/project-store"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import type { KhasraSummary } from "@/lib/api/types"
+  11 |
+  12 | interface UploadSectionProps {
+
+Import map: aliased to relative './lib/stores/project-store' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/upload-section.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/upload-section.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+[01:17:48.031] Server  ERROR   ⨯ ./components/upload-section.tsx:9:1
+Module not found: Can't resolve '@/lib/stores/project-store'
+   7 | import MapComponent from "./map-container"
+   8 | import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
+>  9 | import { useProjectStore } from "@/lib/stores/project-store"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import type { KhasraSummary } from "@/lib/api/types"
+  11 |
+  12 | interface UploadSectionProps {
+
+Import map: aliased to relative './lib/stores/project-store' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/upload-section.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/upload-section.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+[01:17:48.033] Server  ERROR   ⨯ ./components/upload-section.tsx:9:1
+Module not found: Can't resolve '@/lib/stores/project-store'
+   7 | import MapComponent from "./map-container"
+   8 | import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
+>  9 | import { useProjectStore } from "@/lib/stores/project-store"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import type { KhasraSummary } from "@/lib/api/types"
+  11 |
+  12 | interface UploadSectionProps {
+
+Import map: aliased to relative './lib/stores/project-store' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/upload-section.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/upload-section.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+[01:17:48.034] Server  ERROR   ⨯ ./components/upload-section.tsx:9:1
+Module not found: Can't resolve '@/lib/stores/project-store'
+   7 | import MapComponent from "./map-container"
+   8 | import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
+>  9 | import { useProjectStore } from "@/lib/stores/project-store"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import type { KhasraSummary } from "@/lib/api/types"
+  11 |
+  12 | interface UploadSectionProps {
+
+Import map: aliased to relative './lib/stores/project-store' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/upload-section.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/upload-section.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+[01:17:48.035] Server  ERROR   ⨯ ./components/upload-section.tsx:9:1
+Module not found: Can't resolve '@/lib/stores/project-store'
+   7 | import MapComponent from "./map-container"
+   8 | import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
+>  9 | import { useProjectStore } from "@/lib/stores/project-store"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import type { KhasraSummary } from "@/lib/api/types"
+  11 |
+  12 | interface UploadSectionProps {
+
+Import map: aliased to relative './lib/stores/project-store' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/upload-section.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/upload-section.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+[01:17:48.037] Server  ERROR   ⨯ ./components/upload-section.tsx:9:1
+Module not found: Can't resolve '@/lib/stores/project-store'
+   7 | import MapComponent from "./map-container"
+   8 | import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
+>  9 | import { useProjectStore } from "@/lib/stores/project-store"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import type { KhasraSummary } from "@/lib/api/types"
+  11 |
+  12 | interface UploadSectionProps {
+
+Import map: aliased to relative './lib/stores/project-store' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/upload-section.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/upload-section.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+[01:17:48.038] Server  ERROR   ⨯ ./components/upload-section.tsx:9:1
+Module not found: Can't resolve '@/lib/stores/project-store'
+   7 | import MapComponent from "./map-container"
+   8 | import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
+>  9 | import { useProjectStore } from "@/lib/stores/project-store"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import type { KhasraSummary } from "@/lib/api/types"
+  11 |
+  12 | interface UploadSectionProps {
+
+Import map: aliased to relative './lib/stores/project-store' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/upload-section.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/upload-section.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+[01:17:48.039] Server  ERROR   ⨯ ./components/upload-section.tsx:9:1
+Module not found: Can't resolve '@/lib/stores/project-store'
+   7 | import MapComponent from "./map-container"
+   8 | import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
+>  9 | import { useProjectStore } from "@/lib/stores/project-store"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import type { KhasraSummary } from "@/lib/api/types"
+  11 |
+  12 | interface UploadSectionProps {
+
+Import map: aliased to relative './lib/stores/project-store' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/upload-section.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/upload-section.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+[01:17:48.040] Server  ERROR   ⨯ ./components/upload-section.tsx:9:1
+Module not found: Can't resolve '@/lib/stores/project-store'
+   7 | import MapComponent from "./map-container"
+   8 | import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
+>  9 | import { useProjectStore } from "@/lib/stores/project-store"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import type { KhasraSummary } from "@/lib/api/types"
+  11 |
+  12 | interface UploadSectionProps {
+
+Import map: aliased to relative './lib/stores/project-store' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./components/upload-section.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/upload-section.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+[01:17:48.063] Server  LOG     ✓ Compiled in 50ms
+[01:17:49.059] Browser ERROR   ./components/upload-section.tsx:9:1
+Module not found: Can't resolve '@/lib/stores/project-store'
+   7 | import MapComponent from "./map-container"
+   8 | import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
+>  9 | import { useProjectStore } from "@/lib/stores/project-store"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import type { KhasraSummary } from "@/lib/api/types"
+  11 |
+  12 | interface UploadSectionProps {
+
+Import map: aliased to relative './lib/stores/project-store' inside of [project]/
+
+Import traces:
+  Client Component Browser:
+    ./components/upload-section.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Client Component Browser]
+    ./app/workflow/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/upload-section.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Client Component SSR]
+    ./app/workflow/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+[01:18:29.964] Server  LOG     ✓ Compiled in 21ms
+[01:18:30.100] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[01:18:30.232] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[01:18:30.232] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/dashboard","route":"/dashboard"}
+[01:18:30.232] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/dashboard color: rgb(120, 120, 120) color: inherit {"dp":"/dashboard","o":"http://localhost:3000/dashboard","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769064302772}
+[01:18:47.209] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/login color: rgb(120, 120, 120) color: inherit {"dp":"/login","o":"http://localhost:3000/login","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769064319749}
+[01:18:58.661] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/dashboard color: rgb(120, 120, 120) color: inherit {"dp":"/dashboard","o":"http://localhost:3000/dashboard","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769064331199}
+[01:18:59.524] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/workflow color: rgb(120, 120, 120) color: inherit {"dp":"/workflow","o":"http://localhost:3000/workflow","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769064332063}
+[01:19:58.926] Server  LOG     ✓ Compiled in 21ms
+[01:21:04.391] Server  LOG     ✓ Compiled in 19ms
+[01:21:16.388] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/dashboard color: rgb(120, 120, 120) color: inherit {"dp":"/dashboard","o":"http://localhost:3000/dashboard","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769064468928}
+[01:21:16.981] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/workflow color: rgb(120, 120, 120) color: inherit {"dp":"/workflow","o":"http://localhost:3000/workflow","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769064469520}
+[01:21:55.685] Server  LOG     ✓ Compiled in 40ms
+[01:23:24.586] Server  LOG     ✓ Compiled in 43ms
+[01:23:30.168] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[01:23:30.316] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[01:23:30.316] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/workflow","route":"/workflow"}
+[01:23:30.316] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/workflow color: rgb(120, 120, 120) color: inherit {"dp":"/workflow","o":"http://localhost:3000/workflow","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769064602824}
+[01:23:30.316] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/login color: rgb(120, 120, 120) color: inherit {"dp":"/login","o":"http://localhost:3000/login","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769064602858}
+[01:23:33.722] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/dashboard color: rgb(120, 120, 120) color: inherit {"dp":"/dashboard","o":"http://localhost:3000/dashboard","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769064606263}
+[01:23:34.438] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/workflow color: rgb(120, 120, 120) color: inherit {"dp":"/workflow","o":"http://localhost:3000/workflow","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769064606979}
+[01:24:22.710] Server  LOG     ✓ Compiled in 25ms
+[01:24:37.289] Server  LOG     ✓ Compiled in 25ms
+[01:24:46.160] Server  LOG     ✓ Compiled in 24ms
+[01:24:51.267] Server  LOG     ✓ Compiled in 26ms
+[01:24:52.951] Server  LOG     ✓ Compiled in 26ms
+[01:25:01.244] Server  LOG     ✓ Compiled in 25ms
+[01:26:59.513] Server  LOG     ✓ Compiled in 18ms
+[01:27:10.116] Server  LOG     ✓ Compiled in 25ms
+[01:27:44.284] Server  LOG     ✓ Compiled in 21ms
+[01:27:49.755] Server  LOG     ✓ Compiled in 26ms
+[01:28:19.254] Server  LOG     ✓ Compiled in 23ms
+[01:28:23.870] Server  LOG     ✓ Compiled in 20ms
+[01:29:14.396] Server  LOG     ✓ Compiled in 18ms
+[01:29:16.304] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[01:29:16.449] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[01:29:16.449] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/workflow","route":"/workflow"}
+[01:29:16.449] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/workflow color: rgb(120, 120, 120) color: inherit {"dp":"/workflow","o":"http://localhost:3000/workflow","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769064948960}
+[01:29:16.449] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/login color: rgb(120, 120, 120) color: inherit {"dp":"/login","o":"http://localhost:3000/login","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769064948992}
+[01:29:19.491] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/dashboard color: rgb(120, 120, 120) color: inherit {"dp":"/dashboard","o":"http://localhost:3000/dashboard","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769064952033}
+[01:29:20.191] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/workflow color: rgb(120, 120, 120) color: inherit {"dp":"/workflow","o":"http://localhost:3000/workflow","sdkn":"@vercel/analytics/next","sdkv":"1.3.1","sv":"0.1.3","ts":1769064952733}
+[01:29:53.472] Server  LOG     ✓ Compiled in 23ms
+[01:30:01.601] Server  LOG     ✓ Compiled in 22ms
+[01:30:04.190] Server  LOG     ✓ Compiled in 16ms
+[01:30:06.326] Server  LOG     ✓ Compiled in 17ms
+[01:32:01.038] Server  LOG     ✓ Compiled in 20ms
+[01:32:33.077] Server  LOG     ✓ Compiled in 16ms
+[01:32:41.194] Server  LOG     ✓ Compiled in 23ms
+[01:32:43.126] Server  LOG     ✓ Compiled in 18ms

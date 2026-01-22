@@ -2,9 +2,12 @@
 
 import type React from "react"
 
-import { useRef, useState } from "react"
-import { Upload, FileUp } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { Upload, FileUp, AlertTriangle, Trash2 } from "lucide-react"
 import MapComponent from "./map-container"
+import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
+import { useProjectStore } from "@/lib/stores/project"
+import type { KhasraSummary } from "@/lib/api/types"
 
 interface UploadSectionProps {
   onFileUpload: (file: File, data: any, uniqueIdColumn: string) => void
@@ -18,6 +21,48 @@ export default function UploadSection({ onFileUpload, isProcessing }: UploadSect
   const [columns, setColumns] = useState<string[]>([])
   const [mapCenter, setMapCenter] = useState<[number, number]>([20, 0])
   const [mapZoom, setMapZoom] = useState(2)
+  const [existingKhasras, setExistingKhasras] = useState<KhasraSummary | null>(null)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const { currentProject, updateProject } = useProjectStore()
+
+  // Check for existing khasras on mount
+  useEffect(() => {
+    const checkExistingKhasras = async () => {
+      if (currentProject?.id) {
+        try {
+          const summary = await getKhasrasSummary(currentProject.id)
+          if (summary.exists) {
+            setExistingKhasras(summary)
+          }
+        } catch (error) {
+          console.error("Error checking existing khasras:", error)
+        }
+      }
+    }
+    checkExistingKhasras()
+  }, [currentProject?.id])
+
+  const handleDeleteKhasras = async () => {
+    if (!currentProject?.id) return
+
+    setIsDeleting(true)
+    try {
+      await deleteKhasras(currentProject.id)
+      setExistingKhasras(null)
+      setShowDeleteModal(false)
+      // Refresh project to get updated status
+      if (updateProject) {
+        updateProject({ ...currentProject, status: "created", khasra_count: 0 })
+      }
+    } catch (error) {
+      console.error("Error deleting khasras:", error)
+      alert("Failed to delete khasras. Please try again.")
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -76,7 +121,6 @@ export default function UploadSection({ onFileUpload, isProcessing }: UploadSect
 
       const columnList = Array.from(allColumns).sort()
       setColumns(columnList)
-      setSelectedIdColumn(columnList[0] || "name")
 
       // Calculate center from features
       const coords = geojson.features.flatMap((f: any) => {
@@ -145,7 +189,7 @@ export default function UploadSection({ onFileUpload, isProcessing }: UploadSect
               }
             } else if (lineEl) {
               const coordsText = lineEl.querySelector("coordinates")?.textContent?.trim() || ""
-              const coords = coordsText.split(/\s+/).map((c) => {
+              const coords = coordsText.split(/\s+/).map((c: string) => {
                 const [lng, lat] = c.split(",")
                 return [Number.parseFloat(lng), Number.parseFloat(lat)]
               })
@@ -156,7 +200,7 @@ export default function UploadSection({ onFileUpload, isProcessing }: UploadSect
             } else if (polygonEl) {
               const coordsText =
                 polygonEl.querySelector("outerBoundaryIs LinearRing coordinates")?.textContent?.trim() || ""
-              const coords = coordsText.split(/\s+/).map((c) => {
+              const coords = coordsText.split(/\s+/).map((c: string) => {
                 const [lng, lat] = c.split(",")
                 return [Number.parseFloat(lng), Number.parseFloat(lat)]
               })
@@ -186,7 +230,6 @@ export default function UploadSection({ onFileUpload, isProcessing }: UploadSect
 
         const columnList = Array.from(allColumns).sort()
         setColumns(columnList)
-        setSelectedIdColumn(columnList[0] || "name")
 
         // Calculate center from features
         const coords = features.flatMap((f: any) => {
@@ -228,18 +271,7 @@ export default function UploadSection({ onFileUpload, isProcessing }: UploadSect
 
     return (
       <div className="grid grid-cols-2 gap-8 h-full">
-        <div>
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">Map Preview</h3>
-          <div className="rounded-lg overflow-hidden bg-slate-50 w-full h-[550px]">
-            <MapComponent
-              data={previewData}
-              selectedLayers={["Buildings", "Settlements", "Crops", "Water", "Slopes", "Other"]}
-              center={mapCenter}
-              zoom={mapZoom}
-            />
-          </div>
-        </div>
-
+        {/* Left side: Data Preview and Actions */}
         <div className="flex flex-col gap-6">
           <div>
             <h3 className="text-lg font-semibold text-slate-900 mb-4">Data Preview</h3>
@@ -289,6 +321,9 @@ export default function UploadSection({ onFileUpload, isProcessing }: UploadSect
               onChange={(e) => setSelectedIdColumn(e.target.value)}
               className="w-full px-4 py-2 border border-slate-300 rounded-lg bg-white text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
+              <option value="" disabled>
+                Please select...
+              </option>
               {columns.map((col) => (
                 <option key={col} value={col}>
                   {col}
@@ -313,10 +348,23 @@ export default function UploadSection({ onFileUpload, isProcessing }: UploadSect
             </button>
             <button
               onClick={handleConfirm}
-              className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors"
+              disabled={!selectedIdColumn}
+              className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Confirm & Continue
             </button>
+          </div>
+        </div>
+
+        {/* Right side: Map Preview */}
+        <div>
+          <div className="rounded-lg overflow-hidden bg-slate-50 w-full h-[550px]">
+            <MapComponent
+              data={previewData}
+              selectedLayers={["Buildings", "Settlements", "Crops", "Water", "Slopes", "Other"]}
+              center={mapCenter}
+              zoom={mapZoom}
+            />
           </div>
         </div>
       </div>
@@ -330,27 +378,137 @@ export default function UploadSection({ onFileUpload, isProcessing }: UploadSect
         Upload Khasra Boundaries
       </h2>
 
-      <div
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={handleDragAndDrop}
-        className="border-2 border-dashed border-slate-300 rounded-lg p-12 text-center hover:border-blue-500 hover:bg-blue-50 transition-colors cursor-pointer"
-        onClick={() => fileInputRef.current?.click()}
-      >
-        <Upload className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-        <p className="text-base text-slate-600 font-medium">Drag & drop your KML or GeoJSON file here</p>
-        <p className="text-sm text-slate-500 mt-2">or click to browse</p>
-      </div>
+      {/* Existing Khasras Display */}
+      {existingKhasras && existingKhasras.exists && (
+        <div className="grid grid-cols-2 gap-8 h-full">
+          {/* Left side: Info and Actions */}
+          <div className="flex flex-col gap-6">
+            {/* Info Banner */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-blue-900 mb-4">Khasras Already Uploaded</h3>
+              <div className="text-sm text-blue-800 space-y-2">
+                <p>
+                  <span className="font-medium">Shape Count:</span> {existingKhasras.count}
+                </p>
+                <p>
+                  <span className="font-medium">Total Area:</span> {existingKhasras.total_area_ha?.toFixed(2)} hectares
+                </p>
+                {existingKhasras.uploaded_at && (
+                  <p>
+                    <span className="font-medium">Uploaded on:</span>{" "}
+                    {new Date(existingKhasras.uploaded_at).toLocaleString()}
+                  </p>
+                )}
+              </div>
+            </div>
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".kml,.geojson,.json"
-        onChange={handleFileChange}
-        className="hidden"
-        disabled={isProcessing}
-      />
+            {/* Delete Action */}
+            <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+              <h3 className="text-sm font-semibold text-red-900 mb-3">Delete Khasras</h3>
+              <p className="text-xs text-red-700 mb-4">
+                To upload new khasras, you must first delete the existing ones. This will reset your project and remove all layers, clustering results, and statistics.
+              </p>
+              <button
+                onClick={() => setShowDeleteModal(true)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete All Khasras
+              </button>
+            </div>
+          </div>
 
-      <p className="text-xs text-slate-500 mt-4">✓ Supports .kml and .geojson files</p>
+          {/* Right side: Map */}
+          <div>
+            <div className="rounded-lg overflow-hidden bg-slate-50 w-full h-[550px] relative z-0">
+              {existingKhasras.geojson && (
+                <MapComponent
+                  data={existingKhasras.geojson}
+                  selectedLayers={[]}
+                  center={
+                    existingKhasras.bounds
+                      ? [
+                          (existingKhasras.bounds.miny + existingKhasras.bounds.maxy) / 2,
+                          (existingKhasras.bounds.minx + existingKhasras.bounds.maxx) / 2,
+                        ]
+                      : [20, 0]
+                  }
+                  zoom={existingKhasras.bounds ? 12 : 2}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100]">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl relative z-[101]">
+            <div className="flex items-center gap-3 mb-4">
+              <AlertTriangle className="w-6 h-6 text-red-600" />
+              <h3 className="text-lg font-semibold text-slate-900">Delete Khasras?</h3>
+            </div>
+            <div className="mb-6">
+              <p className="text-slate-700 mb-3">
+                This will permanently delete all khasras and reset your project. The following data will also be removed:
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-sm text-slate-600">
+                <li>Settlement layers</li>
+                <li>Building layers</li>
+                <li>Clustering results</li>
+                <li>Generated statistics and exports</li>
+              </ul>
+              <p className="text-red-600 font-medium text-sm mt-3">This action cannot be undone.</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-900 font-medium rounded-lg transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteKhasras}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+              >
+                {isDeleting ? "Deleting..." : "Delete Everything"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upload Area - only show if no existing khasras */}
+      {!existingKhasras?.exists && (
+        <>
+          <div
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={handleDragAndDrop}
+            className="border-2 border-dashed border-slate-300 rounded-lg p-12 text-center hover:border-blue-500 hover:bg-blue-50 transition-colors cursor-pointer"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Upload className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+            <p className="text-base text-slate-600 font-medium">
+              Drag & drop your KML or GeoJSON file here
+            </p>
+            <p className="text-sm text-slate-500 mt-2">or click to browse</p>
+          </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".kml,.geojson,.json"
+            onChange={handleFileChange}
+            className="hidden"
+            disabled={isProcessing}
+          />
+
+          <p className="text-xs text-slate-500 mt-4">✓ Supports .kml and .geojson files</p>
+        </>
+      )}
     </div>
   )
 }

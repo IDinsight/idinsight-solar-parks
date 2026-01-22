@@ -8,7 +8,7 @@ and exporting results.
 Now with PostgreSQL/PostGIS persistence and local file storage.
 """
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from auth import (
     authenticate_user,
@@ -60,7 +60,9 @@ from services import (
     cluster_khasras,
     create_project,
     delete_project,
+    delete_project_khasras,
     export_data,
+    get_khasras_summary,
     get_project,
     get_project_layers,
     list_projects,
@@ -302,6 +304,26 @@ async def delete_project_endpoint(
 
 # ============ Khasra Upload Endpoints ============
 
+@app.get(
+    "/projects/{project_id}/khasras",
+    response_model=Dict[str, Any],
+    tags=["Khasras"],
+    summary="Get khasra summary for a project",
+)
+async def get_khasras(
+    project_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get summary information about khasras uploaded for a project.
+    
+    Returns count, total area, and upload date if khasras exist.
+    """
+    summary = get_khasras_summary(db, project_id)
+    return summary
+
+
 @app.post(
     "/projects/{project_id}/khasras",
     response_model=KhasraUploadResponse,
@@ -359,10 +381,41 @@ async def upload_khasras(
             crs=result["crs"],
         )
     except Exception as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Error processing file: {str(e)}",
         )
+
+
+@app.delete(
+    "/projects/{project_id}/khasras",
+    tags=["Khasras"],
+    summary="Delete khasras for a project",
+)
+async def delete_khasras(
+    project_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Delete all khasras for a project.
+    
+    **Warning:** This will also delete all dependent data including:
+    - Settlement layers
+    - Building layers
+    - Clustering results
+    - Generated statistics
+    
+    The project status will be reset to CREATED.
+    """
+    success = delete_project_khasras(db, project_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project {project_id} not found or no khasras to delete",
+        )
+    return {"message": "Khasras and all dependent data deleted successfully"}
 
 
 # ============ Layer Endpoints ============

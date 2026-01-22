@@ -64,6 +64,24 @@ export interface KhasraUploadResponse {
     crs: string
 }
 
+export interface KhasraSummary {
+    exists: boolean
+    count?: number
+    total_area_ha?: number
+    uploaded_at?: string
+    geojson?: {
+        type: string
+        features: any[]
+    }
+    bounds?: {
+        minx: number
+        miny: number
+        maxx: number
+        maxy: number
+    }
+}
+
+
 export interface LayerInfo {
     layer_type: string
     name: string

@@ -9,6 +9,7 @@ import type {
     Project,
     ProjectListResponse,
     KhasraUploadResponse,
+    KhasraSummary,
     LayerUploadResponse,
     LayerInfo,
     CalculateAreasResponse,
@@ -62,6 +63,11 @@ export async function deleteProject(projectId: string): Promise<void> {
 
 // ============ Khasras ============
 
+export async function getKhasrasSummary(projectId: string): Promise<KhasraSummary> {
+    const response = await apiClient.get<KhasraSummary>(`/projects/${projectId}/khasras`)
+    return response.data
+}
+
 export async function uploadKhasras(
     projectId: string,
     file: File,
@@ -84,6 +90,11 @@ export async function uploadKhasras(
     )
     return response.data
 }
+
+export async function deleteKhasras(projectId: string): Promise<void> {
+    await apiClient.delete(`/projects/${projectId}/khasras`)
+}
+
 
 // ============ Layers ============
 
