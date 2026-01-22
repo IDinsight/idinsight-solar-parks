@@ -3,7 +3,11 @@
     "features": [
         {
             "type": "Feature",
-            "properties": {},
+            "properties": {
+                "shape_id": "shape_1",
+                "name": "Test Shape",
+                "source": "Manually Drawn"
+            },
             "geometry": {
                 "type": "Polygon",
                 "coordinates": [
