@@ -934,7 +934,7 @@ def _save_builtin_layer_with_status(
     db.flush()
 
     # Store per-khasra layer features in database
-    layer_4326 = layer_gdf.to_crs(settings.DEFAULT_CRS)
+    layer_4326 = layer_gdf.to_crs("EPSG:4326")
     for idx, row in layer_4326.iterrows():
         geom = row.geometry
         # Convert to MultiPolygon if needed
