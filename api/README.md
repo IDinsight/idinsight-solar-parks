@@ -82,7 +82,7 @@ Environment variables (set in `.env` file):
 | `SECRET_KEY` | (required) | JWT signing key - change in production |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | 1440 (24h) | Token expiration time |
 | `DEFAULT_USERNAME` | admin | Default admin username |
-| `DEFAULT_PASSWORD` | solarparks2024 | Default admin password |
+| `DEFAULT_PASSWORD` | admin | Default admin password |
 | `POSTGRES_USER` | postgres | PostgreSQL username |
 | `POSTGRES_PASSWORD` | postgres | PostgreSQL password |
 | `POSTGRES_HOST` | localhost | PostgreSQL host |
@@ -150,14 +150,14 @@ The API uses JWT (JSON Web Token) authentication.
 ### Default Credentials
 
 - Username: `admin`
-- Password: `solarparks2024`
+- Password: `admin`
 
 ### Getting a Token
 
 ```bash
 curl -X POST "http://localhost:8000/auth/token" \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "username=admin&password=solarparks2024"
+  -d "username=admin&password=admin"
 ```
 
 ### Using the Token

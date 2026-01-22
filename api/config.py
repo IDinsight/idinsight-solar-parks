@@ -23,7 +23,7 @@ class Settings(BaseSettings):
 
     # Default users (for demo purposes - in production use a database)
     DEFAULT_USERNAME: str = "admin"
-    DEFAULT_PASSWORD: str = "solarparks2024"
+    DEFAULT_PASSWORD: str = "admin"
 
     # PostgreSQL settings
     POSTGRES_USER: str = os.getenv("POSTGRES_USER", "postgres")
