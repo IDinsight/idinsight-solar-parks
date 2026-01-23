@@ -17,7 +17,7 @@ import { ChevronLeft, ChevronRight, Download, ArrowLeft, AlertCircle, Map, Copy,
  */
 function AnimatedEllipsis() {
     const [dots, setDots] = useState(".")
-    
+
     useEffect(() => {
         const interval = setInterval(() => {
             setDots(prev => {
@@ -26,10 +26,10 @@ function AnimatedEllipsis() {
                 return "."
             })
         }, 500)
-        
+
         return () => clearInterval(interval)
     }, [])
-    
+
     return <span className="inline-block w-4">{dots}</span>
 }
 
@@ -60,7 +60,7 @@ function WorkflowContent() {
     const [constraintLayersGeoJSON, setConstraintLayersGeoJSON] = useState<Record<string, any> | null>(null)
     const [allProjectLayers, setAllProjectLayers] = useState<any[]>([])
     const [activeProcessingLayer, setActiveProcessingLayer] = useState<string | null>(null)
-    
+
     // Settlement layer configuration
     const [settlementLayerParams, setSettlementLayerParams] = useState({
         building_buffer: 10,
@@ -72,13 +72,13 @@ function WorkflowContent() {
     // Step 3: Clustering state
     const [isClusteringComplete, setIsClusteringComplete] = useState(false)
     const [clusteringResult, setClusteringResult] = useState<any>(null)
-    const [clusteringParams, setClusteringParams] = useState<{distance_threshold: number, min_samples: number} | null>(null)
+    const [clusteringParams, setClusteringParams] = useState<{ distance_threshold: number, min_samples: number } | null>(null)
     const [parcelGeoJSON, setParcelGeoJSON] = useState<any>(null)
 
     // Map visualization state
     const [mapCenter, setMapCenter] = useState<[number, number]>([20, 0])
     const [mapZoom, setMapZoom] = useState(5)
-    
+
     // Map link state
     const [mapLinkCopied, setMapLinkCopied] = useState(false)
 
@@ -92,7 +92,7 @@ function WorkflowContent() {
                 try {
                     const layers = await api.listProjectLayers(currentProject.id)
                     setAllProjectLayers(layers)
-                    
+
                     // Update settlement layer status
                     const settlementsLayer = layers.find((l: any) => l.name === "Settlements")
                     const isolatedBuildingsLayer = layers.find((l: any) => l.name === "Isolated Buildings")
@@ -103,7 +103,7 @@ function WorkflowContent() {
                             processing: settlementsLayer?.status === "in_progress" || isolatedBuildingsLayer?.status === "in_progress"
                         })
                     }
-                    
+
                     const layersGeoJSON = await api.getProjectLayersGeoJSON(currentProject.id)
                     setConstraintLayersGeoJSON(layersGeoJSON)
                 } catch (error) {
@@ -125,26 +125,26 @@ function WorkflowContent() {
             try {
                 const layers = await api.listProjectLayers(currentProject.id)
                 setAllProjectLayers(layers)
-                
+
                 if (activeProcessingLayer === "Settlements") {
                     const settlementsLayer = layers.find((l: any) => l.name === "Settlements")
                     const isolatedBuildingsLayer = layers.find((l: any) => l.name === "Isolated Buildings")
-                    
+
                     setSettlementLayerStatus({
                         settlements: settlementsLayer,
                         isolated: isolatedBuildingsLayer,
                         processing: settlementsLayer?.status === "in_progress" || isolatedBuildingsLayer?.status === "in_progress"
                     })
-                    
+
                     // Stop polling when both layers are complete
                     const isProcessingComplete = settlementsLayer?.status !== "in_progress" && isolatedBuildingsLayer?.status !== "in_progress"
                     if (isProcessingComplete) {
                         setActiveProcessingLayer(null)
-                        
+
                         // Refresh all data after processing completes
                         const layersGeoJSON = await api.getProjectLayersGeoJSON(currentProject.id)
                         setConstraintLayersGeoJSON(layersGeoJSON)
-                        
+
                         const project = await api.getProject(currentProject.id)
                         updateProject(project)
                     }
@@ -176,13 +176,13 @@ function WorkflowContent() {
                 // Determine starting page based on project completion status
                 if (project.khasra_count && project.khasra_count > 0) {
                     setIsKhasraUploadComplete(true)
-                    
+
                     // Load khasra GeoJSON data for clustering
                     try {
                         const khasraSummary = await api.getKhasrasSummary(currentProject.id)
                         if (khasraSummary.geojson) {
                             setKhasraGeoJSON(khasraSummary.geojson)
-                            
+
                             // Center map on khasra bounds if available
                             if (khasraSummary.bounds) {
                                 const centerLng = (khasraSummary.bounds.minx + khasraSummary.bounds.maxx) / 2
@@ -194,17 +194,17 @@ function WorkflowContent() {
                     } catch (error) {
                         console.error('Failed to load khasra GeoJSON:', error)
                     }
-                    
+
                     if (project.layers_added && project.layers_added.length > 0) {
                         // If clustering is done, start at clustering page
                         if (project.status === 'clustered' || project.status === 'completed') {
                             setIsClusteringComplete(true)
-                            
+
                             // Load parcel GeoJSON for clustered projects
                             try {
                                 const parcelsGeoJSON = await api.getParcelsGeoJSON(currentProject.id)
                                 setParcelGeoJSON(parcelsGeoJSON)
-                                
+
                                 // Extract clustering params and results from response
                                 if (parcelsGeoJSON?.clusteringParams) {
                                     setClusteringParams({
@@ -220,7 +220,7 @@ function WorkflowContent() {
                             } catch (error) {
                                 console.error('Failed to load parcel GeoJSON:', error)
                             }
-                            
+
                             setCurrentPage(3)
                         } else {
                             setCurrentPage(3)
@@ -287,7 +287,7 @@ function WorkflowContent() {
 
         setActiveProcessingLayer("Settlements")
         setError(null)
-        
+
         // Set initial processing status for immediate UI feedback
         setSettlementLayerStatus({
             settlements: { status: "in_progress", details: "Queued for processing..." },
@@ -312,7 +312,7 @@ function WorkflowContent() {
      */
     const handleDeleteSettlementLayers = async () => {
         if (!currentProject) return
-        
+
         const confirmed = confirm(
             "Are you sure you want to delete the Settlement layers? " +
             "This will remove both Settlements and Isolated Buildings layers."
@@ -326,16 +326,16 @@ function WorkflowContent() {
             // Delete both settlement sub-layers
             await api.deleteLayer(currentProject.id, "Settlements")
             await api.deleteLayer(currentProject.id, "Isolated Buildings")
-            
+
             setSettlementLayerStatus(null)
-            
+
             // Refresh all layers and GeoJSON data
             const updatedLayers = await api.listProjectLayers(currentProject.id)
             setAllProjectLayers(updatedLayers)
-            
+
             const updatedLayersGeoJSON = await api.getProjectLayersGeoJSON(currentProject.id)
             setConstraintLayersGeoJSON(updatedLayersGeoJSON)
-            
+
             const updatedProject = await api.getProject(currentProject.id)
             updateProject(updatedProject)
         } catch (error: any) {
@@ -372,7 +372,7 @@ function WorkflowContent() {
             // Fetch parcel geometries for map display
             const parcelsGeoJSON = await api.getParcelsGeoJSON(currentProject.id)
             setParcelGeoJSON(parcelsGeoJSON)
-            
+
             // Extract clustering params from response (should match what we just sent)
             if (parcelsGeoJSON?.clusteringParams) {
                 setClusteringParams({
@@ -469,9 +469,9 @@ function WorkflowContent() {
      */
     const handleCopyMapLink = async () => {
         if (!currentProject) return
-        
+
         const mapUrl = `${window.location.origin}/map/${currentProject.id}`
-        
+
         try {
             await navigator.clipboard.writeText(mapUrl)
             setMapLinkCopied(true)
@@ -487,7 +487,7 @@ function WorkflowContent() {
      */
     const handleOpenMapInNewTab = () => {
         if (!currentProject) return
-        
+
         const mapUrl = `/map/${currentProject.id}`
         window.open(mapUrl, '_blank')
     }
@@ -499,7 +499,7 @@ function WorkflowContent() {
     // Determine which pages user can navigate to based on completion status
     const canProceedToLayerSelection = isKhasraUploadComplete
     const areSettlementLayersComplete = (
-        settlementLayerStatus?.settlements?.status === "successful" && 
+        settlementLayerStatus?.settlements?.status === "successful" &&
         settlementLayerStatus?.isolated?.status === "successful"
     )
     const canProceedToClustering = isKhasraUploadComplete && areSettlementLayersComplete
@@ -566,10 +566,10 @@ function WorkflowContent() {
                         <div
                             key={step.number}
                             className={`flex-1 py-4 px-6 rounded-lg text-center font-semibold transition-all ${currentPage === step.number
-                                    ? "bg-blue-600 text-white"
-                                    : currentPage > step.number
-                                        ? "bg-green-100 text-green-700"
-                                        : "bg-slate-200 text-slate-500"
+                                ? "bg-blue-600 text-white"
+                                : currentPage > step.number
+                                    ? "bg-green-100 text-green-700"
+                                    : "bg-slate-200 text-slate-500"
                                 }`}
                         >
                             <div className="text-sm">Step {step.number}</div>
@@ -587,7 +587,7 @@ function WorkflowContent() {
                                 <h2 className="text-3xl font-bold text-slate-900 mb-2">Step 1: Upload Khasra Boundaries</h2>
                                 <p className="text-base text-slate-600">Upload your KML or GeoJSON file containing land parcel boundaries</p>
                             </div>
-                            <UploadSection 
+                            <UploadSection
                                 onFileUpload={handleKhasraUpload}
                                 onKhasraDeleted={() => {
                                     // Reset all workflow state when khasras are deleted
@@ -622,7 +622,7 @@ function WorkflowContent() {
                                         <p className="text-xs text-slate-600 mb-4">
                                             Automatically detect settlements and isolated buildings from VIDA rooftop data
                                         </p>
-                                        
+
                                         {!settlementLayerStatus || (settlementLayerStatus.settlements?.status === "failed" && settlementLayerStatus.isolated?.status === "failed") ? (
                                             <>
                                                 {/* Parameters */}
@@ -636,7 +636,7 @@ function WorkflowContent() {
                                                             onChange={(e) => {
                                                                 const value = e.target.value.replace(/[^0-9]/g, '');
                                                                 const num = value === '' ? 0 : Math.max(0, Number(value));
-                                                                setSettlementLayerParams({...settlementLayerParams, building_buffer: num});
+                                                                setSettlementLayerParams({ ...settlementLayerParams, building_buffer: num });
                                                             }}
                                                             className="w-full mt-1 px-3 py-2 text-sm border border-slate-300 rounded-md"
                                                         />
@@ -650,7 +650,7 @@ function WorkflowContent() {
                                                             onChange={(e) => {
                                                                 const value = e.target.value.replace(/[^0-9]/g, '');
                                                                 const num = value === '' ? 0 : Math.max(0, Number(value));
-                                                                setSettlementLayerParams({...settlementLayerParams, settlement_eps: num});
+                                                                setSettlementLayerParams({ ...settlementLayerParams, settlement_eps: num });
                                                             }}
                                                             className="w-full mt-1 px-3 py-2 text-sm border border-slate-300 rounded-md"
                                                         />
@@ -664,13 +664,13 @@ function WorkflowContent() {
                                                             onChange={(e) => {
                                                                 const value = e.target.value.replace(/[^0-9]/g, '');
                                                                 const num = value === '' ? 1 : Math.max(1, Number(value));
-                                                                setSettlementLayerParams({...settlementLayerParams, min_buildings: num});
+                                                                setSettlementLayerParams({ ...settlementLayerParams, min_buildings: num });
                                                             }}
                                                             className="w-full mt-1 px-3 py-2 text-sm border border-slate-300 rounded-md"
                                                         />
                                                     </div>
                                                 </div>
-                                                
+
                                                 <button
                                                     onClick={handleGenerateSettlementLayers}
                                                     disabled={isProcessing || activeProcessingLayer === "Settlements"}
@@ -730,7 +730,7 @@ function WorkflowContent() {
                                                         </span>
                                                     </div>
                                                 </div>
-                                                
+
                                                 <button
                                                     onClick={handleDeleteSettlementLayers}
                                                     disabled={isProcessing}
@@ -741,7 +741,7 @@ function WorkflowContent() {
                                             </>
                                         )}
                                     </div>
-                                    
+
                                     {/* Placeholder for future layers */}
                                     <div className="border border-slate-200 border-dashed rounded-lg p-4 text-center text-slate-400">
                                         <p className="text-sm">More layers coming soon...</p>
@@ -817,94 +817,113 @@ function WorkflowContent() {
                                 <p className="text-base text-slate-600">Download your analysis results in various formats</p>
                             </div>
 
-                            {clusteringResult && (
-                                <div className="grid grid-cols-3 gap-4 mb-8 p-6 bg-blue-50 rounded-lg">
-                                    <div className="text-center">
-                                        <p className="text-3xl font-bold text-blue-600">{clusteringResult.total_parcels}</p>
-                                        <p className="text-sm text-slate-600 mt-1">Total Parcels</p>
-                                    </div>
-                                    <div className="text-center">
-                                        <p className="text-3xl font-bold text-green-600">{clusteringResult.clustered_khasras}</p>
-                                        <p className="text-sm text-slate-600 mt-1">Clustered Khasras</p>
-                                    </div>
-                                    <div className="text-center">
-                                        <p className="text-3xl font-bold text-slate-600">{clusteringResult.unclustered_khasras}</p>
-                                        <p className="text-sm text-slate-600 mt-1">Unclustered</p>
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="space-y-6">
-                                {/* Interactive Map Section */}
-                                <div className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200">
-                                    <div className="flex items-start gap-4">
-                                        <Map className="w-10 h-10 text-blue-600 flex-shrink-0 mt-1" />
-                                        <div className="flex-1">
-                                            <h3 className="text-xl font-semibold text-slate-900 mb-2">Interactive Map</h3>
-                                            <p className="text-sm text-slate-600 mb-4">
-                                                View your project data in a full-screen interactive map. Share the link or open in a new tab for detailed exploration.
-                                            </p>
-                                            <div className="flex gap-3">
-                                                <button
-                                                    onClick={handleCopyMapLink}
-                                                    className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-blue-300 hover:bg-blue-50 text-blue-700 font-medium rounded-lg transition-colors"
-                                                >
-                                                    {mapLinkCopied ? (
-                                                        <>
-                                                            <Check className="w-4 h-4" />
-                                                            Link Copied!
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <Copy className="w-4 h-4" />
-                                                            Copy Link
-                                                        </>
-                                                    )}
-                                                </button>
-                                                <button
-                                                    onClick={handleOpenMapInNewTab}
-                                                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-                                                >
-                                                    <ExternalLink className="w-4 h-4" />
-                                                    Open Map
-                                                </button>
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                                <div className="lg:col-span-1 space-y-6">
+                                    {/* Summary Stats */}
+                                    {clusteringResult && (
+                                        <div className="space-y-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                                            <h3 className="text-sm font-semibold text-slate-900">Summary</h3>
+                                            <div className="space-y-2">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-xs text-slate-600">Total Parcels</span>
+                                                    <span className="text-lg font-bold text-blue-600">{clusteringResult.total_parcels}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-xs text-slate-600">Clustered Khasras</span>
+                                                    <span className="text-lg font-bold text-green-600">{clusteringResult.clustered_khasras}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-xs text-slate-600">Unclustered</span>
+                                                    <span className="text-lg font-bold text-slate-600">{clusteringResult.unclustered_khasras}</span>
+                                                </div>
                                             </div>
+                                        </div>
+                                    )}
+
+                                    {/* Download Section */}
+                                    <div>
+                                        <h3 className="text-base font-semibold text-slate-900 mb-4">Download Files</h3>
+                                        <div className="space-y-4">
+                                            {/* KML */}
+                                            <button
+                                                onClick={() => handleExportData(ExportFormat.KML)}
+                                                disabled={isProcessing}
+                                                className="w-full p-6 border-2 border-slate-200 rounded-lg hover:border-green-500 hover:bg-green-50 transition-all text-left"
+                                            >
+                                                <div className="flex items-start gap-4">
+                                                    <Download className="w-8 h-8 text-green-600 flex-shrink-0" />
+                                                    <div>
+                                                        <h4 className="text-base font-semibold text-slate-900">Download KML</h4>
+                                                        <p className="text-xs text-slate-600 mt-1">All layers for Google Earth</p>
+                                                        <p className="text-xs text-slate-500 mt-1">Includes khasras, parcels, and constraint layers</p>
+                                                    </div>
+                                                </div>
+                                            </button>
+
+                                            {/* Excel */}
+                                            <button
+                                                onClick={() => handleExportData(ExportFormat.EXCEL)}
+                                                disabled={isProcessing}
+                                                className="w-full p-6 border-2 border-slate-200 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 transition-all text-left"
+                                            >
+                                                <div className="flex items-start gap-4">
+                                                    <Download className="w-8 h-8 text-emerald-600 flex-shrink-0" />
+                                                    <div>
+                                                        <h4 className="text-base font-semibold text-slate-900">Download Excel</h4>
+                                                        <p className="text-xs text-slate-600 mt-1">Complete statistics workbook</p>
+                                                        <p className="text-xs text-slate-500 mt-1">Multiple sheets with detailed analysis</p>
+                                                    </div>
+                                                </div>
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Download Section */}
-                                <div>
-                                    <h3 className="text-lg font-semibold text-slate-900 mb-4">Download Files</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
-                                        {/* KML */}
-                                        <button
-                                            onClick={() => handleExportData(ExportFormat.KML)}
-                                            disabled={isProcessing}
-                                            className="p-8 border-2 border-slate-200 rounded-lg hover:border-green-500 hover:bg-green-50 transition-all text-center space-y-4"
-                                        >
-                                            <Download className="w-12 h-12 text-green-600 mx-auto" />
-                                            <div>
-                                                <h3 className="text-xl font-semibold text-slate-900">Download KML</h3>
-                                                <p className="text-sm text-slate-600 mt-2">All layers for Google Earth</p>
-                                                <p className="text-xs text-slate-500 mt-1">Includes khasras, parcels, and constraint layers</p>
-                                            </div>
-                                        </button>
-
-                                        {/* Excel */}
-                                        <button
-                                            onClick={() => handleExportData(ExportFormat.EXCEL)}
-                                            disabled={isProcessing}
-                                            className="p-8 border-2 border-slate-200 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 transition-all text-center space-y-4"
-                                        >
-                                            <Download className="w-12 h-12 text-emerald-600 mx-auto" />
-                                            <div>
-                                                <h3 className="text-xl font-semibold text-slate-900">Download Excel</h3>
-                                                <p className="text-sm text-slate-600 mt-2">Complete statistics workbook</p>
-                                                <p className="text-xs text-slate-500 mt-1">Multiple sheets with detailed analysis</p>
-                                            </div>
-                                        </button>
+                                <div className="lg:col-span-2 h-[500px] relative">
+                                    {/* Floating Map Controls */}
+                                    <div className="absolute top-3 right-3 z-[1000] bg-white rounded-lg shadow-lg border border-slate-200 px-4 py-2">
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-xs font-medium text-slate-600">Online Map:</span>
+                                            <button
+                                                onClick={handleOpenMapInNewTab}
+                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded transition-colors"
+                                            >
+                                                <ExternalLink className="w-3.5 h-3.5" />
+                                                Full Screen
+                                            </button>
+                                            <button
+                                                onClick={handleCopyMapLink}
+                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded transition-colors"
+                                            >
+                                                {mapLinkCopied ? (
+                                                    <>
+                                                        <Check className="w-3.5 h-3.5" />
+                                                        Copied!
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Copy className="w-3.5 h-3.5" />
+                                                        Copy Link
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
                                     </div>
+
+                                    {/* Map */}
+                                    {khasraGeoJSON ? (
+                                        <MapContainer
+                                            data={khasraGeoJSON}
+                                            center={mapCenter}
+                                            zoom={mapZoom}
+                                            parcelsData={parcelGeoJSON}
+                                            layersData={constraintLayersGeoJSON || undefined}
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full bg-slate-100 flex items-center justify-center rounded-lg border-2 border-dashed border-slate-300">
+                                            <p className="text-slate-500">No data available</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
