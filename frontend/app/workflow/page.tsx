@@ -40,6 +40,8 @@ function WorkflowContent() {
     const [layersComplete, setLayersComplete] = useState(false)
     const [layerData, setLayerData] = useState<any>(null)
     const [layersGeoJSON, setLayersGeoJSON] = useState<Record<string, any> | null>(null)
+    const [layerStatusMap, setLayerStatusMap] = useState<Record<string, any>>({})
+    const [isProcessingLayers, setIsProcessingLayers] = useState(false)
 
     // Step 3: Clustering
     const [clusteringComplete, setClusteringComplete] = useState(false)
@@ -63,6 +65,67 @@ function WorkflowContent() {
         }
         fetchLayersGeoJSON()
     }, [currentProject?.id, currentPage, layersComplete])
+
+    // Poll for layer status updates while processing
+    useEffect(() => {
+        if (!currentProject?.id || !isProcessingLayers) return
+
+        const pollInterval = setInterval(async () => {
+            try {
+                const layers = await api.listProjectLayers(currentProject.id)
+                
+                // Create a map of layer name to status
+                const statusMap: Record<string, any> = {}
+                layers.forEach((layer) => {
+                    statusMap[layer.name] = {
+                        status: layer.status,
+                        details: layer.details,
+                        area_ha: layer.area_ha,
+                        feature_count: layer.feature_count,
+                    }
+                })
+                setLayerStatusMap(statusMap)
+
+                // Check if all layers are complete
+                const allComplete = layers.every(
+                    (layer) => layer.status === "successful" || layer.status === "failed"
+                )
+
+                if (allComplete) {
+                    setIsProcessingLayers(false)
+                    
+                    // Check if any failed
+                    const anyFailed = layers.some((layer) => layer.status === "failed")
+                    if (anyFailed) {
+                        const failedLayers = layers
+                            .filter((l) => l.status === "failed")
+                            .map((l) => `${l.name}: ${l.details}`)
+                            .join("; ")
+                        setError(`Layer processing failed: ${failedLayers}`)
+                    } else {
+                        setLayersComplete(true)
+                        setLayerData({ layers_added: layers })
+                        
+                        // Calculate areas after adding layers
+                        try {
+                            await api.calculateAreas(currentProject.id)
+                            
+                            // Refresh project data
+                            const project = await api.getProject(currentProject.id)
+                            updateProject(project)
+                        } catch (err: any) {
+                            console.error("Error calculating areas:", err)
+                            setError(err.response?.data?.detail || "Failed to calculate areas")
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error("Error polling layer status:", error)
+            }
+        }, 5000) // Poll every 5 seconds
+
+        return () => clearInterval(pollInterval)
+    }, [currentProject?.id, isProcessingLayers, updateProject])
 
 
     useEffect(() => {
@@ -148,33 +211,42 @@ function WorkflowContent() {
         if (!currentProject || selectedLayers.length === 0) return
 
         setIsProcessing(true)
+        setIsProcessingLayers(true)
         setError(null)
+        
+        // Initialize status map with placeholder data for immediate UI feedback
+        setLayerStatusMap({
+            "Settlements": {
+                status: "in_progress",
+                details: "Queued for processing...",
+                area_ha: null,
+                feature_count: null,
+            },
+            "Isolated Buildings": {
+                status: "in_progress",
+                details: "Queued for processing...",
+                area_ha: null,
+                feature_count: null,
+            },
+        })
 
         try {
             // Generate settlement layers which creates both buildings and settlements
             if (selectedLayers.includes("Buildings & Settlements")) {
-                const layerResult = await api.generateSettlementLayer(currentProject.id, {
+                await api.generateSettlementLayer(currentProject.id, {
                     building_buffer: 10,
                     settlement_eps: 50,
                     min_buildings: 5,
                 })
 
-                // Store layer info for display
-                setLayerData(layerResult)
+                // Polling will handle the rest via useEffect
             }
-
-            // Calculate areas after adding layers
-            await api.calculateAreas(currentProject.id)
-
-            setLayersComplete(true)
-
-            // Refresh project data
-            const project = await api.getProject(currentProject.id)
-            updateProject(project)
 
         } catch (error: any) {
             setError(error.response?.data?.detail || 'Failed to add layers')
             console.error("Error adding layers:", error)
+            setIsProcessingLayers(false)
+            setLayerStatusMap({})
         } finally {
             setIsProcessing(false)
         }
@@ -405,11 +477,50 @@ function WorkflowContent() {
 
                                         <button
                                             onClick={handleAddLayers}
-                                            disabled={isProcessing || selectedLayers.length === 0}
+                                            disabled={isProcessing || isProcessingLayers || selectedLayers.length === 0}
                                             className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold rounded-lg transition-colors"
                                         >
-                                            {isProcessing ? 'Processing...' : layersComplete ? 'Rerun Layers' : 'Add Layers'}
+                                            {isProcessingLayers ? 'Processing Layers...' : isProcessing ? 'Processing...' : layersComplete ? 'Rerun Layers' : 'Add Layers'}
                                         </button>
+
+                                        {/* Layer Processing Status */}
+                                        {isProcessingLayers && (
+                                            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                                <h4 className="text-sm font-semibold text-blue-900 mb-3">Processing Layers...</h4>
+                                                <div className="space-y-3">
+                                                    {Object.entries(layerStatusMap).map(([name, status]: [string, any]) => (
+                                                        <div key={name} className="space-y-1">
+                                                            <div className="flex items-center gap-2">
+                                                                {status.status === "successful" ? (
+                                                                    <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                                                                        <span className="text-white text-xs">✓</span>
+                                                                    </div>
+                                                                ) : status.status === "failed" ? (
+                                                                    <div className="w-4 h-4 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0">
+                                                                        <span className="text-white text-xs">✕</span>
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="w-4 h-4 rounded-full border-2 border-blue-600 border-t-transparent animate-spin flex-shrink-0" />
+                                                                )}
+                                                                <span className={`text-sm font-medium ${
+                                                                    status.status === "successful" ? "text-green-700" :
+                                                                    status.status === "failed" ? "text-red-700" :
+                                                                    "text-blue-700"
+                                                                }`}>
+                                                                    {name}
+                                                                </span>
+                                                            </div>
+                                                            <p className="text-xs text-slate-600 ml-6">
+                                                                {status.details}
+                                                                {status.status === "in_progress" && (
+                                                                    <span className="inline-block ml-1 animate-pulse">...</span>
+                                                                )}
+                                                            </p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="lg:col-span-2 h-[500px]">

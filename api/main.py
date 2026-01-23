@@ -21,6 +21,7 @@ from auth import (
 from config import AVAILABLE_LAYERS, settings
 from database import get_db, init_db
 from fastapi import (
+    BackgroundTasks,
     Depends,
     FastAPI,
     File,
@@ -69,9 +70,11 @@ from services import (
     get_parcels_gdf,
     get_project,
     list_projects,
+    process_custom_layer_background,
     process_custom_layer_upload,
     process_khasra_upload,
     process_settlement_layer,
+    process_settlement_layer_background,
 )
 from sqlalchemy.orm import Session
 
@@ -467,6 +470,7 @@ async def get_available_layers_endpoint(
 )
 async def upload_custom_layer_endpoint(
     project_id: str,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(
         ..., description="KML or GeoJSON file containing layer geometries"
     ),
@@ -512,8 +516,41 @@ async def upload_custom_layer_endpoint(
 
     try:
         content = await file.read()
-        layer_info = process_custom_layer_upload(
-            db=db,
+        
+        # Create placeholder layer record immediately
+        from database import SessionLocal, LayerModel
+        from models import LayerType
+        temp_db = SessionLocal()
+        try:
+            layer = LayerModel(
+                project_id=project_id,
+                name=layer_name,
+                layer_type=LayerType.CUSTOM.value,
+                is_unusable=is_unusable,
+                status="in_progress",
+                details="Queued for processing...",
+                parameters={},
+            )
+            temp_db.add(layer)
+            temp_db.commit()
+            
+            layer_info = LayerInfo(
+                layer_type=LayerType.CUSTOM.value,
+                name=layer_name,
+                description=f"Custom uploaded layer: {layer_name}",
+                is_unusable=is_unusable,
+                parameters={},
+                status="in_progress",
+                details="Queued for processing...",
+            )
+            temp_db.close()
+        except Exception as e:
+            temp_db.close()
+            raise
+        
+        # Schedule background processing
+        background_tasks.add_task(
+            process_custom_layer_background,
             file_content=content,
             filename=file.filename,
             project_id=project_id,
@@ -523,13 +560,13 @@ async def upload_custom_layer_endpoint(
 
         return LayerUploadResponse(
             project_id=project_id,
-            message=f"Successfully added layer '{layer_name}'",
+            message=f"Layer '{layer_name}' processing started. Poll /projects/{project_id}/layers for status updates.",
             layers_added=[layer_info],
         )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Error processing layer: {str(e)}",
+            detail=f"Error initializing layer: {str(e)}",
         )
 
 
@@ -541,12 +578,16 @@ async def upload_custom_layer_endpoint(
 )
 async def generate_settlement_layer_endpoint(
     project_id: str,
+    background_tasks: BackgroundTasks,
     request: SettlementLayerRequest = SettlementLayerRequest(),
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
     """
     Automatically generate settlement and isolated building layers from VIDA rooftop data.
+
+    This endpoint returns immediately and processes layers in the background.
+    Poll `/projects/{project_id}/layers` to check processing status.
 
     This endpoint:
     1. Downloads building footprints from VIDA for the project area
@@ -570,25 +611,40 @@ async def generate_settlement_layer_endpoint(
             detail="Khasras must be uploaded before generating settlement layers",
         )
 
+    # Create placeholder layer records immediately
+    from database import SessionLocal
+    temp_db = SessionLocal()
     try:
         layer_infos = process_settlement_layer(
-            db=db,
+            db=temp_db,
             project_id=project_id,
             building_buffer=request.building_buffer,
             settlement_eps=request.settlement_eps,
             min_buildings=request.min_buildings,
+            create_only=True,  # Only create layer records, don't process yet
         )
-
-        return LayerUploadResponse(
-            project_id=project_id,
-            message="Successfully generated settlement layers",
-            layers_added=list(layer_infos),
-        )
+        temp_db.close()
     except Exception as e:
+        temp_db.close()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Error generating settlement layer: {str(e)}",
+            detail=f"Error initializing settlement layers: {str(e)}",
         )
+
+    # Schedule background processing
+    background_tasks.add_task(
+        process_settlement_layer_background,
+        project_id=project_id,
+        building_buffer=request.building_buffer,
+        settlement_eps=request.settlement_eps,
+        min_buildings=request.min_buildings,
+    )
+
+    return LayerUploadResponse(
+        project_id=project_id,
+        message="Settlement layer processing started. Poll /projects/{project_id}/layers for status updates.",
+        layers_added=list(layer_infos),
+    )
 
 
 @app.get(

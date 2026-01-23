@@ -531,18 +531,26 @@ def process_custom_layer_upload(
     if not project:
         raise ValueError(f"Project {project_id} not found")
 
-    # Create layer record immediately with in_progress status
-    layer = LayerModel(
-        project_id=project_id,
-        name=layer_name,
-        layer_type=LayerType.CUSTOM.value,
-        is_unusable=is_unusable,
-        status="in_progress",
-        details="Initializing layer processing...",
-        parameters={},
+    # Get existing layer record (created by endpoint)
+    layer = (
+        db.query(LayerModel)
+        .filter(LayerModel.project_id == project_id, LayerModel.name == layer_name)
+        .first()
     )
-    db.add(layer)
-    db.commit()
+    
+    if not layer:
+        # Create layer record if it doesn't exist (backwards compatibility)
+        layer = LayerModel(
+            project_id=project_id,
+            name=layer_name,
+            layer_type=LayerType.CUSTOM.value,
+            is_unusable=is_unusable,
+            status="in_progress",
+            details="Initializing layer processing...",
+            parameters={},
+        )
+        db.add(layer)
+        db.commit()
 
     try:
         update_layer_status(db, layer, "in_progress", "Loading khasras data...")
@@ -859,6 +867,7 @@ def process_settlement_layer(
     building_buffer: int = 10,
     settlement_eps: int = 50,
     min_buildings: int = 5,
+    create_only: bool = False,
 ) -> Tuple[LayerInfo, LayerInfo]:
     """
     Process buildings to create settlement and isolated building layers.
@@ -876,6 +885,7 @@ def process_settlement_layer(
         building_buffer: Buffer distance around buildings in meters
         settlement_eps: DBSCAN epsilon (max distance between buildings)
         min_buildings: Minimum buildings to form a settlement
+        create_only: If True, only create layer records and return immediately
 
     Returns:
         Tuple of (settlements_layer_info, isolated_buildings_layer_info)
@@ -884,35 +894,115 @@ def process_settlement_layer(
     if not project:
         raise ValueError(f"Project {project_id} not found")
 
-    # Create layer records immediately with in_progress status
-    settlements_layer = LayerModel(
-        project_id=project_id,
-        name="Settlements",
-        layer_type=LayerType.BUILTIN.value,
-        is_unusable=True,
-        status="in_progress",
-        details="Initializing settlement detection...",
-        parameters={
-            "building_buffer": building_buffer,
-            "settlement_eps": settlement_eps,
-            "min_buildings": min_buildings,
-        },
+    # Check if layers already exist
+    existing_settlements = (
+        db.query(LayerModel)
+        .filter(
+            LayerModel.project_id == project_id,
+            LayerModel.name == "Settlements"
+        )
+        .first()
     )
-    db.add(settlements_layer)
+    
+    existing_isolated = (
+        db.query(LayerModel)
+        .filter(
+            LayerModel.project_id == project_id,
+            LayerModel.name == "Isolated Buildings"
+        )
+        .first()
+    )
+    
+    # If create_only and layers exist, return existing info
+    if create_only and existing_settlements and existing_isolated:
+        return (
+            LayerInfo(
+                layer_type=LayerType.BUILTIN.value,
+                name=existing_settlements.name,
+                description="Settlement clusters from buildings",
+                is_unusable=existing_settlements.is_unusable,
+                parameters=existing_settlements.parameters or {},
+                status=existing_settlements.status,
+                details=existing_settlements.details,
+                area_ha=existing_settlements.total_area_ha,
+                feature_count=existing_settlements.feature_count,
+            ),
+            LayerInfo(
+                layer_type=LayerType.BUILTIN.value,
+                name=existing_isolated.name,
+                description="Buildings not part of settlements",
+                is_unusable=existing_isolated.is_unusable,
+                parameters=existing_isolated.parameters or {},
+                status=existing_isolated.status,
+                details=existing_isolated.details,
+                area_ha=existing_isolated.total_area_ha,
+                feature_count=existing_isolated.feature_count,
+            ),
+        )
+    
+    # Use existing layers if found, otherwise create new ones
+    if existing_settlements:
+        settlements_layer = existing_settlements
+        settlements_layer.status = "in_progress"
+        settlements_layer.details = "Queued for processing..." if create_only else "Initializing settlement detection..."
+    else:
+        settlements_layer = LayerModel(
+            project_id=project_id,
+            name="Settlements",
+            layer_type=LayerType.BUILTIN.value,
+            is_unusable=True,
+            status="in_progress",
+            details="Queued for processing..." if create_only else "Initializing settlement detection...",
+            parameters={
+                "building_buffer": building_buffer,
+                "settlement_eps": settlement_eps,
+                "min_buildings": min_buildings,
+            },
+        )
+        db.add(settlements_layer)
 
-    isolated_layer = LayerModel(
-        project_id=project_id,
-        name="Isolated Buildings",
-        layer_type=LayerType.BUILTIN.value,
-        is_unusable=False,
-        status="in_progress",
-        details="Waiting for settlement detection...",
-        parameters={
-            "building_buffer": building_buffer,
-        },
-    )
-    db.add(isolated_layer)
+    if existing_isolated:
+        isolated_layer = existing_isolated
+        isolated_layer.status = "in_progress"
+        isolated_layer.details = "Queued for processing..." if create_only else "Waiting for settlement detection..."
+    else:
+        isolated_layer = LayerModel(
+            project_id=project_id,
+            name="Isolated Buildings",
+            layer_type=LayerType.BUILTIN.value,
+            is_unusable=False,
+            status="in_progress",
+            details="Queued for processing..." if create_only else "Waiting for settlement detection...",
+            parameters={
+                "building_buffer": building_buffer,
+            },
+        )
+        db.add(isolated_layer)
+    
     db.commit()
+
+    # If create_only, return placeholder LayerInfo objects
+    if create_only:
+        return (
+            LayerInfo(
+                layer_type=LayerType.BUILTIN.value,
+                name="Settlements",
+                description="Settlement clusters from buildings",
+                is_unusable=True,
+                parameters=settlements_layer.parameters,
+                status="in_progress",
+                details="Queued for processing...",
+            ),
+            LayerInfo(
+                layer_type=LayerType.BUILTIN.value,
+                name="Isolated Buildings",
+                description="Buildings not part of settlements",
+                is_unusable=False,
+                parameters=isolated_layer.parameters,
+                status="in_progress",
+                details="Queued for processing...",
+            ),
+        )
 
     try:
         update_layer_status(
@@ -1985,3 +2075,59 @@ def export_to_excel(
 
     filename = f"{location}_export_{timestamp}.xlsx"
     return buffer.getvalue(), filename
+
+
+# ============ Background Processing Functions ============
+
+
+def process_settlement_layer_background(
+    project_id: str,
+    building_buffer: int = 10,
+    settlement_eps: int = 50,
+    min_buildings: int = 5,
+):
+    """Background task to process settlement layers"""
+    from database import SessionLocal
+    
+    db = SessionLocal()
+    try:
+        process_settlement_layer(
+            db=db,
+            project_id=project_id,
+            building_buffer=building_buffer,
+            settlement_eps=settlement_eps,
+            min_buildings=min_buildings,
+            create_only=False,
+        )
+    except Exception as e:
+        print(f"Error in background settlement layer processing: {e}")
+        # The function already marks layers as failed in the database
+    finally:
+        db.close()
+
+
+def process_custom_layer_background(
+    file_content: bytes,
+    filename: str,
+    project_id: str,
+    layer_name: str,
+    is_unusable: bool = True,
+):
+    """Background task to process custom layer"""
+    from database import SessionLocal
+    
+    db = SessionLocal()
+    try:
+        process_custom_layer_upload(
+            db=db,
+            file_content=file_content,
+            filename=filename,
+            project_id=project_id,
+            layer_name=layer_name,
+            is_unusable=is_unusable,
+        )
+    except Exception as e:
+        print(f"Error in background custom layer processing: {e}")
+        # The function already marks layer as failed in the database
+    finally:
+        db.close()
