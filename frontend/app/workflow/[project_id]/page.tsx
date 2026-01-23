@@ -212,39 +212,44 @@ function WorkflowContent() {
                         console.error('Failed to load khasra GeoJSON:', error)
                     }
 
-                    if (project.layers_added && project.layers_added.length > 0) {
-                        // If clustering is done, start at clustering page
-                        if (project.status === 'clustered' || project.status === 'completed') {
-                            setIsClusteringComplete(true)
+                    // Determine which page to start on
+                    const hasLayers = project.layers_added && project.layers_added.length > 0
+                    const isClustered = project.status === 'clustered' || project.status === 'completed'
 
-                            // Load parcel GeoJSON for clustered projects
-                            try {
-                                const parcelsGeoJSON = await api.getParcelsGeoJSON(currentProject.id)
-                                setParcelGeoJSON(parcelsGeoJSON)
+                    if (hasLayers && isClustered) {
+                        // Project is fully complete - go to export page
+                        setIsClusteringComplete(true)
 
-                                // Extract clustering params and results from response
-                                if (parcelsGeoJSON?.clusteringParams) {
-                                    setClusteringParams({
-                                        distance_threshold: parcelsGeoJSON.clusteringParams.distance_threshold,
-                                        min_samples: parcelsGeoJSON.clusteringParams.min_samples
-                                    })
-                                    setClusteringResult({
-                                        total_parcels: parcelsGeoJSON.clusteringParams.total_parcels,
-                                        clustered_khasras: parcelsGeoJSON.clusteringParams.clustered_khasras,
-                                        unclustered_khasras: parcelsGeoJSON.clusteringParams.unclustered_khasras
-                                    })
-                                }
-                            } catch (error) {
-                                console.error('Failed to load parcel GeoJSON:', error)
+                        try {
+                            const parcelsGeoJSON = await api.getParcelsGeoJSON(currentProject.id)
+                            setParcelGeoJSON(parcelsGeoJSON)
+
+                            if (parcelsGeoJSON?.clusteringParams) {
+                                setClusteringParams({
+                                    distance_threshold: parcelsGeoJSON.clusteringParams.distance_threshold,
+                                    min_samples: parcelsGeoJSON.clusteringParams.min_samples
+                                })
+                                setClusteringResult({
+                                    total_parcels: parcelsGeoJSON.clusteringParams.total_parcels,
+                                    clustered_khasras: parcelsGeoJSON.clusteringParams.clustered_khasras,
+                                    unclustered_khasras: parcelsGeoJSON.clusteringParams.unclustered_khasras
+                                })
                             }
-
-                            setCurrentPage(3)
-                        } else {
-                            setCurrentPage(3)
+                        } catch (error) {
+                            console.error('Failed to load parcel GeoJSON:', error)
                         }
+
+                        setCurrentPage(4)
+                    } else if (hasLayers) {
+                        // Layers added but not clustered yet - go to layers page
+                        setCurrentPage(2)
+                    } else {
+                        // Only khasras added - stay on upload page
+                        setCurrentPage(1)
                     }
-                    // Stay on page 1 to show pre-existing khasras display
-                    // User must click Next to proceed
+                } else {
+                    // No khasras - stay on upload page
+                    setCurrentPage(1)
                 }
             } catch (error) {
                 console.error('Failed to load project:', error)
