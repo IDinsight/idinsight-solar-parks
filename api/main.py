@@ -8,10 +8,11 @@ and exporting results.
 Now with PostgreSQL/PostGIS persistence and local file storage.
 """
 
+import json
+import traceback
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
-import json
 
 import uvicorn
 from auth import (
@@ -867,6 +868,8 @@ async def cluster_khasras_endpoint(
             parcels=result["parcels"],
         )
     except Exception as e:
+        error_details = traceback.format_exc()
+        print(f"[CLUSTERING ERROR] {error_details}", flush=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error clustering khasras: {str(e)}",
