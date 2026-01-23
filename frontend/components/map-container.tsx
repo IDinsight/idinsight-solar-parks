@@ -8,7 +8,7 @@ import "leaflet/dist/leaflet.css"
 
 interface MapProps {
   data: any
-  selectedLayers: string[]
+  selectedLayers?: string[]
   center: [number, number]
   zoom: number
   clusters?: any[]
@@ -217,10 +217,11 @@ export default function MapComponent({ data, selectedLayers, center, zoom, layer
 
     try {
       const processedLayers: Array<{ data: FeatureCollection, color: string, name: string }> = []
+      const layersToCheck = selectedLayers || []
 
       Object.entries(layersData).forEach(([layerName, layerInfo]: [string, any]) => {
         // Check if this layer should be displayed based on selectedLayers
-        if (selectedLayers.length > 0 && !selectedLayers.includes(layerName)) {
+        if (layersToCheck.length > 0 && !layersToCheck.includes(layerName)) {
           return
         }
 
