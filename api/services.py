@@ -1398,80 +1398,6 @@ def _save_builtin_layer_with_status(
     )
 
 
-# def _save_builtin_layer(
-#     db: Session,
-#     project_id: str,
-#     layer_name: str,
-#     layer_gdf: gpd.GeoDataFrame,
-#     area_col: str,
-#     is_unusable: bool,
-#     layer_type: str,
-#     parameters: Dict,
-# ) -> LayerInfo:
-#     """Helper function to save a builtin layer to database"""
-
-#     # Store layer metadata in database
-#     layer = LayerModel(
-#         project_id=project_id,
-#         name=layer_name,
-#         layer_type=layer_type,
-#         is_unusable=is_unusable,
-#         feature_count=len(layer_gdf),
-#         total_area_ha=round(layer_gdf[area_col].sum(), 2),
-#         parameters=parameters,
-#         status="successful",
-#     )
-#     db.add(layer)
-#     db.flush()
-
-#     # Store per-khasra layer features in database
-#     layer_4326 = layer_gdf.to_crs("EPSG:4326")
-#     for idx, row in layer_4326.iterrows():
-#         geom = row.geometry
-#         # Convert to MultiPolygon if needed
-#         if geom.geom_type == "Polygon":
-#             geom = MultiPolygon([geom])
-#         elif geom.geom_type == "GeometryCollection":
-#             polygons = [
-#                 g for g in geom.geoms if g.geom_type in ("Polygon", "MultiPolygon")
-#             ]
-#             if polygons:
-#                 all_polys = []
-#                 for p in polygons:
-#                     if p.geom_type == "Polygon":
-#                         all_polys.append(p)
-#                     else:
-#                         all_polys.extend(p.geoms)
-#                 geom = MultiPolygon(all_polys) if all_polys else None
-#             else:
-#                 geom = None
-
-#         if geom is None or geom.is_empty:
-#             continue
-
-#         feature = LayerFeatureModel(
-#             layer_id=layer.id,
-#             khasra_id_unique=row.get("Khasra ID (Unique)", ""),
-#             geometry=from_shape(geom, srid=4326),
-#             area_ha=round(row[area_col], 4),
-#             properties={
-#                 "layer_name": layer_name,
-#                 "is_unusable": is_unusable,
-#             },
-#         )
-#         db.add(feature)
-
-#     return LayerInfo(
-#         layer_type=layer_type,
-#         name=layer_name,
-#         description=f"Builtin layer: {layer_name}",
-#         is_unusable=is_unusable,
-#         parameters=parameters,
-#         area_ha=round(layer_gdf[area_col].sum(), 2),
-#         feature_count=len(layer_gdf),
-#     )
-
-
 # ============ Area Calculations ============
 
 
@@ -1652,15 +1578,16 @@ def format_cluster_labels(
         by=area_col, ascending=False
     )
 
-    prefix = f"PARCEL_{distance_threshold}m_" if distance_threshold else "PARCEL_"
-    formatted_ids = [
-        f"{prefix}{i+1:04d}" for i in range(len(ordered_cluster_labels_df))
-    ]
+    prefix = "PARCEL_"
+    # make list of ids [1, 2, 3, ...]
+    df_length = len(ordered_cluster_labels_df)
+    ids = np.arange(1, df_length + 1)
+    # make list of ids with leading zeros ["001", "002", "003", ...]
+    max_digits = len(str(df_length))
+    formatted_ids = [prefix + str(id).zfill(max_digits) for id in ids]
     ordered_cluster_labels_df["formatted_ids"] = formatted_ids
 
-    unclustered_label = (
-        f"{prefix}UNCLUSTERED" if distance_threshold else "PARCEL_UNCLUSTERED"
-    )
+    unclustered_label = "PARCEL_UNCLUSTERED"
     cluster_mapping = {-1: unclustered_label}
     cluster_mapping.update(
         dict(
