@@ -9,7 +9,7 @@ import ClusteringSection from "@/components/clustering-section"
 import MapContainer from "@/components/map-container"
 import * as api from "@/lib/api/services"
 import { ExportFormat } from "@/lib/api/types"
-import { ChevronLeft, ChevronRight, Download, ArrowLeft, AlertCircle } from "lucide-react"
+import { ChevronLeft, ChevronRight, Download, ArrowLeft, AlertCircle, Map, Copy, ExternalLink, Check } from "lucide-react"
 
 /**
  * Animated ellipsis component for loading states
@@ -78,6 +78,9 @@ function WorkflowContent() {
     // Map visualization state
     const [mapCenter, setMapCenter] = useState<[number, number]>([20, 0])
     const [mapZoom, setMapZoom] = useState(5)
+    
+    // Map link state
+    const [mapLinkCopied, setMapLinkCopied] = useState(false)
 
     /**
      * Fetch and update constraint layers whenever we're on page 2 or later
@@ -461,6 +464,34 @@ function WorkflowContent() {
         }
     }
 
+    /**
+     * Copy full-screen map URL to clipboard
+     */
+    const handleCopyMapLink = async () => {
+        if (!currentProject) return
+        
+        const mapUrl = `${window.location.origin}/map/${currentProject.id}`
+        
+        try {
+            await navigator.clipboard.writeText(mapUrl)
+            setMapLinkCopied(true)
+            setTimeout(() => setMapLinkCopied(false), 2000)
+        } catch (error) {
+            console.error('Failed to copy link:', error)
+            alert('Failed to copy link to clipboard')
+        }
+    }
+
+    /**
+     * Open full-screen map in new tab
+     */
+    const handleOpenMapInNewTab = () => {
+        if (!currentProject) return
+        
+        const mapUrl = `/map/${currentProject.id}`
+        window.open(mapUrl, '_blank')
+    }
+
     if (!currentProject) {
         return <div>Loading...</div>
     }
@@ -803,34 +834,78 @@ function WorkflowContent() {
                                 </div>
                             )}
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
-                                {/* KML */}
-                                <button
-                                    onClick={() => handleExportData(ExportFormat.KML)}
-                                    disabled={isProcessing}
-                                    className="p-8 border-2 border-slate-200 rounded-lg hover:border-green-500 hover:bg-green-50 transition-all text-center space-y-4"
-                                >
-                                    <Download className="w-12 h-12 text-green-600 mx-auto" />
-                                    <div>
-                                        <h3 className="text-xl font-semibold text-slate-900">Download KML</h3>
-                                        <p className="text-sm text-slate-600 mt-2">All layers for Google Earth</p>
-                                        <p className="text-xs text-slate-500 mt-1">Includes khasras, parcels, and constraint layers</p>
+                            <div className="space-y-6">
+                                {/* Interactive Map Section */}
+                                <div className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200">
+                                    <div className="flex items-start gap-4">
+                                        <Map className="w-10 h-10 text-blue-600 flex-shrink-0 mt-1" />
+                                        <div className="flex-1">
+                                            <h3 className="text-xl font-semibold text-slate-900 mb-2">Interactive Map</h3>
+                                            <p className="text-sm text-slate-600 mb-4">
+                                                View your project data in a full-screen interactive map. Share the link or open in a new tab for detailed exploration.
+                                            </p>
+                                            <div className="flex gap-3">
+                                                <button
+                                                    onClick={handleCopyMapLink}
+                                                    className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-blue-300 hover:bg-blue-50 text-blue-700 font-medium rounded-lg transition-colors"
+                                                >
+                                                    {mapLinkCopied ? (
+                                                        <>
+                                                            <Check className="w-4 h-4" />
+                                                            Link Copied!
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Copy className="w-4 h-4" />
+                                                            Copy Link
+                                                        </>
+                                                    )}
+                                                </button>
+                                                <button
+                                                    onClick={handleOpenMapInNewTab}
+                                                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                                                >
+                                                    <ExternalLink className="w-4 h-4" />
+                                                    Open Map
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
-                                </button>
+                                </div>
 
-                                {/* Excel */}
-                                <button
-                                    onClick={() => handleExportData(ExportFormat.EXCEL)}
-                                    disabled={isProcessing}
-                                    className="p-8 border-2 border-slate-200 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 transition-all text-center space-y-4"
-                                >
-                                    <Download className="w-12 h-12 text-emerald-600 mx-auto" />
-                                    <div>
-                                        <h3 className="text-xl font-semibold text-slate-900">Download Excel</h3>
-                                        <p className="text-sm text-slate-600 mt-2">Complete statistics workbook</p>
-                                        <p className="text-xs text-slate-500 mt-1">Multiple sheets with detailed analysis</p>
+                                {/* Download Section */}
+                                <div>
+                                    <h3 className="text-lg font-semibold text-slate-900 mb-4">Download Files</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+                                        {/* KML */}
+                                        <button
+                                            onClick={() => handleExportData(ExportFormat.KML)}
+                                            disabled={isProcessing}
+                                            className="p-8 border-2 border-slate-200 rounded-lg hover:border-green-500 hover:bg-green-50 transition-all text-center space-y-4"
+                                        >
+                                            <Download className="w-12 h-12 text-green-600 mx-auto" />
+                                            <div>
+                                                <h3 className="text-xl font-semibold text-slate-900">Download KML</h3>
+                                                <p className="text-sm text-slate-600 mt-2">All layers for Google Earth</p>
+                                                <p className="text-xs text-slate-500 mt-1">Includes khasras, parcels, and constraint layers</p>
+                                            </div>
+                                        </button>
+
+                                        {/* Excel */}
+                                        <button
+                                            onClick={() => handleExportData(ExportFormat.EXCEL)}
+                                            disabled={isProcessing}
+                                            className="p-8 border-2 border-slate-200 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 transition-all text-center space-y-4"
+                                        >
+                                            <Download className="w-12 h-12 text-emerald-600 mx-auto" />
+                                            <div>
+                                                <h3 className="text-xl font-semibold text-slate-900">Download Excel</h3>
+                                                <p className="text-sm text-slate-600 mt-2">Complete statistics workbook</p>
+                                                <p className="text-xs text-slate-500 mt-1">Multiple sheets with detailed analysis</p>
+                                            </div>
+                                        </button>
                                     </div>
-                                </button>
+                                </div>
                             </div>
                         </div>
                     )}
