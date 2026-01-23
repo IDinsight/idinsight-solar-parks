@@ -2193,30 +2193,23 @@ def export_to_excel(
     buffer = BytesIO()
 
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-        for name, gdf in gdfs.items():
-            df = gdf.drop(columns=["geometry"], errors="ignore")
-            sheet_name = name[:31]
-            df.to_excel(writer, sheet_name=sheet_name, index=False)
-
-        if include_statistics:
-            summary_data = []
-            for name, gdf in gdfs.items():
-                # Calculate area in projected CRS to avoid warnings
-                total_area_ha = None
-                if "geometry" in gdf.columns:
-                    # Convert to projected CRS for accurate area calculation
-                    gdf_projected = gdf.to_crs("EPSG:32643")  # UTM Zone 43N for India
-                    total_area_ha = gdf_projected.geometry.area.sum() / 10_000
-                
-                summary_data.append(
-                    {
-                        "Layer": name,
-                        "Feature Count": len(gdf),
-                        "Total Area (ha)": total_area_ha,
-                    }
-                )
-            summary_df = pd.DataFrame(summary_data)
-            summary_df.to_excel(writer, sheet_name="Summary", index=False)
+        # Sheet 1: Parcels (exclude UNCLUSTERED parcels)
+        if "parcels" in gdfs:
+            parcels_df = gdfs["parcels"].drop(columns=["geometry"], errors="ignore")
+            # Filter out UNCLUSTERED parcels
+            if "parcel_id" in parcels_df.columns:
+                parcels_df = parcels_df[~parcels_df["parcel_id"].str.contains("UNCLUSTERED", na=True)]
+            parcels_df.to_excel(writer, sheet_name="Parcels", index=False)
+        
+        # Sheet 2: Khasras that are part of clustered parcels only
+        if "khasras" in gdfs:
+            khasras_df = gdfs["khasras"].drop(columns=["geometry"], errors="ignore")
+            
+            # Filter to only khasras that are part of clustered parcels (not UNCLUSTERED)
+            if "parcel_id" in khasras_df.columns:
+                khasras_df = khasras_df[~khasras_df["parcel_id"].str.contains("UNCLUSTERED", na=True)]
+            
+            khasras_df.to_excel(writer, sheet_name="Khasras", index=False)
 
     filename = f"{location}_export.xlsx"
     return buffer.getvalue(), filename
