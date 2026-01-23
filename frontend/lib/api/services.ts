@@ -177,6 +177,10 @@ export async function getParcelsGeoJSON(projectId: string): Promise<any> {
     return response.data
 }
 
+export async function deleteParcels(projectId: string): Promise<void> {
+    await apiClient.delete(`/projects/${projectId}/parcels`)
+}
+
 // ============ Export ============
 
 export async function exportData(projectId: string, request: ExportRequest): Promise<Blob> {

@@ -506,6 +506,36 @@ def delete_khasras(db: Session, project_id: str) -> bool:
     return True
 
 
+def delete_parcels(db: Session, project_id: str) -> bool:
+    """Delete all parcels (clustering results) for a project"""
+    project = get_project(db, project_id)
+    if not project:
+        return False
+
+    # Check if there are any parcels to delete
+    parcel_count = (
+        db.query(ParcelModel).filter(ParcelModel.project_id == project_id).count()
+    )
+    if parcel_count == 0:
+        return False
+
+    # Delete all parcels
+    db.query(ParcelModel).filter(ParcelModel.project_id == project_id).delete()
+
+    # Reset parcel_id on all khasras
+    db.query(KhasraModel).filter(KhasraModel.project_id == project_id).update(
+        {"parcel_id": None}
+    )
+
+    # Update project status back to khasras_uploaded
+    project.status = ProjectStatus.KHASRAS_UPLOADED
+    project.updated_at = datetime.utcnow()
+
+    db.commit()
+
+    return True
+
+
 # ============ Layer Processing ============
 
 

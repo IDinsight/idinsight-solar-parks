@@ -64,6 +64,7 @@ from services import (
     cluster_khasras,
     create_project,
     delete_khasras,
+    delete_parcels,
     delete_project,
     export_data,
     get_khasras,
@@ -912,6 +913,51 @@ async def get_parcels_geojson(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error retrieving parcel geometries: {str(e)}",
+        )
+
+
+@app.delete(
+    "/projects/{project_id}/parcels",
+    tags=["Clustering"],
+    summary="Delete clustering results",
+)
+async def delete_parcels_endpoint(
+    project_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Delete all clustering results (parcels) for a project.
+    
+    This resets the project back to the state before clustering,
+    allowing you to re-run clustering with different parameters.
+    """
+    project = get_project(db, project_id)
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project {project_id} not found",
+        )
+
+    try:
+        success = delete_parcels(db, project_id)
+        
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No clustering results found to delete",
+            )
+        
+        return {
+            "message": "Successfully deleted clustering results",
+            "project_id": project_id,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error deleting parcels: {str(e)}",
         )
 
 

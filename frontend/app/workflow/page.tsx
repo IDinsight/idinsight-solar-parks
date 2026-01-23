@@ -72,6 +72,7 @@ function WorkflowContent() {
     // Step 3: Clustering state
     const [isClusteringComplete, setIsClusteringComplete] = useState(false)
     const [clusteringResult, setClusteringResult] = useState<any>(null)
+    const [clusteringParams, setClusteringParams] = useState<{distance_threshold: number, min_samples: number} | null>(null)
     const [parcelGeoJSON, setParcelGeoJSON] = useState<any>(null)
 
     // Map visualization state
@@ -347,6 +348,10 @@ function WorkflowContent() {
 
             setClusteringResult(result)
             setIsClusteringComplete(true)
+            setClusteringParams({
+                distance_threshold: distanceThreshold,
+                min_samples: minSamples
+            })
 
             // Fetch parcel geometries for map display
             const parcelsGeoJSON = await api.getParcelsGeoJSON(currentProject.id)
@@ -359,6 +364,36 @@ function WorkflowContent() {
         } catch (error: any) {
             setError(error.response?.data?.detail || 'Failed to run clustering')
             console.error("Error running clustering:", error)
+        } finally {
+            setIsProcessing(false)
+        }
+    }
+
+    /**
+     * Delete clustering results and reset to pre-clustering state
+     */
+    const handleDeleteClustering = async () => {
+        if (!currentProject) return
+
+        setIsProcessing(true)
+        setError(null)
+
+        try {
+            await api.deleteParcels(currentProject.id)
+
+            // Reset clustering state
+            setIsClusteringComplete(false)
+            setClusteringResult(null)
+            setClusteringParams(null)
+            setParcelGeoJSON(null)
+
+            // Refresh project data
+            const updatedProject = await api.getProject(currentProject.id)
+            updateProject(updatedProject)
+
+        } catch (error: any) {
+            setError(error.response?.data?.detail || 'Failed to delete clustering')
+            console.error("Error deleting clustering:", error)
         } finally {
             setIsProcessing(false)
         }
@@ -649,7 +684,6 @@ function WorkflowContent() {
                                             data={khasraGeoJSON}
                                             center={mapCenter}
                                             zoom={mapZoom}
-                                            clusters={[]}
                                             layersData={constraintLayersGeoJSON || undefined}
                                         />
                                     ) : (
@@ -709,9 +743,12 @@ function WorkflowContent() {
                                             data={khasraGeoJSON}
                                             isProcessing={isProcessing}
                                             clusteringComplete={isClusteringComplete}
+                                            clusteringParams={clusteringParams}
+                                            clusteringResult={clusteringResult}
                                             onClusteringComplete={(result: any) => {
                                                 handleRunClustering(result.distanceThreshold, result.minSamples)
                                             }}
+                                            onClusteringDeleted={handleDeleteClustering}
                                         />
                                     </div>
                                     <div className="lg:col-span-2 h-[500px]">
