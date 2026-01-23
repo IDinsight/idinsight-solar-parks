@@ -87,16 +87,18 @@ const LeafletMap = dynamic(
           }
           
           // Add layer bounds
-          layersGeoJson.forEach(layer => {
-            if (layer.data && layer.data.features.length > 0) {
-              const layerBounds = L.geoJSON(layer.data).getBounds()
-              if (allBounds) {
-                allBounds.extend(layerBounds)
-              } else {
-                allBounds = layerBounds
+          if (layersGeoJson && Array.isArray(layersGeoJson)) {
+            layersGeoJson.forEach(layer => {
+              if (layer.data && layer.data.features && layer.data.features.length > 0) {
+                const layerBounds = L.geoJSON(layer.data).getBounds()
+                if (allBounds) {
+                  allBounds.extend(layerBounds)
+                } else {
+                  allBounds = layerBounds
+                }
               }
-            }
-          })
+            })
+          }
           
           if (allBounds && allBounds.isValid()) {
             // Use requestAnimationFrame to ensure DOM is ready

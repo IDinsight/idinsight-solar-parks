@@ -172,6 +172,24 @@ function WorkflowContent() {
                 if (project.khasra_count && project.khasra_count > 0) {
                     setIsKhasraUploadComplete(true)
                     
+                    // Load khasra GeoJSON data for clustering
+                    try {
+                        const khasraSummary = await api.getKhasrasSummary(currentProject.id)
+                        if (khasraSummary.geojson) {
+                            setKhasraGeoJSON(khasraSummary.geojson)
+                            
+                            // Center map on khasra bounds if available
+                            if (khasraSummary.bounds) {
+                                const centerLng = (khasraSummary.bounds.minx + khasraSummary.bounds.maxx) / 2
+                                const centerLat = (khasraSummary.bounds.miny + khasraSummary.bounds.maxy) / 2
+                                setMapCenter([centerLat, centerLng])
+                                setMapZoom(10)
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Failed to load khasra GeoJSON:', error)
+                    }
+                    
                     if (project.layers_added && project.layers_added.length > 0) {
                         // If clustering is done, start at clustering page
                         if (project.status === 'clustered' || project.status === 'completed') {
@@ -766,7 +784,7 @@ function WorkflowContent() {
                         <button
                             onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                             disabled={isProcessing}
-                            className="flex items-center gap-2 px-6 py-3 bg-slate-600 hover:bg-slate-700 disabled:bg-slate-400 text-white font-semibold rounded-lg transition-colors"
+                            className="flex items-center gap-2 px-6 py-3 border border-blue-600 hover:bg-blue-100 disabled:bg-slate-400 text-blue-600 font-semibold rounded-lg transition-colors"
                         >
                             <ChevronLeft className="w-5 h-5" />
                             Previous
