@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
+import uvicorn
 from auth import (
     authenticate_user,
     create_access_token,
@@ -19,7 +20,7 @@ from auth import (
     get_current_active_user,
 )
 from config import AVAILABLE_LAYERS, settings
-from database import get_db, init_db
+from database import LayerFeatureModel, LayerModel, SessionLocal, get_db, init_db
 from fastapi import (
     BackgroundTasks,
     Depends,
@@ -46,6 +47,7 @@ from models import (
     KhasraUploadResponse,
     LayerInfo,
     LayerStatsInfo,
+    LayerType,
     LayerUploadResponse,
     ParcelStatsInfo,
     ProjectCreate,
@@ -71,11 +73,11 @@ from services import (
     get_project,
     list_projects,
     process_custom_layer_background,
-    process_custom_layer_upload,
     process_khasra_upload,
     process_settlement_layer,
     process_settlement_layer_background,
 )
+from sqlalchemy import delete as sql_delete
 from sqlalchemy.orm import Session
 
 # ============ Lifespan Event Handler ============
@@ -518,8 +520,6 @@ async def upload_custom_layer_endpoint(
         content = await file.read()
         
         # Create placeholder layer record immediately
-        from database import SessionLocal, LayerModel
-        from models import LayerType
         temp_db = SessionLocal()
         try:
             layer = LayerModel(
@@ -612,7 +612,7 @@ async def generate_settlement_layer_endpoint(
         )
 
     # Create placeholder layer records immediately
-    from database import SessionLocal
+
     temp_db = SessionLocal()
     try:
         layer_infos = process_settlement_layer(
@@ -692,6 +692,52 @@ async def get_layers_metadata_endpoint(
         )
 
     return layers
+
+
+@app.delete(
+    "/projects/{project_id}/layers/{layer_name}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    tags=["Layers"],
+    summary="Delete a layer",
+)
+async def delete_layer_endpoint(
+    project_id: str,
+    layer_name: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Delete a layer and all its features from a project.
+    """
+    
+    project = get_project(db, project_id)
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project {project_id} not found",
+        )
+
+    # Find the layer
+    layer = (
+        db.query(LayerModel)
+        .filter(LayerModel.project_id == project_id, LayerModel.name == layer_name)
+        .first()
+    )
+    
+    if not layer:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Layer '{layer_name}' not found",
+        )
+
+    # Delete layer features first (cascade should handle this, but being explicit)
+    db.execute(sql_delete(LayerFeatureModel).where(LayerFeatureModel.layer_id == layer.id))
+    
+    # Delete the layer
+    db.delete(layer)
+    db.commit()
+    
+    return None
 
 
 @app.get(
@@ -1014,7 +1060,7 @@ async def get_project_stats_endpoint(
 # ============ Run Server ============
 
 if __name__ == "__main__":
-    import uvicorn
+    
 
     uvicorn.run(
         "main:app",

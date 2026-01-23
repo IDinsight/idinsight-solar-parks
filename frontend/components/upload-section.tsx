@@ -11,10 +11,11 @@ import type { KhasraSummary } from "@/lib/api/types"
 
 interface UploadSectionProps {
   onFileUpload: (file: File, data: any, uniqueIdColumn: string) => void
+  onKhasraDeleted?: () => void
   isProcessing: boolean
 }
 
-export default function UploadSection({ onFileUpload, isProcessing }: UploadSectionProps) {
+export default function UploadSection({ onFileUpload, onKhasraDeleted, isProcessing }: UploadSectionProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [previewData, setPreviewData] = useState<any>(null)
   const [selectedIdColumn, setSelectedIdColumn] = useState<string>("")
@@ -54,6 +55,10 @@ export default function UploadSection({ onFileUpload, isProcessing }: UploadSect
       // Refresh project to get updated status
       if (updateProject) {
         updateProject({ ...currentProject, status: "created", khasra_count: 0 })
+      }
+      // Notify parent component that khasras were deleted
+      if (onKhasraDeleted) {
+        onKhasraDeleted()
       }
     } catch (error) {
       console.error("Error deleting khasras:", error)
@@ -260,9 +265,26 @@ export default function UploadSection({ onFileUpload, isProcessing }: UploadSect
     }
   }
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (previewData && selectedIdColumn) {
-      onFileUpload(previewData.file, previewData, selectedIdColumn)
+      await onFileUpload(previewData.file, previewData, selectedIdColumn)
+      
+      // After successful upload, clear preview and refresh existing khasras
+      setPreviewData(null)
+      setColumns([])
+      setSelectedIdColumn("")
+      
+      // Fetch the newly uploaded khasras to show in "pre-existing" mode
+      if (currentProject?.id) {
+        try {
+          const summary = await getKhasrasSummary(currentProject.id)
+          if (summary.exists) {
+            setExistingKhasras(summary)
+          }
+        } catch (error) {
+          console.error("Error fetching uploaded khasras:", error)
+        }
+      }
     }
   }
 
@@ -348,10 +370,10 @@ export default function UploadSection({ onFileUpload, isProcessing }: UploadSect
             </button>
             <button
               onClick={handleConfirm}
-              disabled={!selectedIdColumn}
+              disabled={!selectedIdColumn || isProcessing}
               className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Confirm & Continue
+              {isProcessing ? 'Uploading...' : 'Confirm'}
             </button>
           </div>
         </div>
@@ -403,14 +425,14 @@ export default function UploadSection({ onFileUpload, isProcessing }: UploadSect
             </div>
 
             {/* Delete Action */}
-            <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+            <div className="border border-red-200 rounded-lg p-6">
               <h3 className="text-sm font-semibold text-red-900 mb-3">Delete Khasras</h3>
               <p className="text-xs text-red-700 mb-4">
                 To upload new khasras, you must first delete the existing ones. This will reset your project and remove all layers, clustering results, and statistics.
               </p>
               <button
                 onClick={() => setShowDeleteModal(true)}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 border border-red-600 hover:bg-red-100  text-red-600 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-400 font-semibold rounded-lg transition-colors"
               >
                 <Trash2 className="w-4 h-4" />
                 Delete All Khasras

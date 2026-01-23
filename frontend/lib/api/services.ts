@@ -142,6 +142,10 @@ export async function listProjectLayers(projectId: string): Promise<LayerInfo[]>
     return response.data
 }
 
+export async function deleteLayer(projectId: string, layerName: string): Promise<void> {
+    await apiClient.delete(`/projects/${projectId}/layers/${encodeURIComponent(layerName)}`)
+}
+
 export async function getProjectLayersGeoJSON(projectId: string): Promise<Record<string, any>> {
     const response = await apiClient.get<Record<string, any>>(`/projects/${projectId}/layers/geojson`)
     return response.data

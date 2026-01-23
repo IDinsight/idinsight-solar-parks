@@ -5,14 +5,16 @@ import { useRouter } from "next/navigation"
 import { ProtectedRoute } from "@/components/protected-route"
 import { useProjectStore } from "@/lib/stores/project"
 import UploadSection from "@/components/upload-section"
-import LayerSelector from "@/components/layer-selector"
 import ClusteringSection from "@/components/clustering-section"
 import MapContainer from "@/components/map-container"
 import * as api from "@/lib/api/services"
 import { ExportFormat, ExportType } from "@/lib/api/types"
 import { ChevronLeft, ChevronRight, Download, ArrowLeft, AlertCircle } from "lucide-react"
 
-// Animated ellipsis component
+/**
+ * Animated ellipsis component for loading states
+ * Cycles through . .. ... every 500ms
+ */
 function AnimatedEllipsis() {
     const [dots, setDots] = useState(".")
     
@@ -43,99 +45,103 @@ function WorkflowContent() {
     const router = useRouter()
     const { currentProject, updateProject } = useProjectStore()
 
+    // Workflow state
     const [currentPage, setCurrentPage] = useState(1)
     const [isProcessing, setIsProcessing] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
-    // Step 1: Upload khasras
+    // Step 1: Khasra upload state
     const [khasraFile, setKhasraFile] = useState<File | null>(null)
-    const [khasraData, setKhasraData] = useState<any>(null)
-    const [idColumn, setIdColumn] = useState<string>("")
-    const [uploadComplete, setUploadComplete] = useState(false)
+    const [khasraGeoJSON, setKhasraGeoJSON] = useState<any>(null)
+    const [khasraIdColumn, setKhasraIdColumn] = useState<string>("")
+    const [isKhasraUploadComplete, setIsKhasraUploadComplete] = useState(false)
 
-    // Step 2: Layers
-    const [availableLayers, setAvailableLayers] = useState<string[]>(["Buildings & Settlements"])
-    const [selectedLayers, setSelectedLayers] = useState<string[]>([])
-    const [layersComplete, setLayersComplete] = useState(false)
-    const [layerData, setLayerData] = useState<any>(null)
-    const [layersGeoJSON, setLayersGeoJSON] = useState<Record<string, any> | null>(null)
-    const [layerStatusMap, setLayerStatusMap] = useState<Record<string, any>>({})
-    const [isProcessingLayers, setIsProcessingLayers] = useState(false)
+    // Step 2: Constraint layers state
+    const [constraintLayersGeoJSON, setConstraintLayersGeoJSON] = useState<Record<string, any> | null>(null)
+    const [allProjectLayers, setAllProjectLayers] = useState<any[]>([])
+    const [activeProcessingLayer, setActiveProcessingLayer] = useState<string | null>(null)
+    
+    // Settlement layer configuration
+    const [settlementLayerParams, setSettlementLayerParams] = useState({
+        building_buffer: 10,
+        settlement_eps: 50,
+        min_buildings: 5,
+    })
+    const [settlementLayerStatus, setSettlementLayerStatus] = useState<any>(null)
 
-    // Step 3: Clustering
-    const [clusteringComplete, setClusteringComplete] = useState(false)
-    const [clusterResult, setClusterResult] = useState<any>(null)
+    // Step 3: Clustering state
+    const [isClusteringComplete, setIsClusteringComplete] = useState(false)
+    const [clusteringResult, setClusteringResult] = useState<any>(null)
 
-    // Map state
+    // Map visualization state
     const [mapCenter, setMapCenter] = useState<[number, number]>([20, 0])
     const [mapZoom, setMapZoom] = useState(5)
 
-    // Fetch layers GeoJSON when on page 2 or later
+    /**
+     * Fetch and update constraint layers whenever we're on page 2 or later
+     * Checks settlement layer status and loads GeoJSON for visualization
+     */
     useEffect(() => {
-        const fetchLayersGeoJSON = async () => {
+        const fetchConstraintLayers = async () => {
             if (currentProject?.id && currentPage >= 2) {
                 try {
-                    const layers = await api.getProjectLayersGeoJSON(currentProject.id)
-                    setLayersGeoJSON(layers)
+                    const layers = await api.listProjectLayers(currentProject.id)
+                    setAllProjectLayers(layers)
+                    
+                    // Update settlement layer status
+                    const settlementsLayer = layers.find((l: any) => l.name === "Settlements")
+                    const isolatedBuildingsLayer = layers.find((l: any) => l.name === "Isolated Buildings")
+                    if (settlementsLayer || isolatedBuildingsLayer) {
+                        setSettlementLayerStatus({
+                            settlements: settlementsLayer,
+                            isolated: isolatedBuildingsLayer,
+                            processing: settlementsLayer?.status === "in_progress" || isolatedBuildingsLayer?.status === "in_progress"
+                        })
+                    }
+                    
+                    const layersGeoJSON = await api.getProjectLayersGeoJSON(currentProject.id)
+                    setConstraintLayersGeoJSON(layersGeoJSON)
                 } catch (error) {
-                    console.error("Error fetching layers GeoJSON:", error)
+                    console.error("Error fetching constraint layers:", error)
                 }
             }
         }
-        fetchLayersGeoJSON()
-    }, [currentProject?.id, currentPage, layersComplete])
+        fetchConstraintLayers()
+    }, [currentProject?.id, currentPage])
 
-    // Poll for layer status updates while processing
+    /**
+     * Poll for layer processing status updates every 5 seconds
+     * Stops polling when processing is complete and refreshes all data
+     */
     useEffect(() => {
-        if (!currentProject?.id || !isProcessingLayers) return
+        if (!currentProject?.id || !activeProcessingLayer) return
 
         const pollInterval = setInterval(async () => {
             try {
                 const layers = await api.listProjectLayers(currentProject.id)
+                setAllProjectLayers(layers)
                 
-                // Create a map of layer name to status
-                const statusMap: Record<string, any> = {}
-                layers.forEach((layer) => {
-                    statusMap[layer.name] = {
-                        status: layer.status,
-                        details: layer.details,
-                        area_ha: layer.area_ha,
-                        feature_count: layer.feature_count,
-                    }
-                })
-                setLayerStatusMap(statusMap)
-
-                // Check if all layers are complete
-                const allComplete = layers.every(
-                    (layer) => layer.status === "successful" || layer.status === "failed"
-                )
-
-                if (allComplete) {
-                    setIsProcessingLayers(false)
+                if (activeProcessingLayer === "Settlements") {
+                    const settlementsLayer = layers.find((l: any) => l.name === "Settlements")
+                    const isolatedBuildingsLayer = layers.find((l: any) => l.name === "Isolated Buildings")
                     
-                    // Check if any failed
-                    const anyFailed = layers.some((layer) => layer.status === "failed")
-                    if (anyFailed) {
-                        const failedLayers = layers
-                            .filter((l) => l.status === "failed")
-                            .map((l) => `${l.name}: ${l.details}`)
-                            .join("; ")
-                        setError(`Layer processing failed: ${failedLayers}`)
-                    } else {
-                        setLayersComplete(true)
-                        setLayerData({ layers_added: layers })
+                    setSettlementLayerStatus({
+                        settlements: settlementsLayer,
+                        isolated: isolatedBuildingsLayer,
+                        processing: settlementsLayer?.status === "in_progress" || isolatedBuildingsLayer?.status === "in_progress"
+                    })
+                    
+                    // Stop polling when both layers are complete
+                    const isProcessingComplete = settlementsLayer?.status !== "in_progress" && isolatedBuildingsLayer?.status !== "in_progress"
+                    if (isProcessingComplete) {
+                        setActiveProcessingLayer(null)
                         
-                        // Calculate areas after adding layers
-                        try {
-                            await api.calculateAreas(currentProject.id)
-                            
-                            // Refresh project data
-                            const project = await api.getProject(currentProject.id)
-                            updateProject(project)
-                        } catch (err: any) {
-                            console.error("Error calculating areas:", err)
-                            setError(err.response?.data?.detail || "Failed to calculate areas")
-                        }
+                        // Refresh all data after processing completes
+                        const layersGeoJSON = await api.getProjectLayersGeoJSON(currentProject.id)
+                        setConstraintLayersGeoJSON(layersGeoJSON)
+                        
+                        const project = await api.getProject(currentProject.id)
+                        updateProject(project)
                     }
                 }
             } catch (error) {
@@ -144,74 +150,80 @@ function WorkflowContent() {
         }, 5000) // Poll every 5 seconds
 
         return () => clearInterval(pollInterval)
-    }, [currentProject?.id, isProcessingLayers, updateProject])
+    }, [currentProject?.id, activeProcessingLayer, updateProject])
 
 
+    /**
+     * Load initial project state on mount and determine starting page
+     * Redirects to dashboard if no project is selected
+     */
     useEffect(() => {
         if (!currentProject) {
             router.push('/dashboard')
             return
         }
 
-        // Only load project state on initial mount
-        const loadInitialState = async () => {
+        const loadInitialProjectState = async () => {
             try {
                 const project = await api.getProject(currentProject.id)
                 updateProject(project)
 
-                // Determine which page to start on based on project status
+                // Determine starting page based on project completion status
                 if (project.khasra_count && project.khasra_count > 0) {
-                    setUploadComplete(true)
+                    setIsKhasraUploadComplete(true)
+                    
                     if (project.layers_added && project.layers_added.length > 0) {
-                        setLayersComplete(true)
-                        // Check if clustering is done
+                        // If clustering is done, start at clustering page
                         if (project.status === 'clustered' || project.status === 'completed') {
-                            setClusteringComplete(true)
-                            setCurrentPage(3) // Start at clustering page, user can proceed to export
+                            setIsClusteringComplete(true)
+                            setCurrentPage(3)
                         } else {
                             setCurrentPage(3)
                         }
-                    } else {
-                        setCurrentPage(2)
                     }
+                    // Stay on page 1 to show pre-existing khasras display
+                    // User must click Next to proceed
                 }
             } catch (error) {
                 console.error('Failed to load project:', error)
             }
         }
 
-        loadInitialState()
+        loadInitialProjectState()
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []) // Only run once on mount
 
-    const handleFileUpload = async (file: File, data: any, uniqueIdColumn: string) => {
+    /**
+     * Handle khasra file upload and process boundaries
+     * Centers map on uploaded data and moves to layer selection page
+     */
+    const handleKhasraUpload = async (file: File, geoJSONData: any, uniqueIdColumn: string) => {
         if (!currentProject) return
 
         setIsProcessing(true)
         setError(null)
 
         try {
-            // Upload khasras to backend
-            const response = await api.uploadKhasras(currentProject.id, file, uniqueIdColumn)
+            const uploadResponse = await api.uploadKhasras(currentProject.id, file, uniqueIdColumn)
 
             setKhasraFile(file)
-            setKhasraData(data)
-            setIdColumn(uniqueIdColumn)
-            setUploadComplete(true)
+            setKhasraGeoJSON(geoJSONData)
+            setKhasraIdColumn(uniqueIdColumn)
+            setIsKhasraUploadComplete(true)
 
-            // Update map center from bounds
-            if (response.bounds) {
-                const centerLng = (response.bounds.minx + response.bounds.maxx) / 2
-                const centerLat = (response.bounds.miny + response.bounds.maxy) / 2
+            // Center map on uploaded data using response bounds
+            if (uploadResponse.bounds) {
+                const centerLng = (uploadResponse.bounds.minx + uploadResponse.bounds.maxx) / 2
+                const centerLat = (uploadResponse.bounds.miny + uploadResponse.bounds.maxy) / 2
                 setMapCenter([centerLat, centerLng])
                 setMapZoom(10)
             }
 
             // Refresh project data
-            const project = await api.getProject(currentProject.id)
-            updateProject(project)
+            const updatedProject = await api.getProject(currentProject.id)
+            updateProject(updatedProject)
 
-            setCurrentPage(2)
+            // Don't auto-advance - wait for user to click Next
         } catch (error: any) {
             setError(error.response?.data?.detail || 'Failed to upload khasras')
             console.error("Error uploading khasras:", error)
@@ -220,57 +232,79 @@ function WorkflowContent() {
         }
     }
 
-    const handleLayerChange = (layer: string) => {
-        setSelectedLayers((prev) =>
-            prev.includes(layer) ? prev.filter((l) => l !== layer) : [...prev, layer]
-        )
-    }
+    /**
+     * Initiate settlement layer generation with configured parameters
+     * Sets initial processing state and starts background job
+     * Polling effect will track progress automatically
+     */
+    const handleGenerateSettlementLayers = async () => {
+        if (!currentProject) return
 
-    const handleAddLayers = async () => {
-        if (!currentProject || selectedLayers.length === 0) return
-
-        setIsProcessing(true)
-        setIsProcessingLayers(true)
+        setActiveProcessingLayer("Settlements")
         setError(null)
         
-        // Initialize status map with placeholder data for immediate UI feedback
-        setLayerStatusMap({
-            "Settlements": {
-                status: "in_progress",
-                details: "Queued for processing...",
-                area_ha: null,
-                feature_count: null,
-            },
-            "Isolated Buildings": {
-                status: "in_progress",
-                details: "Queued for processing...",
-                area_ha: null,
-                feature_count: null,
-            },
+        // Set initial processing status for immediate UI feedback
+        setSettlementLayerStatus({
+            settlements: { status: "in_progress", details: "Queued for processing..." },
+            isolated: { status: "in_progress", details: "Queued for processing..." },
+            processing: true
         })
 
         try {
-            // Generate settlement layers which creates both buildings and settlements
-            if (selectedLayers.includes("Buildings & Settlements")) {
-                await api.generateSettlementLayer(currentProject.id, {
-                    building_buffer: 10,
-                    settlement_eps: 50,
-                    min_buildings: 5,
-                })
-
-                // Polling will handle the rest via useEffect
-            }
-
+            await api.generateSettlementLayer(currentProject.id, settlementLayerParams)
+            // Polling effect will automatically track progress
         } catch (error: any) {
-            setError(error.response?.data?.detail || 'Failed to add layers')
-            console.error("Error adding layers:", error)
-            setIsProcessingLayers(false)
-            setLayerStatusMap({})
+            setError(error.response?.data?.detail || 'Failed to generate settlement layers')
+            console.error("Error generating settlement layers:", error)
+            setActiveProcessingLayer(null)
+            setSettlementLayerStatus(null)
+        }
+    }
+
+    /**
+     * Delete both settlement layers (Settlements and Isolated Buildings)
+     * Requires user confirmation and refreshes all data after deletion
+     */
+    const handleDeleteSettlementLayers = async () => {
+        if (!currentProject) return
+        
+        const confirmed = confirm(
+            "Are you sure you want to delete the Settlement layers? " +
+            "This will remove both Settlements and Isolated Buildings layers."
+        )
+        if (!confirmed) return
+
+        setIsProcessing(true)
+        setError(null)
+
+        try {
+            // Delete both settlement sub-layers
+            await api.deleteLayer(currentProject.id, "Settlements")
+            await api.deleteLayer(currentProject.id, "Isolated Buildings")
+            
+            setSettlementLayerStatus(null)
+            
+            // Refresh all layers and GeoJSON data
+            const updatedLayers = await api.listProjectLayers(currentProject.id)
+            setAllProjectLayers(updatedLayers)
+            
+            const updatedLayersGeoJSON = await api.getProjectLayersGeoJSON(currentProject.id)
+            setConstraintLayersGeoJSON(updatedLayersGeoJSON)
+            
+            const updatedProject = await api.getProject(currentProject.id)
+            updateProject(updatedProject)
+        } catch (error: any) {
+            setError(error.response?.data?.detail || 'Failed to delete layers')
+            console.error("Error deleting settlement layers:", error)
         } finally {
             setIsProcessing(false)
         }
     }
 
+    /**
+     * Run DBSCAN clustering to group khasras into parcels
+     * Uses distance threshold and minimum samples parameters
+     */
     const handleRunClustering = async (distanceThreshold: number, minSamples: number = 2) => {
         if (!currentProject) return
 
@@ -283,40 +317,39 @@ function WorkflowContent() {
                 min_samples: minSamples,
             })
 
-            setClusterResult(result)
-            setClusteringComplete(true)
+            setClusteringResult(result)
+            setIsClusteringComplete(true)
 
-            // Refresh project data
-            const project = await api.getProject(currentProject.id)
-            updateProject(project)
+            // Refresh project data with clustering status
+            const updatedProject = await api.getProject(currentProject.id)
+            updateProject(updatedProject)
 
         } catch (error: any) {
             setError(error.response?.data?.detail || 'Failed to run clustering')
-            console.error("Error clustering:", error)
+            console.error("Error running clustering:", error)
         } finally {
             setIsProcessing(false)
         }
     }
 
-    const handleExport = async (format: ExportFormat, type: ExportType) => {
+    /**
+     * Export project data in specified format (KML, Excel, etc.)
+     * Creates download link and triggers browser download
+     */
+    const handleExportData = async (format: ExportFormat, type: ExportType) => {
         if (!currentProject) return
 
         setIsProcessing(true)
 
         try {
-            const blob = await api.exportData(currentProject.id, {
+            const exportBlob = await api.exportData(currentProject.id, {
                 export_type: type,
                 format: format,
                 include_statistics: true,
             })
 
-            // Create download link
-            const url = window.URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-
-            // Determine file extension
-            const extensions: Record<ExportFormat, string> = {
+            // Map export formats to file extensions
+            const fileExtensions: Record<ExportFormat, string> = {
                 [ExportFormat.GEOJSON]: 'geojson',
                 [ExportFormat.KML]: 'kml',
                 [ExportFormat.SHAPEFILE]: 'zip',
@@ -325,16 +358,20 @@ function WorkflowContent() {
                 [ExportFormat.EXCEL]: 'xlsx',
             }
 
-            // if export type is all, use zip extension unless it's excel
+            // Multi-file exports are zipped (except Excel)
             if (type === ExportType.ALL && format !== ExportFormat.EXCEL) {
-                extensions[format] = 'zip'
+                fileExtensions[format] = 'zip'
             }
 
-            a.download = `${currentProject.name}-${type}.${extensions[format]}`
-            document.body.appendChild(a)
-            a.click()
-            document.body.removeChild(a)
-            window.URL.revokeObjectURL(url)
+            // Trigger browser download
+            const downloadUrl = window.URL.createObjectURL(exportBlob)
+            const downloadLink = document.createElement('a')
+            downloadLink.href = downloadUrl
+            downloadLink.download = `${currentProject.name}-${type}.${fileExtensions[format]}`
+            document.body.appendChild(downloadLink)
+            downloadLink.click()
+            document.body.removeChild(downloadLink)
+            window.URL.revokeObjectURL(downloadUrl)
         } catch (error: any) {
             alert(error.response?.data?.detail || 'Failed to export data')
         } finally {
@@ -346,9 +383,14 @@ function WorkflowContent() {
         return <div>Loading...</div>
     }
 
-    const canProceedToPage2 = uploadComplete
-    const canProceedToPage3 = uploadComplete && layersComplete
-    const canProceedToPage4 = uploadComplete && layersComplete && clusteringComplete
+    // Determine which pages user can navigate to based on completion status
+    const canProceedToLayerSelection = isKhasraUploadComplete
+    const areSettlementLayersComplete = (
+        settlementLayerStatus?.settlements?.status === "successful" && 
+        settlementLayerStatus?.isolated?.status === "successful"
+    )
+    const canProceedToClustering = isKhasraUploadComplete && areSettlementLayersComplete
+    const canProceedToExport = isKhasraUploadComplete && areSettlementLayersComplete && isClusteringComplete
 
     return (
         <main className="min-h-screen bg-slate-50">
@@ -432,7 +474,11 @@ function WorkflowContent() {
                                 <h2 className="text-3xl font-bold text-slate-900 mb-2">Step 1: Upload Khasra Boundaries</h2>
                                 <p className="text-base text-slate-600">Upload your KML or GeoJSON file containing land parcel boundaries</p>
                             </div>
-                            <UploadSection onFileUpload={handleFileUpload} isProcessing={isProcessing} />
+                            <UploadSection 
+                                onFileUpload={handleKhasraUpload} 
+                                onKhasraDeleted={() => setIsKhasraUploadComplete(false)}
+                                isProcessing={isProcessing} 
+                            />
                         </div>
                     )}
 
@@ -444,111 +490,135 @@ function WorkflowContent() {
                                 <p className="text-base text-slate-600">Select which constraint layers to overlay on your khasras</p>
                             </div>
 
-                            {/* Layer Results Banner */}
-                            {layersComplete && layerData && (
-                                <div className="p-6 bg-green-50 border-2 border-green-200 rounded-lg">
-                                    <div className="flex items-center gap-3 mb-4">
-                                        <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                            </svg>
-                                        </div>
-                                        <h3 className="text-lg font-semibold text-green-900">Layers Added Successfully!</h3>
-                                    </div>
-                                    <div className="space-y-2">
-                                        {layerData.layers_added?.map((layer: any, idx: number) => (
-                                            <div key={idx} className="text-sm text-green-800">
-                                                <span className="font-semibold">{layer.name}:</span> {layer.feature_count} features, {layer.area_ha?.toFixed(2)} ha
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <p className="text-sm text-green-700 mt-4">
-                                        ✓ Constraint layers have been added to the map. Click Next to proceed to clustering.
-                                    </p>
-                                </div>
-                            )}
-
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                                <div className="lg:col-span-1">
-                                    <div className="space-y-4">
-                                        <h3 className="font-semibold text-slate-900">Available Layers</h3>
-                                        {availableLayers.map((layer) => (
-                                            <label
-                                                key={layer}
-                                                className="flex items-center gap-3 cursor-pointer hover:bg-slate-50 p-3 rounded-lg transition-colors"
-                                            >
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedLayers.includes(layer)}
-                                                    onChange={() => handleLayerChange(layer)}
-                                                    // disabled={layersComplete}
-                                                    className="w-4 h-4 text-blue-600 rounded"
-                                                />
-                                                <span className="text-sm text-slate-700 font-medium">{layer}</span>
-                                            </label>
-                                        ))}
-
-                                        {selectedLayers.length === 0 && !layersComplete && (
-                                            <p className="text-xs text-amber-600 bg-amber-50 p-3 rounded border border-amber-200">
-                                                Select at least one layer to continue
-                                            </p>
-                                        )}
-
-                                        <button
-                                            onClick={handleAddLayers}
-                                            disabled={isProcessing || isProcessingLayers || selectedLayers.length === 0}
-                                            className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold rounded-lg transition-colors"
-                                        >
-                                            {isProcessingLayers ? 'Processing Layers...' : isProcessing ? 'Processing...' : layersComplete ? 'Rerun Layers' : 'Add Layers'}
-                                        </button>
-
-                                        {/* Layer Processing Status */}
-                                        {isProcessingLayers && (
-                                            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                                                <h4 className="text-sm font-semibold text-blue-900 mb-3">Processing Layers...</h4>
-                                                <div className="space-y-3">
-                                                    {Object.entries(layerStatusMap).map(([name, status]: [string, any]) => (
-                                                        <div key={name} className="space-y-1">
-                                                            <div className="flex items-center gap-2">
-                                                                {status.status === "successful" ? (
-                                                                    <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
-                                                                        <span className="text-white text-xs">✓</span>
-                                                                    </div>
-                                                                ) : status.status === "failed" ? (
-                                                                    <div className="w-4 h-4 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0">
-                                                                        <span className="text-white text-xs">✕</span>
-                                                                    </div>
-                                                                ) : (
-                                                                    <div className="w-4 h-4 rounded-full border-2 border-blue-600 border-t-transparent animate-spin flex-shrink-0" />
-                                                                )}
-                                                                <span className={`text-sm font-medium ${
-                                                                    status.status === "successful" ? "text-green-700" :
-                                                                    status.status === "failed" ? "text-red-700" :
-                                                                    "text-blue-700"
-                                                                }`}>
-                                                                    {name}
-                                                                </span>
-                                                            </div>
-                                                            <p className="text-xs text-slate-600 ml-6">
-                                                                {status.details}
-                                                                {status.status === "in_progress" && <AnimatedEllipsis />}
-                                                            </p>
-                                                        </div>
-                                                    ))}
+                                <div className="lg:col-span-1 space-y-6">
+                                    {/* Settlements & Buildings Layer */}
+                                    <div className="border border-slate-200 rounded-lg p-4">
+                                        <h4 className="font-semibold text-slate-900 mb-2">Settlements & Buildings</h4>
+                                        <p className="text-xs text-slate-600 mb-4">
+                                            Automatically detect settlements and isolated buildings from VIDA rooftop data
+                                        </p>
+                                        
+                                        {!settlementLayerStatus || (settlementLayerStatus.settlements?.status === "failed" && settlementLayerStatus.isolated?.status === "failed") ? (
+                                            <>
+                                                {/* Parameters */}
+                                                <div className="space-y-3 mb-4">
+                                                    <div>
+                                                        <label className="text-xs font-medium text-slate-700">Building Buffer (m)</label>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            value={settlementLayerParams.building_buffer}
+                                                            onChange={(e) => setSettlementLayerParams({...settlementLayerParams, building_buffer: parseInt(e.target.value)})}
+                                                            className="w-full mt-1 px-3 py-2 text-sm border border-slate-300 rounded-md"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-xs font-medium text-slate-700">Max Inter-building Distance (m)</label>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            value={settlementLayerParams.settlement_eps}
+                                                            onChange={(e) => setSettlementLayerParams({...settlementLayerParams, settlement_eps: parseInt(e.target.value)})}
+                                                            className="w-full mt-1 px-3 py-2 text-sm border border-slate-300 rounded-md"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-xs font-medium text-slate-700">Min Buildings in Settlement</label>
+                                                        <input
+                                                            type="number"
+                                                            min="1"
+                                                            value={settlementLayerParams.min_buildings}
+                                                            onChange={(e) => setSettlementLayerParams({...settlementLayerParams, min_buildings: parseInt(e.target.value)})}
+                                                            className="w-full mt-1 px-3 py-2 text-sm border border-slate-300 rounded-md"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                
+                                                <button
+                                                    onClick={handleGenerateSettlementLayers}
+                                                    disabled={isProcessing || activeProcessingLayer === "Settlements"}
+                                                    className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-semibold rounded-lg transition-colors"
+                                                >
+                                                    Run Layer
+                                                </button>
+                                            </>
+                                        ) : settlementLayerStatus.processing ? (
+                                            <div className="space-y-3">
+                                                {/* Processing Status */}
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-4 h-4 rounded-full border-2 border-blue-600 border-t-transparent animate-spin flex-shrink-0" />
+                                                        <span className="text-sm font-medium text-blue-700">Settlements</span>
+                                                    </div>
+                                                    <p className="text-xs text-slate-600 ml-6">
+                                                        {settlementLayerStatus.settlements?.details || "Processing"}
+                                                        <AnimatedEllipsis />
+                                                    </p>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-4 h-4 rounded-full border-2 border-blue-600 border-t-transparent animate-spin flex-shrink-0" />
+                                                        <span className="text-sm font-medium text-blue-700">Isolated Buildings</span>
+                                                    </div>
+                                                    <p className="text-xs text-slate-600 ml-6">
+                                                        {settlementLayerStatus.isolated?.details || "Processing"}
+                                                        <AnimatedEllipsis />
+                                                    </p>
                                                 </div>
                                             </div>
+                                        ) : (
+                                            <>
+                                                {/* Completed Status */}
+                                                <div className="space-y-2 mb-4">
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                                                                <span className="text-white text-xs">✓</span>
+                                                            </div>
+                                                            <span className="text-sm font-medium text-green-700">Settlements</span>
+                                                        </div>
+                                                        <span className="text-xs text-slate-600">
+                                                            {settlementLayerStatus.settlements?.feature_count} features, {settlementLayerStatus.settlements?.area_ha?.toFixed(2)} ha
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                                                                <span className="text-white text-xs">✓</span>
+                                                            </div>
+                                                            <span className="text-sm font-medium text-green-700">Isolated Buildings</span>
+                                                        </div>
+                                                        <span className="text-xs text-slate-600">
+                                                            {settlementLayerStatus.isolated?.feature_count} features, {settlementLayerStatus.isolated?.area_ha?.toFixed(2)} ha
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                
+                                                <button
+                                                    onClick={handleDeleteSettlementLayers}
+                                                    disabled={isProcessing}
+                                                    className="w-full px-4 py-2 border border-red-600 hover:bg-red-100  text-red-600 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-400 text-sm font-semibold rounded-lg transition-colors"
+                                                >
+                                                    Delete Layer
+                                                </button>
+                                            </>
                                         )}
+                                    </div>
+                                    
+                                    {/* Placeholder for future layers */}
+                                    <div className="border border-slate-200 border-dashed rounded-lg p-4 text-center text-slate-400">
+                                        <p className="text-sm">More layers coming soon...</p>
                                     </div>
                                 </div>
                                 <div className="lg:col-span-2 h-[500px]">
-                                    {khasraData ? (
+                                    {khasraGeoJSON ? (
                                         <MapContainer
-                                            data={khasraData}
-                                            selectedLayers={selectedLayers}
+                                            data={khasraGeoJSON}
                                             center={mapCenter}
                                             zoom={mapZoom}
                                             clusters={[]}
-                                            layersData={layersGeoJSON || undefined}
+                                            layersData={constraintLayersGeoJSON || undefined}
                                         />
                                     ) : (
                                         <div className="w-full h-full bg-slate-100 flex items-center justify-center rounded-lg border-2 border-dashed border-slate-300">
@@ -571,7 +641,7 @@ function WorkflowContent() {
                             </div>
                             <div className="space-y-6">
                                 {/* Clustering Results Banner */}
-                                {clusteringComplete && clusterResult && (
+                                {isClusteringComplete && clusteringResult && (
                                     <div className="p-6 bg-green-50 border-2 border-green-200 rounded-lg">
                                         <div className="flex items-center gap-3 mb-4">
                                             <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
@@ -583,15 +653,15 @@ function WorkflowContent() {
                                         </div>
                                         <div className="grid grid-cols-3 gap-4">
                                             <div>
-                                                <p className="text-2xl font-bold text-green-700">{clusterResult.total_parcels}</p>
+                                                <p className="text-2xl font-bold text-green-700">{clusteringResult.total_parcels}</p>
                                                 <p className="text-sm text-green-600">Parcels Created</p>
                                             </div>
                                             <div>
-                                                <p className="text-2xl font-bold text-green-700">{clusterResult.clustered_khasras}</p>
+                                                <p className="text-2xl font-bold text-green-700">{clusteringResult.clustered_khasras}</p>
                                                 <p className="text-sm text-green-600">Khasras Clustered</p>
                                             </div>
                                             <div>
-                                                <p className="text-2xl font-bold text-slate-600">{clusterResult.unclustered_khasras}</p>
+                                                <p className="text-2xl font-bold text-slate-600">{clusteringResult.unclustered_khasras}</p>
                                                 <p className="text-sm text-slate-600">Unclustered</p>
                                             </div>
                                         </div>
@@ -604,23 +674,22 @@ function WorkflowContent() {
                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                                     <div className="lg:col-span-1">
                                         <ClusteringSection
-                                            data={khasraData}
+                                            data={khasraGeoJSON}
                                             isProcessing={isProcessing}
-                                            clusteringComplete={clusteringComplete}
+                                            clusteringComplete={isClusteringComplete}
                                             onClusteringComplete={(result: any) => {
                                                 handleRunClustering(result.distanceThreshold, result.minSamples)
                                             }}
                                         />
                                     </div>
                                     <div className="lg:col-span-2 h-[500px]">
-                                        {khasraData ? (
+                                        {khasraGeoJSON ? (
                                             <MapContainer
-                                                data={khasraData}
-                                                selectedLayers={selectedLayers}
+                                                data={khasraGeoJSON}
                                                 center={mapCenter}
                                                 zoom={mapZoom}
-                                                clusters={clusterResult?.parcels || []}
-                                                layersData={layersGeoJSON || undefined}
+                                                clusters={clusteringResult?.parcels || []}
+                                                layersData={constraintLayersGeoJSON || undefined}
                                             />
                                         ) : (
                                             <div className="w-full h-full bg-slate-100 flex items-center justify-center rounded-lg border-2 border-dashed border-slate-300">
@@ -641,18 +710,18 @@ function WorkflowContent() {
                                 <p className="text-base text-slate-600">Download your analysis results in various formats</p>
                             </div>
 
-                            {clusterResult && (
+                            {clusteringResult && (
                                 <div className="grid grid-cols-3 gap-4 mb-8 p-6 bg-blue-50 rounded-lg">
                                     <div className="text-center">
-                                        <p className="text-3xl font-bold text-blue-600">{clusterResult.total_parcels}</p>
+                                        <p className="text-3xl font-bold text-blue-600">{clusteringResult.total_parcels}</p>
                                         <p className="text-sm text-slate-600 mt-1">Total Parcels</p>
                                     </div>
                                     <div className="text-center">
-                                        <p className="text-3xl font-bold text-green-600">{clusterResult.clustered_khasras}</p>
+                                        <p className="text-3xl font-bold text-green-600">{clusteringResult.clustered_khasras}</p>
                                         <p className="text-sm text-slate-600 mt-1">Clustered Khasras</p>
                                     </div>
                                     <div className="text-center">
-                                        <p className="text-3xl font-bold text-slate-600">{clusterResult.unclustered_khasras}</p>
+                                        <p className="text-3xl font-bold text-slate-600">{clusteringResult.unclustered_khasras}</p>
                                         <p className="text-sm text-slate-600 mt-1">Unclustered</p>
                                     </div>
                                 </div>
@@ -661,7 +730,7 @@ function WorkflowContent() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
                                 {/* KML */}
                                 <button
-                                    onClick={() => handleExport(ExportFormat.KML, ExportType.ALL)}
+                                    onClick={() => handleExportData(ExportFormat.KML, ExportType.ALL)}
                                     disabled={isProcessing}
                                     className="p-8 border-2 border-slate-200 rounded-lg hover:border-green-500 hover:bg-green-50 transition-all text-center space-y-4"
                                 >
@@ -675,7 +744,7 @@ function WorkflowContent() {
 
                                 {/* Excel */}
                                 <button
-                                    onClick={() => handleExport(ExportFormat.EXCEL, ExportType.ALL)}
+                                    onClick={() => handleExportData(ExportFormat.EXCEL, ExportType.ALL)}
                                     disabled={isProcessing}
                                     className="p-8 border-2 border-slate-200 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 transition-all text-center space-y-4"
                                 >
@@ -709,9 +778,9 @@ function WorkflowContent() {
                             onClick={() => setCurrentPage((prev) => Math.min(4, prev + 1))}
                             disabled={
                                 isProcessing ||
-                                (currentPage === 1 && !canProceedToPage2) ||
-                                (currentPage === 2 && !canProceedToPage3) ||
-                                (currentPage === 3 && !canProceedToPage4)
+                                (currentPage === 1 && !canProceedToLayerSelection) ||
+                                (currentPage === 2 && !canProceedToClustering) ||
+                                (currentPage === 3 && !canProceedToExport)
                             }
                             className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-semibold rounded-lg transition-colors ml-auto"
                         >
