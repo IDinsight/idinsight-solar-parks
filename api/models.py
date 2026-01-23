@@ -167,14 +167,11 @@ class ClusteringRequest(BaseModel):
     """Request for clustering khasras into parcels"""
     distance_threshold: int = Field(
         default=25,
-        ge=1,
-        le=500,
         description="Maximum distance between khasras to be in the same cluster (meters)"
     )
     min_samples: int = Field(
         default=2,
         ge=1,
-        le=100,
         description="Minimum number of khasras to form a cluster"
     )
     method: ClusteringMethod = ClusteringMethod.DBSCAN
@@ -219,19 +216,15 @@ class SettlementLayerRequest(BaseModel):
     building_buffer: int = Field(
         default=10,
         ge=0,
-        le=100,
         description="Buffer distance around buildings in meters"
     )
     settlement_eps: int = Field(
         default=50,
-        ge=10,
-        le=500,
         description="DBSCAN epsilon - max distance between buildings in a settlement (meters)"
     )
     min_buildings: int = Field(
         default=5,
         ge=2,
-        le=100,
         description="Minimum number of buildings to form a settlement"
     )
 
