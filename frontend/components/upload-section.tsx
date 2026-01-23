@@ -268,12 +268,12 @@ export default function UploadSection({ onFileUpload, onKhasraDeleted, isProcess
   const handleConfirm = async () => {
     if (previewData && selectedIdColumn) {
       await onFileUpload(previewData.file, previewData, selectedIdColumn)
-      
+
       // After successful upload, clear preview and refresh existing khasras
       setPreviewData(null)
       setColumns([])
       setSelectedIdColumn("")
-      
+
       // Fetch the newly uploaded khasras to show in "pre-existing" mode
       if (currentProject?.id) {
         try {
@@ -395,16 +395,12 @@ export default function UploadSection({ onFileUpload, onKhasraDeleted, isProcess
 
   return (
     <div className="w-full">
-      <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-        <FileUp className="w-5 h-5 text-blue-600" />
-        Upload Khasra Boundaries
-      </h2>
 
       {/* Existing Khasras Display */}
       {existingKhasras && existingKhasras.exists && (
-        <div className="grid grid-cols-2 gap-8 h-full">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left side: Info and Actions */}
-          <div className="flex flex-col gap-6">
+          <div className="lg:col-span-1 space-y-6">
             {/* Info Banner */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
               <h3 className="text-lg font-semibold text-blue-900 mb-4">Khasras Already Uploaded</h3>
@@ -441,8 +437,8 @@ export default function UploadSection({ onFileUpload, onKhasraDeleted, isProcess
           </div>
 
           {/* Right side: Map */}
-          <div>
-            <div className="rounded-lg overflow-hidden bg-slate-50 w-full h-[550px] relative z-0">
+          <div className="lg:col-span-2 h-[500px]">
+            <div className="rounded-lg overflow-hidden bg-slate-50 w-full h-full relative z-0">
               {existingKhasras.geojson && (
                 <MapComponent
                   data={existingKhasras.geojson}
@@ -450,9 +446,9 @@ export default function UploadSection({ onFileUpload, onKhasraDeleted, isProcess
                   center={
                     existingKhasras.bounds
                       ? [
-                          (existingKhasras.bounds.miny + existingKhasras.bounds.maxy) / 2,
-                          (existingKhasras.bounds.minx + existingKhasras.bounds.maxx) / 2,
-                        ]
+                        (existingKhasras.bounds.miny + existingKhasras.bounds.maxy) / 2,
+                        (existingKhasras.bounds.minx + existingKhasras.bounds.maxx) / 2,
+                      ]
                       : [20, 0]
                   }
                   zoom={existingKhasras.bounds ? 12 : 2}
@@ -512,7 +508,7 @@ export default function UploadSection({ onFileUpload, onKhasraDeleted, isProcess
             className="border-2 border-dashed border-slate-300 rounded-lg p-12 text-center hover:border-blue-500 hover:bg-blue-50 transition-colors cursor-pointer"
             onClick={() => fileInputRef.current?.click()}
           >
-            <Upload className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+            <FileUp className="w-12 h-12 text-slate-400 mx-auto mb-4" />
             <p className="text-base text-slate-600 font-medium">
               Drag & drop your KML or GeoJSON file here
             </p>
