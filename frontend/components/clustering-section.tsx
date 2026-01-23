@@ -182,11 +182,14 @@ export default function ClusteringSection({
             </label>
             <input
               id="distance"
-              type="number"
+              type="text"
+              inputMode="numeric"
               value={distanceThreshold}
-              onChange={(e) => setDistanceThreshold(Number(e.target.value))}
-              min={1}
-              max={500}
+              onChange={(e) => {
+                const value = e.target.value.replace(/[^0-9]/g, '');
+                const num = value === '' ? 0 : Math.min(500, Math.max(1, Number(value)));
+                setDistanceThreshold(num);
+              }}
               className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
             <p className="text-xs text-slate-500 mt-2">
@@ -201,11 +204,14 @@ export default function ClusteringSection({
             </label>
             <input
               id="minSamples"
-              type="number"
+              type="text"
+              inputMode="numeric"
               value={minSamples}
-              onChange={(e) => setMinSamples(Number(e.target.value))}
-              min={1}
-              max={20}
+              onChange={(e) => {
+                const value = e.target.value.replace(/[^0-9]/g, '');
+                const num = value === '' ? 1 : Math.min(20, Math.max(1, Number(value)));
+                setMinSamples(num);
+              }}
               className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
             <p className="text-xs text-slate-500 mt-2">
