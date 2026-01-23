@@ -1896,7 +1896,7 @@ def aggregate_to_parcels(
 
 
 def get_parcels_gdf(db: Session, project_id: str) -> Optional[gpd.GeoDataFrame]:
-    """Load parcels GeoDataFrame from database"""
+    """Load parcels GeoDataFrame from database, excluding UNCLUSTERED parcels"""
     parcels = db.query(ParcelModel).filter(ParcelModel.project_id == project_id).all()
 
     if not parcels:
@@ -1904,22 +1904,29 @@ def get_parcels_gdf(db: Session, project_id: str) -> Optional[gpd.GeoDataFrame]:
 
     data = []
     for p in parcels:
+        # Skip UNCLUSTERED parcels
+        if p.parcel_id and "UNCLUSTERED" in p.parcel_id:
+            continue
+            
         geom = to_shape(p.geometry) if p.geometry else None
         row = {
             "geometry": geom,
-            "Parcel ID": p.parcel_id,
-            "Khasra Count": p.khasra_count,
-            "Khasra IDs": p.khasra_ids,
-            "Original Area (ha)": p.original_area_ha or 0,
-            "Usable Area (ha)": p.usable_area_ha or 0,
-            "Unusable Area (ha)": p.unusable_area_ha or 0,
-            "Usable and Available Area (ha)": p.usable_available_area_ha or 0,
-            "Building Count": p.building_count or 0,
+            "parcel_id": p.parcel_id,  # Use underscore for proper GeoJSON property name
+            "khasra_count": p.khasra_count,
+            "khasra_ids": p.khasra_ids,
+            "original_area_ha": p.original_area_ha or 0,
+            "usable_area_ha": p.usable_area_ha or 0,
+            "unusable_area_ha": p.unusable_area_ha or 0,
+            "usable_available_area_ha": p.usable_available_area_ha or 0,
+            "building_count": p.building_count or 0,
         }
         # Add layer-specific areas
         if p.layer_areas:
             row.update(p.layer_areas)
         data.append(row)
+
+    if not data:
+        return None
 
     gdf = gpd.GeoDataFrame(data, crs="EPSG:4326")
     # Filter out rows with no geometry

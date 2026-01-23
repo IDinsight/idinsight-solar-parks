@@ -163,34 +163,52 @@ const LeafletMap = dynamic(
           const khasraCount = feature.properties.khasra_count || 0
           const usableAreaHa = feature.properties.usable_area_ha || 0
           
-          // Add tooltip
+          // Add tooltip on hover
           layer.bindTooltip(
             `<strong>${parcelId}</strong><br/>` +
             `Khasras: ${khasraCount}<br/>` +
             `Usable Area: ${usableAreaHa.toFixed(2)} ha`,
-            { permanent: false, direction: 'center' }
+            { permanent: false, direction: 'top' }
           )
           
-          // Add permanent label for parcel ID
-          const bounds = layer.getBounds()
-          const center = bounds.getCenter()
+          // Add permanent label in the center of the parcel
+          layer.on('add', function() {
+            const bounds = layer.getBounds()
+            const center = bounds.getCenter()
+            
+            const label = L.marker(center, {
+              icon: L.divIcon({
+                className: 'parcel-label',
+                html: `<div style="
+                  background: rgba(255, 255, 255, 0.85);
+                  color: #334155;
+                  padding: 3px 7px;
+                  border-radius: 3px;
+                  font-weight: 600;
+                  font-size: 11px;
+                  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+                  white-space: nowrap;
+                  text-align: center;
+                  border: 1px solid rgba(100, 116, 139, 0.3);
+                  transform: translate(-50%, -50%);
+                ">${parcelId}</div>`,
+                iconSize: undefined,
+                iconAnchor: [0, 0],
+              }),
+              interactive: false, // Make label non-interactive so it doesn't block clicks
+            })
+            
+            label.addTo(layer._map)
+            
+            // Store reference to remove label when layer is removed
+            layer._label = label
+          })
           
-          L.marker(center, {
-            icon: L.divIcon({
-              className: 'parcel-label',
-              html: `<div style="
-                background: rgba(255, 107, 53, 0.9);
-                color: white;
-                padding: 4px 8px;
-                border-radius: 4px;
-                font-weight: bold;
-                font-size: 12px;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-                white-space: nowrap;
-              ">${parcelId}</div>`,
-              iconSize: undefined,
-            }),
-          }).addTo(layer._map)
+          layer.on('remove', function() {
+            if (layer._label) {
+              layer._map.removeLayer(layer._label)
+            }
+          })
         }
       }
 
