@@ -982,22 +982,17 @@ async def export_project_data_endpoint(
     db: Session = Depends(get_db),
 ):
     """
-    Export project data in various formats.
-
-    **Export Types:**
-    - `khasras`: Original khasra boundaries
-    - `khasras_with_stats`: Khasras with calculated area statistics
-    - `parcels`: Clustered parcel boundaries and statistics
-    - `layers`: All constraint layers
-    - `all`: Everything
+    Export all project data in various formats.
+    
+    Always exports khasras (with statistics), parcels (if clustered), and all constraint layers.
 
     **Formats:**
-    - `geojson`: GeoJSON format (good for web mapping)
-    - `kml`: KML format (for Google Earth)
-    - `shapefile`: ESRI Shapefile (for GIS software)
-    - `parquet`: GeoParquet (efficient storage)
-    - `csv`: CSV without geometry (for spreadsheets)
-    - `excel`: Excel workbook with multiple sheets
+    - `geojson`: Single file or ZIP with multiple GeoJSON files
+    - `kml`: Single KMZ file with all data as separate folders
+    - `shapefile`: ZIP file with shapefiles for each layer
+    - `parquet`: ZIP file with parquet files for each layer
+    - `csv`: ZIP file with CSV files for each layer (geometry as WKT)
+    - `excel`: Single Excel workbook with multiple sheets and statistics
     """
     project = get_project(db, project_id)
     if not project:
@@ -1010,7 +1005,6 @@ async def export_project_data_endpoint(
         content, filename = export_data(
             db=db,
             project_id=project_id,
-            export_type=request.export_type,
             export_format=request.format,
             include_statistics=request.include_statistics,
         )
@@ -1044,6 +1038,9 @@ async def export_project_data_endpoint(
             detail=str(e),
         )
     except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"[EXPORT ERROR] {error_details}", flush=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error exporting data: {str(e)}",

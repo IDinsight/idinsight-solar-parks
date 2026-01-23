@@ -8,7 +8,7 @@ import UploadSection from "@/components/upload-section"
 import ClusteringSection from "@/components/clustering-section"
 import MapContainer from "@/components/map-container"
 import * as api from "@/lib/api/services"
-import { ExportFormat, ExportType } from "@/lib/api/types"
+import { ExportFormat } from "@/lib/api/types"
 import { ChevronLeft, ChevronRight, Download, ArrowLeft, AlertCircle } from "lucide-react"
 
 /**
@@ -424,38 +424,32 @@ function WorkflowContent() {
      * Export project data in specified format (KML, Excel, etc.)
      * Creates download link and triggers browser download
      */
-    const handleExportData = async (format: ExportFormat, type: ExportType) => {
+    const handleExportData = async (format: ExportFormat) => {
         if (!currentProject) return
 
         setIsProcessing(true)
 
         try {
             const exportBlob = await api.exportData(currentProject.id, {
-                export_type: type,
                 format: format,
                 include_statistics: true,
             })
 
             // Map export formats to file extensions
             const fileExtensions: Record<ExportFormat, string> = {
-                [ExportFormat.GEOJSON]: 'geojson',
-                [ExportFormat.KML]: 'kml',
+                [ExportFormat.GEOJSON]: 'zip',  // Multiple files
+                [ExportFormat.KML]: 'kmz',
                 [ExportFormat.SHAPEFILE]: 'zip',
-                [ExportFormat.PARQUET]: 'parquet',
+                [ExportFormat.PARQUET]: 'zip',
                 [ExportFormat.CSV]: 'zip',
                 [ExportFormat.EXCEL]: 'xlsx',
-            }
-
-            // Multi-file exports are zipped (except Excel)
-            if (type === ExportType.ALL && format !== ExportFormat.EXCEL) {
-                fileExtensions[format] = 'zip'
             }
 
             // Trigger browser download
             const downloadUrl = window.URL.createObjectURL(exportBlob)
             const downloadLink = document.createElement('a')
             downloadLink.href = downloadUrl
-            downloadLink.download = `${currentProject.name}-${type}.${fileExtensions[format]}`
+            downloadLink.download = `${currentProject.name}_export.${fileExtensions[format]}`
             document.body.appendChild(downloadLink)
             downloadLink.click()
             document.body.removeChild(downloadLink)
@@ -812,7 +806,7 @@ function WorkflowContent() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
                                 {/* KML */}
                                 <button
-                                    onClick={() => handleExportData(ExportFormat.KML, ExportType.ALL)}
+                                    onClick={() => handleExportData(ExportFormat.KML)}
                                     disabled={isProcessing}
                                     className="p-8 border-2 border-slate-200 rounded-lg hover:border-green-500 hover:bg-green-50 transition-all text-center space-y-4"
                                 >
@@ -826,7 +820,7 @@ function WorkflowContent() {
 
                                 {/* Excel */}
                                 <button
-                                    onClick={() => handleExportData(ExportFormat.EXCEL, ExportType.ALL)}
+                                    onClick={() => handleExportData(ExportFormat.EXCEL)}
                                     disabled={isProcessing}
                                     className="p-8 border-2 border-slate-200 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 transition-all text-center space-y-4"
                                 >

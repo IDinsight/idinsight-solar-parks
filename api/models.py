@@ -297,18 +297,8 @@ class ExportFormat(str, Enum):
     EXCEL = "excel"
 
 
-class ExportType(str, Enum):
-    """Types of data that can be exported"""
-    KHASRAS = "khasras"
-    KHASRAS_WITH_STATS = "khasras_with_stats"
-    PARCELS = "parcels"
-    LAYERS = "layers"
-    ALL = "all"
-
-
 class ExportRequest(BaseModel):
-    """Request to export data"""
-    export_type: ExportType = ExportType.ALL
+    """Request to export data - always exports all project data (khasras, parcels, layers)"""
     format: ExportFormat = ExportFormat.GEOJSON
     include_statistics: bool = True
 

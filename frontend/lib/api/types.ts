@@ -141,16 +141,7 @@ export enum ExportFormat {
     EXCEL = 'excel',
 }
 
-export enum ExportType {
-    KHASRAS = 'khasras',
-    KHASRAS_WITH_STATS = 'khasras_with_stats',
-    PARCELS = 'parcels',
-    LAYERS = 'layers',
-    ALL = 'all',
-}
-
 export interface ExportRequest {
-    export_type: ExportType
     format: ExportFormat
     include_statistics?: boolean
 }

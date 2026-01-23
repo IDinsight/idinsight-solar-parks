@@ -17,6 +17,7 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import shapely
+import simplekml
 from config import settings
 from database import (
     ClusteringRunModel,
@@ -31,7 +32,6 @@ from joblib import Parallel, delayed
 from models import (
     ClusteringRequest,
     ExportFormat,
-    ExportType,
     LayerInfo,
     LayerType,
     ParcelStats,
@@ -444,6 +444,10 @@ def get_khasras(db: Session, project_id: str) -> Dict[str, Any]:
         KhasraModel.khasra_id,
         KhasraModel.khasra_id_unique,
         KhasraModel.original_area_ha,
+        KhasraModel.usable_area_ha,
+        KhasraModel.unusable_area_ha,
+        KhasraModel.usable_available_area_ha,
+        KhasraModel.parcel_id,
         KhasraModel.properties,
     ).filter(KhasraModel.project_id == project_id)
 
@@ -456,20 +460,40 @@ def get_khasras(db: Session, project_id: str) -> Dict[str, Any]:
         khasra_id,
         khasra_id_unique,
         original_area_ha,
+        usable_area_ha,
+        unusable_area_ha,
+        usable_available_area_ha,
+        parcel_id,
         props,
     ) in khasras_data:
         geometry = json.loads(geojson_str) if geojson_str else None
+
+        # Build properties dict with all available stats
+        properties = {
+            "khasra_id": khasra_id,
+            "khasra_id_unique": khasra_id_unique,
+            "original_area_ha": round(original_area_ha, 4) if original_area_ha else None,
+            "usable_area_ha": round(usable_area_ha, 4) if usable_area_ha else None,
+            "unusable_area_ha": round(unusable_area_ha, 4) if unusable_area_ha else None,
+            "usable_available_area_ha": round(usable_available_area_ha, 4) if usable_available_area_ha else None,
+            "parcel_id": parcel_id,
+            **(props or {}),
+        }
+        
+        # Calculate percentages if original_area_ha is available
+        if original_area_ha and original_area_ha > 0:
+            if usable_area_ha is not None:
+                properties["usable_area_percent"] = round((usable_area_ha / original_area_ha) * 100, 2)
+            if unusable_area_ha is not None:
+                properties["unusable_area_percent"] = round((unusable_area_ha / original_area_ha) * 100, 2)
+            if usable_available_area_ha is not None:
+                properties["usable_available_area_percent"] = round((usable_available_area_ha / original_area_ha) * 100, 2)
 
         features.append(
             {
                 "type": "Feature",
                 "geometry": geometry,
-                "properties": {
-                    "khasra_id": khasra_id,
-                    "khasra_id_unique": khasra_id_unique,
-                    "original_area_ha": original_area_ha,
-                    **(props or {}),
-                },
+                "properties": properties,
             }
         )
 
@@ -1867,12 +1891,12 @@ def get_parcels_gdf(db: Session, project_id: str) -> Tuple[Optional[gpd.GeoDataF
 def export_data(
     db: Session,
     project_id: str,
-    export_type: ExportType,
     export_format: ExportFormat,
     include_statistics: bool = True,
 ) -> Tuple[bytes, str]:
-    """Export project data in the specified format
+    """Export all project data in the specified format
 
+    Always exports khasras (with stats), parcels, and all layers.
     All data is loaded from the database.
     """
     project = get_project(db, project_id)
@@ -1880,32 +1904,25 @@ def export_data(
         raise ValueError(f"Project {project_id} not found")
 
     location = project.location
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
 
     gdfs_to_export = {}
 
-    if export_type in [ExportType.KHASRAS, ExportType.ALL]:
-        gdf = get_khasras_gdf(db, project_id, projected=False)
-        if gdf is not None:
-            gdfs_to_export["khasras"] = gdf
+    # Always export khasras with stats
+    gdf = get_khasras_with_stats_gdf(db, project_id)
+    if gdf is not None:
+        gdfs_to_export["khasras"] = gdf
 
-    if export_type in [ExportType.KHASRAS_WITH_STATS, ExportType.ALL]:
-        # Get khasras with calculated stats from DB
-        gdf = get_khasras_with_stats_gdf(db, project_id)
-        if gdf is not None:
-            gdfs_to_export["khasras_with_stats"] = gdf
+    # Always export parcels if they exist
+    gdf, _ = get_parcels_gdf(db, project_id)
+    if gdf is not None:
+        gdfs_to_export["parcels"] = gdf
 
-    if export_type in [ExportType.PARCELS, ExportType.ALL]:
-        gdf, _ = get_parcels_gdf(db, project_id)
+    # Always export all layers
+    layers = get_layers_metadata(db, project_id)
+    for layer in layers:
+        gdf = load_layer_gdf_by_id(db, layer.id)
         if gdf is not None:
-            gdfs_to_export["parcels"] = gdf
-
-    if export_type in [ExportType.LAYERS, ExportType.ALL]:
-        layers = get_layers_metadata(db, project_id)
-        for layer in layers:
-            gdf = load_layer_gdf_by_id(db, layer.id)
-            if gdf is not None:
-                gdfs_to_export[f"layer_{layer.name}"] = gdf
+            gdfs_to_export[f"layer_{layer.name}"] = gdf
 
     if not gdfs_to_export:
         raise ValueError("No data available to export")
@@ -1917,27 +1934,27 @@ def export_data(
 
     # Export based on format
     if export_format == ExportFormat.GEOJSON:
-        return export_to_geojson(gdfs_to_export, location, timestamp)
+        return export_to_geojson(gdfs_to_export, location)
     elif export_format == ExportFormat.KML:
-        return export_to_kml(gdfs_to_export, location, timestamp)
+        return export_to_kml(gdfs_to_export, location)
     elif export_format == ExportFormat.SHAPEFILE:
-        return export_to_shapefile(gdfs_to_export, location, timestamp)
+        return export_to_shapefile(gdfs_to_export, location)
     elif export_format == ExportFormat.PARQUET:
-        return export_to_parquet(gdfs_to_export, location, timestamp)
+        return export_to_parquet(gdfs_to_export, location)
     elif export_format == ExportFormat.CSV:
-        return export_to_csv(gdfs_to_export, location, timestamp)
+        return export_to_csv(gdfs_to_export, location)
     elif export_format == ExportFormat.EXCEL:
-        return export_to_excel(gdfs_to_export, location, timestamp, include_statistics)
+        return export_to_excel(gdfs_to_export, location, include_statistics)
     else:
         raise ValueError(f"Unsupported export format: {export_format}")
 
 
 def export_to_geojson(
-    gdfs: Dict[str, gpd.GeoDataFrame], location: str, timestamp: str
+    gdfs: Dict[str, gpd.GeoDataFrame], location: str
 ) -> Tuple[bytes, str]:
     if len(gdfs) == 1:
         name, gdf = list(gdfs.items())[0]
-        filename = f"{location}_{name}_{timestamp}.geojson"
+        filename = f"{location}_{name}.geojson"
         content = gdf.to_json()
         return content.encode("utf-8"), filename
     else:
@@ -1947,28 +1964,183 @@ def export_to_geojson(
                 content = gdf.to_json()
                 zf.writestr(f"{name}.geojson", content)
 
-        filename = f"{location}_export_{timestamp}.zip"
+        filename = f"{location}_export.zip"
         return buffer.getvalue(), filename
 
 
 def export_to_kml(
-    gdfs: Dict[str, gpd.GeoDataFrame], location: str, timestamp: str
+    gdfs: Dict[str, gpd.GeoDataFrame], location: str
 ) -> Tuple[bytes, str]:
+    """Export data to KML/KMZ format.
+    
+    Creates a single KMZ file with all layers properly styled:
+    - Khasras with default styling
+    - Layers with color-coded styling
+    - Parcels as boundaries with labels
+    """    
+    kml = simplekml.Kml()
+    
+    # Define colors for different layer types (KML uses AABBGGRR format)
+    layer_colors = {
+        "water": "ffe6d8ad",  # Light blue
+        "settlements": "ff00008b",  # Dark red
+        "isolated buildings": "ff00ffff",  # Yellow
+        "cropland": "ff20a5da",  # Goldenrod
+        "slope": "ff808080",  # Grey
+    }
+    
+    # Process each GeoDataFrame
+    for name, gdf in gdfs.items():
+        # Create friendly folder names
+        if "khasras" in name.lower():
+            folder_name = "Khasras"
+        else:
+            folder_name = name.replace("_", " ").title()
+        
+        folder = kml.newfolder(name=folder_name)
+        
+        if "parcel" in name.lower():
+            # Parcels: boundaries with labels
+            for idx, row in gdf.iterrows():
+                geom = row.geometry
+                if geom is None or geom.is_empty:
+                    continue
+                    
+                parcel_name = str(row.get("parcel_id", f"Parcel {idx}"))
+                
+                try:
+                    if geom.geom_type == "Polygon":
+                        pol = folder.newpolygon(name=parcel_name)
+                        pol.outerboundaryis = list(geom.exterior.coords)
+                        pol.style.linestyle.color = "ffffffff"  # White boundary
+                        pol.style.linestyle.width = 3
+                        pol.style.polystyle.fill = 0  # No fill
+                        # Enable label visibility
+                        pol.style.labelstyle.scale = 1.5
+                        pol.style.labelstyle.color = simplekml.Color.white
+                    elif geom.geom_type == "MultiPolygon":
+                        # Create a folder for this multipolygon
+                        for poly_idx, poly in enumerate(geom.geoms):
+                            pol = folder.newpolygon(name=f"{parcel_name}_{poly_idx}")
+                            pol.outerboundaryis = list(poly.exterior.coords)
+                            pol.style.linestyle.color = "ffffffff"
+                            pol.style.linestyle.width = 3
+                            pol.style.polystyle.fill = 0
+                            # Enable label visibility
+                            pol.style.labelstyle.scale = 1.5
+                            pol.style.labelstyle.color = simplekml.Color.white
+                    else:
+                        continue
+                    
+                    # Add comprehensive description with stats
+                    desc = f"""
+                    <b>Parcel ID:</b> {parcel_name}<br/>
+                    <b>Khasra Count:</b> {row.get('khasra_count', 'N/A')}<br/>
+                    <b>Original Area:</b> {row.get('original_area_ha', 0):.2f} ha<br/>
+                    <b>Usable Area:</b> {row.get('usable_area_ha', 0):.2f} ha<br/>
+                    <b>Usable & Available Area:</b> {row.get('usable_available_area_ha', 0):.2f} ha<br/>
+                    <b>Unusable Area:</b> {row.get('unusable_area_ha', 0):.2f} ha<br/>
+                    <b>Building Count:</b> {row.get('building_count', 0)}<br/>
+                    """
+                    pol.description = desc
+                except Exception as e:
+                    print(f"Error processing parcel {parcel_name}: {e}")
+                    continue
+                
+        elif "layer" in name.lower():
+            # Constraint layers with color coding
+            layer_type = name.lower().replace("layer_", "")
+            color = layer_colors.get(layer_type, "ff888888")  # Default gray
+            
+            for idx, row in gdf.iterrows():
+                geom = row.geometry
+                if geom is None or geom.is_empty:
+                    continue
+                    
+                feature_name = f"{layer_type.title()} {idx + 1}"
+                
+                try:
+                    if geom.geom_type == "Polygon":
+                        pol = folder.newpolygon(name=feature_name)
+                        pol.outerboundaryis = list(geom.exterior.coords)
+                        pol.style.polystyle.color = color
+                        pol.style.polystyle.fill = 1
+                        pol.style.linestyle.color = color
+                        pol.style.linestyle.width = 1
+                    elif geom.geom_type == "MultiPolygon":
+                        for poly_idx, poly in enumerate(geom.geoms):
+                            pol = folder.newpolygon(name=f"{feature_name}_{poly_idx}")
+                            pol.outerboundaryis = list(poly.exterior.coords)
+                            pol.style.polystyle.color = color
+                            pol.style.polystyle.fill = 1
+                            pol.style.linestyle.color = color
+                            pol.style.linestyle.width = 1
+                    else:
+                        continue
+                except Exception as e:
+                    print(f"Error processing layer feature {feature_name}: {e}")
+                    continue
+                
+        else:
+            # Khasras with default styling
+            for idx, row in gdf.iterrows():
+                geom = row.geometry
+                if geom is None or geom.is_empty:
+                    continue
+                    
+                khasra_name = str(row.get("khasra_id_unique", row.get("khasra_id", f"Khasra {idx}")))
+                
+                try:
+                    if geom.geom_type == "Polygon":
+                        pol = folder.newpolygon(name=khasra_name)
+                        pol.outerboundaryis = list(geom.exterior.coords)
+                        pol.style.polystyle.color = "7f00ff00"  # Semi-transparent green
+                        pol.style.polystyle.fill = 1
+                        pol.style.linestyle.color = "ff00ff00"
+                        pol.style.linestyle.width = 1
+                    elif geom.geom_type == "MultiPolygon":
+                        for poly_idx, poly in enumerate(geom.geoms):
+                            pol = folder.newpolygon(name=f"{khasra_name}_{poly_idx}")
+                            pol.outerboundaryis = list(poly.exterior.coords)
+                            pol.style.polystyle.color = "7f00ff00"
+                            pol.style.polystyle.fill = 1
+                            pol.style.linestyle.color = "ff00ff00"
+                            pol.style.linestyle.width = 1
+                    else:
+                        continue
+                    
+                    # Add comprehensive description with stats
+                    desc_parts = [f"<b>Khasra ID:</b> {khasra_name}<br/>"]
+                    if "original_area_ha" in row:
+                        desc_parts.append(f"<b>Original Area:</b> {row.get('original_area_ha', 0):.2f} ha<br/>")
+                    if "usable_area_ha" in row:
+                        desc_parts.append(f"<b>Usable Area:</b> {row.get('usable_area_ha', 0):.2f} ha ({row.get('usable_area_percent', 0):.1f}%)<br/>")
+                    if "usable_available_area_ha" in row:
+                        desc_parts.append(f"<b>Usable & Available:</b> {row.get('usable_available_area_ha', 0):.2f} ha ({row.get('usable_available_area_percent', 0):.1f}%)<br/>")
+                    if "unusable_area_ha" in row:
+                        desc_parts.append(f"<b>Unusable Area:</b> {row.get('unusable_area_ha', 0):.2f} ha ({row.get('unusable_area_percent', 0):.1f}%)<br/>")
+                    if "parcel_id" in row:
+                        desc_parts.append(f"<b>Parcel ID:</b> {row.get('parcel_id', 'N/A')}<br/>")
+                    
+                    pol.description = "".join(desc_parts)
+                except Exception as e:
+                    print(f"Error processing khasra {khasra_name}: {e}")
+                    continue
+    
+    # Save to KMZ (compressed KML in a ZIP file)
     buffer = BytesIO()
-    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-        for name, gdf in gdfs.items():
-            with tempfile.NamedTemporaryFile(suffix=".kml", delete=False) as tmp:
-                gdf.to_file(tmp.name, driver="KML", engine="pyogrio")
-                with open(tmp.name, "rb") as f:
-                    zf.writestr(f"{name}.kml", f.read())
-                Path(tmp.name).unlink()
-
-    filename = f"{location}_export_{timestamp}_kml.zip"
+    kml_string = kml.kml()
+    
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as kmz:
+        kmz.writestr("doc.kml", kml_string)
+    
+    buffer.seek(0)
+    filename = f"{location}_export.kmz"
     return buffer.getvalue(), filename
 
 
 def export_to_shapefile(
-    gdfs: Dict[str, gpd.GeoDataFrame], location: str, timestamp: str
+    gdfs: Dict[str, gpd.GeoDataFrame], location: str
 ) -> Tuple[bytes, str]:
     buffer = BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -1981,12 +2153,12 @@ def export_to_shapefile(
                     if file_path.exists():
                         zf.write(file_path, f"{name}/{name}{ext}")
 
-    filename = f"{location}_export_{timestamp}_shp.zip"
+    filename = f"{location}_export_shp.zip"
     return buffer.getvalue(), filename
 
 
 def export_to_parquet(
-    gdfs: Dict[str, gpd.GeoDataFrame], location: str, timestamp: str
+    gdfs: Dict[str, gpd.GeoDataFrame], location: str
 ) -> Tuple[bytes, str]:
     buffer = BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -1995,12 +2167,12 @@ def export_to_parquet(
             gdf.to_parquet(parquet_buffer)
             zf.writestr(f"{name}.parquet", parquet_buffer.getvalue())
 
-    filename = f"{location}_export_{timestamp}.zip"
+    filename = f"{location}_export.zip"
     return buffer.getvalue(), filename
 
 
 def export_to_csv(
-    gdfs: Dict[str, gpd.GeoDataFrame], location: str, timestamp: str
+    gdfs: Dict[str, gpd.GeoDataFrame], location: str
 ) -> Tuple[bytes, str]:
     buffer = BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -2009,14 +2181,13 @@ def export_to_csv(
             csv_content = df.to_csv(index=False)
             zf.writestr(f"{name}.csv", csv_content)
 
-    filename = f"{location}_export_{timestamp}_csv.zip"
+    filename = f"{location}_export_csv.zip"
     return buffer.getvalue(), filename
 
 
 def export_to_excel(
     gdfs: Dict[str, gpd.GeoDataFrame],
     location: str,
-    timestamp: str,
     include_statistics: bool = True,
 ) -> Tuple[bytes, str]:
     buffer = BytesIO()
@@ -2030,19 +2201,24 @@ def export_to_excel(
         if include_statistics:
             summary_data = []
             for name, gdf in gdfs.items():
+                # Calculate area in projected CRS to avoid warnings
+                total_area_ha = None
+                if "geometry" in gdf.columns:
+                    # Convert to projected CRS for accurate area calculation
+                    gdf_projected = gdf.to_crs("EPSG:32643")  # UTM Zone 43N for India
+                    total_area_ha = gdf_projected.geometry.area.sum() / 10_000
+                
                 summary_data.append(
                     {
                         "Layer": name,
                         "Feature Count": len(gdf),
-                        "Total Area (ha)": gdf.geometry.area.sum() / 10_000
-                        if "geometry" in gdf.columns
-                        else None,
+                        "Total Area (ha)": total_area_ha,
                     }
                 )
             summary_df = pd.DataFrame(summary_data)
             summary_df.to_excel(writer, sheet_name="Summary", index=False)
 
-    filename = f"{location}_export_{timestamp}.xlsx"
+    filename = f"{location}_export.xlsx"
     return buffer.getvalue(), filename
 
 

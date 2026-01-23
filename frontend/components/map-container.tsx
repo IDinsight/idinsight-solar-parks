@@ -138,6 +138,55 @@ const LeafletMap = dynamic(
         fillOpacity: 0.1,
       })
 
+      // Function to add tooltips to khasras
+      const onEachKhasra = (feature: any, layer: any) => {
+        if (feature.properties) {
+          const props = feature.properties
+          
+          // Build tooltip content with all available stats
+          let tooltipContent = `<strong>Khasra: ${props.khasra_id_unique || props.khasra_id || 'N/A'}</strong><br/>`
+          
+          if (props.original_area_ha !== null && props.original_area_ha !== undefined) {
+            tooltipContent += `Original Area: ${props.original_area_ha.toFixed(4)} ha<br/>`
+          }
+          
+          if (props.usable_area_ha !== null && props.usable_area_ha !== undefined) {
+            tooltipContent += `Usable Area: ${props.usable_area_ha.toFixed(4)} ha`
+            if (props.usable_area_percent !== null && props.usable_area_percent !== undefined) {
+              tooltipContent += ` (${props.usable_area_percent.toFixed(1)}%)`
+            }
+            tooltipContent += `<br/>`
+          }
+          
+          if (props.usable_available_area_ha !== null && props.usable_available_area_ha !== undefined) {
+            tooltipContent += `Usable & Available: ${props.usable_available_area_ha.toFixed(4)} ha`
+            if (props.usable_available_area_percent !== null && props.usable_available_area_percent !== undefined) {
+              tooltipContent += ` (${props.usable_available_area_percent.toFixed(1)}%)`
+            }
+            tooltipContent += `<br/>`
+          }
+          
+          if (props.unusable_area_ha !== null && props.unusable_area_ha !== undefined) {
+            tooltipContent += `Unusable Area: ${props.unusable_area_ha.toFixed(4)} ha`
+            if (props.unusable_area_percent !== null && props.unusable_area_percent !== undefined) {
+              tooltipContent += ` (${props.unusable_area_percent.toFixed(1)}%)`
+            }
+            tooltipContent += `<br/>`
+          }
+          
+          if (props.parcel_id) {
+            tooltipContent += `Parcel: ${props.parcel_id}<br/>`
+          }
+          
+          // Add tooltip on hover
+          layer.bindTooltip(tooltipContent, { 
+            permanent: false, 
+            direction: 'top',
+            className: 'khasra-tooltip'
+          })
+        }
+      }
+
       // Style function for layers
       const layerStyle = (color: string) => () => ({
         color: color,
@@ -230,7 +279,8 @@ const LeafletMap = dynamic(
             <GeoJSON 
               key={`khasras-${geoJsonData.features.length}`} 
               data={geoJsonData} 
-              style={khasraStyle} 
+              style={khasraStyle}
+              onEachFeature={onEachKhasra}
             />
           )}
           {/* Render layers on top */}
