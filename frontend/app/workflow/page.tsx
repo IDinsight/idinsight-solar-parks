@@ -12,6 +12,25 @@ import * as api from "@/lib/api/services"
 import { ExportFormat, ExportType } from "@/lib/api/types"
 import { ChevronLeft, ChevronRight, Download, ArrowLeft, AlertCircle } from "lucide-react"
 
+// Animated ellipsis component
+function AnimatedEllipsis() {
+    const [dots, setDots] = useState(".")
+    
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setDots(prev => {
+                if (prev === ".") return ".."
+                if (prev === "..") return "..."
+                return "."
+            })
+        }, 500)
+        
+        return () => clearInterval(interval)
+    }, [])
+    
+    return <span className="inline-block w-4">{dots}</span>
+}
+
 export default function WorkflowPage() {
     return (
         <ProtectedRoute>
@@ -512,9 +531,7 @@ function WorkflowContent() {
                                                             </div>
                                                             <p className="text-xs text-slate-600 ml-6">
                                                                 {status.details}
-                                                                {status.status === "in_progress" && (
-                                                                    <span className="inline-block ml-1 animate-pulse">...</span>
-                                                                )}
+                                                                {status.status === "in_progress" && <AnimatedEllipsis />}
                                                             </p>
                                                         </div>
                                                     ))}

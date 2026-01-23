@@ -537,7 +537,7 @@ def process_custom_layer_upload(
         .filter(LayerModel.project_id == project_id, LayerModel.name == layer_name)
         .first()
     )
-    
+
     if not layer:
         # Create layer record if it doesn't exist (backwards compatibility)
         layer = LayerModel(
@@ -553,7 +553,7 @@ def process_custom_layer_upload(
         db.commit()
 
     try:
-        update_layer_status(db, layer, "in_progress", "Loading khasras data...")
+        update_layer_status(db, layer, "in_progress", "Loading khasras data")
 
         gdf = get_khasras_gdf(db, project_id, projected=False)
         if gdf is None:
@@ -562,7 +562,7 @@ def process_custom_layer_upload(
         # Ensure khasras are projected to India CRS for intersection
         gdf = gdf.to_crs(f"EPSG:{settings.INDIA_PROJECTED_CRS}")
 
-        update_layer_status(db, layer, "in_progress", "Reading uploaded file...")
+        update_layer_status(db, layer, "in_progress", "Reading uploaded file")
 
         # Read the layer file
         file_extension = Path(filename).suffix.lower()
@@ -583,18 +583,14 @@ def process_custom_layer_upload(
         finally:
             Path(tmp_path).unlink()
 
-        update_layer_status(
-            db, layer, "in_progress", "Projecting layer to India CRS..."
-        )
+        update_layer_status(db, layer, "in_progress", "Projecting layer to India CRS")
 
         # Ensure CRS and project
         if layer_gdf.crs is None:
             layer_gdf = layer_gdf.set_crs("EPSG:4326")
         layer_gdf = layer_gdf.to_crs(f"EPSG:{settings.INDIA_PROJECTED_CRS}")
 
-        update_layer_status(
-            db, layer, "in_progress", "Intersecting layer with khasras..."
-        )
+        update_layer_status(db, layer, "in_progress", "Intersecting layer with khasras")
 
         # Intersect with khasras
         layer_overlap_gdf = gpd.overlay(layer_gdf, gdf, how="intersection")
@@ -602,7 +598,7 @@ def process_custom_layer_upload(
             by="Khasra ID (Unique)"
         ).reset_index()
 
-        update_layer_status(db, layer, "in_progress", "Calculating area statistics...")
+        update_layer_status(db, layer, "in_progress", "Calculating area statistics")
 
         # Calculate area
         area_col = (
@@ -611,7 +607,7 @@ def process_custom_layer_upload(
         layer_overlap_gdf[area_col] = layer_overlap_gdf.area / 10_000
 
         update_layer_status(
-            db, layer, "in_progress", "Storing layer features in database..."
+            db, layer, "in_progress", "Storing layer features in database"
         )
 
         # Update layer metadata
@@ -897,22 +893,18 @@ def process_settlement_layer(
     # Check if layers already exist
     existing_settlements = (
         db.query(LayerModel)
-        .filter(
-            LayerModel.project_id == project_id,
-            LayerModel.name == "Settlements"
-        )
+        .filter(LayerModel.project_id == project_id, LayerModel.name == "Settlements")
         .first()
     )
-    
+
     existing_isolated = (
         db.query(LayerModel)
         .filter(
-            LayerModel.project_id == project_id,
-            LayerModel.name == "Isolated Buildings"
+            LayerModel.project_id == project_id, LayerModel.name == "Isolated Buildings"
         )
         .first()
     )
-    
+
     # If create_only and layers exist, return existing info
     if create_only and existing_settlements and existing_isolated:
         return (
@@ -939,12 +931,16 @@ def process_settlement_layer(
                 feature_count=existing_isolated.feature_count,
             ),
         )
-    
+
     # Use existing layers if found, otherwise create new ones
     if existing_settlements:
         settlements_layer = existing_settlements
         settlements_layer.status = "in_progress"
-        settlements_layer.details = "Queued for processing..." if create_only else "Initializing settlement detection..."
+        settlements_layer.details = (
+            "Queued for processing..."
+            if create_only
+            else "Initializing settlement detection..."
+        )
     else:
         settlements_layer = LayerModel(
             project_id=project_id,
@@ -952,7 +948,9 @@ def process_settlement_layer(
             layer_type=LayerType.BUILTIN.value,
             is_unusable=True,
             status="in_progress",
-            details="Queued for processing..." if create_only else "Initializing settlement detection...",
+            details="Queued for processing..."
+            if create_only
+            else "Initializing settlement detection",
             parameters={
                 "building_buffer": building_buffer,
                 "settlement_eps": settlement_eps,
@@ -964,7 +962,11 @@ def process_settlement_layer(
     if existing_isolated:
         isolated_layer = existing_isolated
         isolated_layer.status = "in_progress"
-        isolated_layer.details = "Queued for processing..." if create_only else "Waiting for settlement detection..."
+        isolated_layer.details = (
+            "Queued for processing..."
+            if create_only
+            else "Waiting for settlement detection"
+        )
     else:
         isolated_layer = LayerModel(
             project_id=project_id,
@@ -972,13 +974,15 @@ def process_settlement_layer(
             layer_type=LayerType.BUILTIN.value,
             is_unusable=False,
             status="in_progress",
-            details="Queued for processing..." if create_only else "Waiting for settlement detection...",
+            details="Queued for processing..."
+            if create_only
+            else "Waiting for settlement detection",
             parameters={
                 "building_buffer": building_buffer,
             },
         )
         db.add(isolated_layer)
-    
+
     db.commit()
 
     # If create_only, return placeholder LayerInfo objects
@@ -991,7 +995,7 @@ def process_settlement_layer(
                 is_unusable=True,
                 parameters=settlements_layer.parameters,
                 status="in_progress",
-                details="Queued for processing...",
+                details="Queued for processing",
             ),
             LayerInfo(
                 layer_type=LayerType.BUILTIN.value,
@@ -1000,13 +1004,13 @@ def process_settlement_layer(
                 is_unusable=False,
                 parameters=isolated_layer.parameters,
                 status="in_progress",
-                details="Queued for processing...",
+                details="Queued for processing",
             ),
         )
 
     try:
         update_layer_status(
-            db, settlements_layer, "in_progress", "Loading khasras data..."
+            db, settlements_layer, "in_progress", "Loading khasras data"
         )
 
         gdf = get_khasras_gdf(db, project_id, projected=False)
@@ -1018,7 +1022,7 @@ def process_settlement_layer(
         gdf_4326 = gdf.to_crs("EPSG:4326")
 
         update_layer_status(
-            db, settlements_layer, "in_progress", "Importing VIDA rooftop utilities..."
+            db, settlements_layer, "in_progress", "Importing VIDA rooftop utilities"
         )
 
         # Import VIDA utilities
@@ -1033,7 +1037,10 @@ def process_settlement_layer(
             )
 
         update_layer_status(
-            db, settlements_layer, "in_progress", "Finding overlapping S2 cells..."
+            db,
+            settlements_layer,
+            "in_progress",
+            "Finding overlapping rooftop S2 bundles",
         )
 
         # Get S2 cell IDs that overlap the khasras
@@ -1046,7 +1053,7 @@ def process_settlement_layer(
             db,
             settlements_layer,
             "in_progress",
-            f"Downloading rooftop data for {len(s2_cell_ids)} S2 cells...",
+            f"Downloading rooftop data for {len(s2_cell_ids)} S2 bundles",
         )
 
         # Download rooftop data to shared folder (not per-project)
@@ -1063,7 +1070,7 @@ def process_settlement_layer(
             db,
             settlements_layer,
             "in_progress",
-            "Loading and combining rooftop data...",
+            "Loading and combining rooftop data",
         )
 
         # Load and combine rooftop data from shared folder
@@ -1084,7 +1091,7 @@ def process_settlement_layer(
             db,
             settlements_layer,
             "in_progress",
-            f"Filtering {len(rooftop_gdf)} buildings to khasras...",
+            f"Filtering {len(rooftop_gdf)} buildings to khasras",
         )
 
         # Filter to only rooftops that intersect khasras
@@ -1109,7 +1116,7 @@ def process_settlement_layer(
             db,
             settlements_layer,
             "in_progress",
-            f"Buffering {len(rooftops_in_khasras)} buildings by {building_buffer}m...",
+            f"Buffering {len(rooftops_in_khasras)} buildings by {building_buffer}m",
         )
 
         # Buffer buildings
@@ -1120,7 +1127,7 @@ def process_settlement_layer(
             db,
             settlements_layer,
             "in_progress",
-            "Intersecting buildings with khasras...",
+            "Intersecting buildings with khasras",
         )
 
         # Get intersection with khasras
@@ -1130,7 +1137,7 @@ def process_settlement_layer(
             db,
             settlements_layer,
             "in_progress",
-            f"Clustering {len(buildings_overlap_gdf)} buildings (eps={settlement_eps}m, min={min_buildings})...",
+            f"Clustering {len(buildings_overlap_gdf)} buildings (distance={settlement_eps}m, min_buildings={min_buildings})",
         )
 
         # Cluster buildings using DBSCAN
@@ -1158,7 +1165,7 @@ def process_settlement_layer(
             db,
             settlements_layer,
             "in_progress",
-            f"Found {num_settlements} settlements, {len(isolated_buildings_gdf)} isolated buildings...",
+            f"Found {num_settlements} settlements and {len(isolated_buildings_gdf)} isolated buildings",
         )
 
         results = []
@@ -1169,7 +1176,7 @@ def process_settlement_layer(
                 db,
                 settlements_layer,
                 "in_progress",
-                "Creating settlement convex hulls...",
+                "Calculating settlement boundaries",
             )
 
             settlements_gdf = settlement_buildings_gdf.dissolve(
@@ -1193,7 +1200,7 @@ def process_settlement_layer(
                 db,
                 settlements_layer,
                 "in_progress",
-                "Saving settlement layer to database...",
+                "Saving settlement layer to database",
             )
 
             # Save settlements layer
@@ -1229,7 +1236,7 @@ def process_settlement_layer(
 
         # Process isolated buildings
         update_layer_status(
-            db, isolated_layer, "in_progress", "Processing isolated buildings..."
+            db, isolated_layer, "in_progress", "Processing isolated buildings"
         )
 
         if len(isolated_buildings_gdf) > 0:
@@ -1244,7 +1251,7 @@ def process_settlement_layer(
                 db,
                 isolated_layer,
                 "in_progress",
-                "Saving isolated buildings layer to database...",
+                "Saving isolated buildings layer to database",
             )
 
             # Save isolated buildings layer
@@ -2088,7 +2095,7 @@ def process_settlement_layer_background(
 ):
     """Background task to process settlement layers"""
     from database import SessionLocal
-    
+
     db = SessionLocal()
     try:
         process_settlement_layer(
@@ -2115,7 +2122,7 @@ def process_custom_layer_background(
 ):
     """Background task to process custom layer"""
     from database import SessionLocal
-    
+
     db = SessionLocal()
     try:
         process_custom_layer_upload(
