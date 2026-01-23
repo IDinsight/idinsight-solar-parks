@@ -542,9 +542,20 @@ function WorkflowContent() {
                                 <p className="text-base text-slate-600">Upload your KML or GeoJSON file containing land parcel boundaries</p>
                             </div>
                             <UploadSection 
-                                onFileUpload={handleKhasraUpload} 
-                                onKhasraDeleted={() => setIsKhasraUploadComplete(false)}
-                                isProcessing={isProcessing} 
+                                onFileUpload={handleKhasraUpload}
+                                onKhasraDeleted={() => {
+                                    // Reset all workflow state when khasras are deleted
+                                    setIsKhasraUploadComplete(false)
+                                    setConstraintLayersGeoJSON(null)
+                                    setAllProjectLayers([])
+                                    setSettlementLayerStatus(null)
+                                    setActiveProcessingLayer(null)
+                                    setIsClusteringComplete(false)
+                                    setClusteringResult(null)
+                                    setClusteringParams(null)
+                                    setParcelGeoJSON(null)
+                                }}
+                                isProcessing={isProcessing}
                             />
                         </div>
                     )}
