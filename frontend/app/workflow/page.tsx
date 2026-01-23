@@ -553,8 +553,8 @@ function WorkflowContent() {
                     {currentPage === 2 && (
                         <div className="space-y-8">
                             <div>
-                                <h2 className="text-3xl font-bold text-slate-900 mb-2">Step 2: Add Constraint Layers</h2>
-                                <p className="text-base text-slate-600">Select which constraint layers to overlay on your khasras</p>
+                                <h2 className="text-3xl font-bold text-slate-900 mb-2">Step 2: Add Layers</h2>
+                                <p className="text-base text-slate-600">Add unusable land layers to exclude from solar park areas</p>
                             </div>
 
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -706,37 +706,6 @@ function WorkflowContent() {
                                 </p>
                             </div>
                             <div className="space-y-6">
-                                {/* Clustering Results Banner */}
-                                {isClusteringComplete && clusteringResult && (
-                                    <div className="p-6 bg-green-50 border-2 border-green-200 rounded-lg">
-                                        <div className="flex items-center gap-3 mb-4">
-                                            <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                                                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                                </svg>
-                                            </div>
-                                            <h3 className="text-lg font-semibold text-green-900">Clustering Complete!</h3>
-                                        </div>
-                                        <div className="grid grid-cols-3 gap-4">
-                                            <div>
-                                                <p className="text-2xl font-bold text-green-700">{clusteringResult.total_parcels}</p>
-                                                <p className="text-sm text-green-600">Parcels Created</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-2xl font-bold text-green-700">{clusteringResult.clustered_khasras}</p>
-                                                <p className="text-sm text-green-600">Khasras Clustered</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-2xl font-bold text-slate-600">{clusteringResult.unclustered_khasras}</p>
-                                                <p className="text-sm text-slate-600">Unclustered</p>
-                                            </div>
-                                        </div>
-                                        <p className="text-sm text-green-700 mt-4">
-                                            ✓ Parcel boundaries have been created and are displayed on the map. Click Next to export results.
-                                        </p>
-                                    </div>
-                                )}
-
                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                                     <div className="lg:col-span-1">
                                         <ClusteringSection

@@ -3,6 +3,8 @@ Geospatial processing services with PostgreSQL/PostGIS and file storage
 """
 
 import json
+import logging
+import sys
 import tempfile
 import uuid
 import zipfile
@@ -41,6 +43,14 @@ from sklearn.cluster import DBSCAN
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from storage import file_storage
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)],
+)
+logger = logging.getLogger(__name__)
 
 
 # ============ Geometry Utilities ============
@@ -494,11 +504,19 @@ def delete_khasras(db: Session, project_id: str) -> bool:
     # Delete all parcels (clustering results)
     db.query(ParcelModel).filter(ParcelModel.project_id == project_id).delete()
 
+    # Delete distance matrix file if it exists
+    if project.distance_matrix_path:
+        try:
+            file_storage.delete_file(project.distance_matrix_path)
+        except Exception as e:
+            logger.warning(f"Failed to delete distance matrix file: {e}")
+
     # Reset project status and stats
     project.status = ProjectStatus.CREATED
     project.khasra_count = None
     project.total_area_ha = None
     project.bounds_json = None
+    project.distance_matrix_path = None
     project.updated_at = datetime.utcnow()
 
     db.commit()
@@ -799,89 +817,6 @@ def load_layer_gdf_by_id(db: Session, layer_id: int) -> Optional[gpd.GeoDataFram
         data.append(row)
 
     return gpd.GeoDataFrame(data, crs="EPSG:4326")
-
-
-# def load_layer_gdf(
-#     db: Session, project_id: str, layer_name: str
-# ) -> Optional[gpd.GeoDataFrame]:
-#     """Load a layer's GeoDataFrame from database (layer_features table)"""
-#     layer = (
-#         db.query(LayerModel)
-#         .filter(LayerModel.project_id == project_id, LayerModel.name == layer_name)
-#         .first()
-#     )
-
-#     if not layer:
-#         return None
-
-#     return load_layer_gdf_by_id(db, layer.id)
-
-
-# def get_layer_features_gdf(
-#     db: Session, project_id: str, layer_name: str
-# ) -> Optional[gpd.GeoDataFrame]:
-#     """Load a layer's features from the database as a GeoDataFrame"""
-#     layer = (
-#         db.query(LayerModel)
-#         .filter(LayerModel.project_id == project_id, LayerModel.name == layer_name)
-#         .first()
-#     )
-
-#     if not layer:
-#         return None
-
-#     features = (
-#         db.query(LayerFeatureModel).filter(LayerFeatureModel.layer_id == layer.id).all()
-#     )
-
-#     if not features:
-#         return None
-
-#     data = []
-#     for f in features:
-#         geom = to_shape(f.geometry)
-#         data.append(
-#             {
-#                 "khasra_id_unique": f.khasra_id_unique,
-#                 "area_ha": f.area_ha,
-#                 "geometry": geom,
-#                 **(f.properties or {}),
-#             }
-#         )
-
-#     gdf = gpd.GeoDataFrame(data, crs="EPSG:4326")
-#     return gdf
-
-
-# def get_layer_features_for_khasra(
-#     db: Session, project_id: str, khasra_id_unique: str
-# ) -> List[Dict]:
-#     """Get all layer features that intersect a specific khasra"""
-#     layers = get_layers_metadata(db, project_id)
-
-#     result = []
-#     for layer in layers:
-#         features = (
-#             db.query(LayerFeatureModel)
-#             .filter(
-#                 LayerFeatureModel.layer_id == layer.id,
-#                 LayerFeatureModel.khasra_id_unique == khasra_id_unique,
-#             )
-#             .all()
-#         )
-
-#         for f in features:
-#             result.append(
-#                 {
-#                     "layer_name": layer.name,
-#                     "layer_type": layer.layer_type,
-#                     "is_unusable": layer.is_unusable,
-#                     "area_ha": f.area_ha,
-#                     "properties": f.properties,
-#                 }
-#             )
-
-#     return result
 
 
 # ============ Builtin Layer Processing ============
@@ -1627,14 +1562,22 @@ def cluster_khasras(
     original_gdf_with_stats = original_gdf_with_stats.reset_index()
 
     # Build or load distance matrix
+    found_distance_matrix = False
     if project.distance_matrix_path:
         distance_matrix = file_storage.load_numpy_array(project.distance_matrix_path)
-    else:
+        if distance_matrix is not None and distance_matrix.shape[0] == len(
+            original_gdf_with_stats
+        ):
+            logger.info("Loaded existing distance matrix from storage")
+            found_distance_matrix = True
+
+    if not found_distance_matrix:
         distance_matrix = build_optimised_distance_matrix(
             gdf=original_gdf_with_stats,
             max_distance_considered=settings.MAX_DISTANCE_CONSIDERED,
             n_jobs=-1,
         )
+        logger.info("Built new distance matrix")
         distance_matrix_path = file_storage.save_numpy_array(
             distance_matrix, project_id, "distance_matrix.npy"
         )
@@ -1834,7 +1777,7 @@ def get_parcels_gdf(db: Session, project_id: str) -> Optional[gpd.GeoDataFrame]:
         # Skip UNCLUSTERED parcels
         if p.parcel_id and "UNCLUSTERED" in p.parcel_id:
             continue
-            
+
         geom = to_shape(p.geometry) if p.geometry else None
         row = {
             "geometry": geom,

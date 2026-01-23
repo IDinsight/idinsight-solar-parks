@@ -149,6 +149,14 @@ class FileStorage:
     
     # ============ Project Management ============
     
+    def delete_file(self, file_path: str) -> bool:
+        """Delete a specific file"""
+        path = Path(file_path)
+        if path.exists() and path.is_file():
+            path.unlink()
+            return True
+        return False
+    
     def delete_project_files(self, project_id: str) -> bool:
         """Delete all files for a project"""
         project_dir = self._get_project_dir(project_id)
