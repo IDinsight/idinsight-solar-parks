@@ -172,6 +172,11 @@ export async function clusterKhasras(
     return response.data
 }
 
+export async function getParcelsGeoJSON(projectId: string): Promise<any> {
+    const response = await apiClient.get(`/projects/${projectId}/parcels/geojson`)
+    return response.data
+}
+
 // ============ Export ============
 
 export async function exportData(projectId: string, request: ExportRequest): Promise<Blob> {

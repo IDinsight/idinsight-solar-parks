@@ -11,6 +11,7 @@ Now with PostgreSQL/PostGIS persistence and local file storage.
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
+import json
 
 import uvicorn
 from auth import (
@@ -868,6 +869,49 @@ async def cluster_khasras_endpoint(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error clustering khasras: {str(e)}",
+        )
+
+
+@app.get(
+    "/projects/{project_id}/parcels/geojson",
+    tags=["Clustering"],
+    summary="Get parcel boundaries as GeoJSON",
+)
+async def get_parcels_geojson(
+    project_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get parcel boundaries as GeoJSON with parcel IDs and statistics.
+    
+    Returns the clustered parcel geometries that can be displayed on a map.
+    Each feature includes parcel_id, khasra_count, and area statistics.
+    """
+    project = get_project(db, project_id)
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project {project_id} not found",
+        )
+
+    try:
+        parcel_gdf = get_parcels_gdf(db, project_id)
+        
+        if parcel_gdf is None or len(parcel_gdf) == 0:
+            return {
+                "type": "FeatureCollection",
+                "features": []
+            }
+        
+        # Convert to GeoJSON
+        geojson = json.loads(parcel_gdf.to_json())
+        
+        return geojson
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving parcel geometries: {str(e)}",
         )
 
 

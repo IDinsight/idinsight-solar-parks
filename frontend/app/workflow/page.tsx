@@ -72,6 +72,7 @@ function WorkflowContent() {
     // Step 3: Clustering state
     const [isClusteringComplete, setIsClusteringComplete] = useState(false)
     const [clusteringResult, setClusteringResult] = useState<any>(null)
+    const [parcelGeoJSON, setParcelGeoJSON] = useState<any>(null)
 
     // Map visualization state
     const [mapCenter, setMapCenter] = useState<[number, number]>([20, 0])
@@ -194,6 +195,15 @@ function WorkflowContent() {
                         // If clustering is done, start at clustering page
                         if (project.status === 'clustered' || project.status === 'completed') {
                             setIsClusteringComplete(true)
+                            
+                            // Load parcel GeoJSON for clustered projects
+                            try {
+                                const parcelsGeoJSON = await api.getParcelsGeoJSON(currentProject.id)
+                                setParcelGeoJSON(parcelsGeoJSON)
+                            } catch (error) {
+                                console.error('Failed to load parcel GeoJSON:', error)
+                            }
+                            
                             setCurrentPage(3)
                         } else {
                             setCurrentPage(3)
@@ -337,6 +347,10 @@ function WorkflowContent() {
 
             setClusteringResult(result)
             setIsClusteringComplete(true)
+
+            // Fetch parcel geometries for map display
+            const parcelsGeoJSON = await api.getParcelsGeoJSON(currentProject.id)
+            setParcelGeoJSON(parcelsGeoJSON)
 
             // Refresh project data with clustering status
             const updatedProject = await api.getProject(currentProject.id)
@@ -706,7 +720,7 @@ function WorkflowContent() {
                                                 data={khasraGeoJSON}
                                                 center={mapCenter}
                                                 zoom={mapZoom}
-                                                clusters={clusteringResult?.parcels || []}
+                                                parcelsData={parcelGeoJSON}
                                                 layersData={constraintLayersGeoJSON || undefined}
                                             />
                                         ) : (

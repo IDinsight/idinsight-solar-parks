@@ -11,7 +11,7 @@ interface MapProps {
   selectedLayers?: string[]
   center: [number, number]
   zoom: number
-  clusters?: any[]
+  parcelsData?: any
   layersData?: Record<string, any>
 }
 
@@ -123,11 +123,12 @@ const LeafletMap = dynamic(
     }
 
     // Return the actual map component
-    return function MapInner({ center, zoom, geoJsonData, layersGeoJson }: { 
+    return function MapInner({ center, zoom, geoJsonData, layersGeoJson, parcelsGeoJson }: { 
       center: [number, number]
       zoom: number
       geoJsonData: FeatureCollection | null
       layersGeoJson: Array<{ data: FeatureCollection, color: string, name: string }>
+      parcelsGeoJson: FeatureCollection | null
     }) {
       // Style function for khasras (base layer)
       const khasraStyle = () => ({
@@ -145,6 +146,53 @@ const LeafletMap = dynamic(
         fillColor: color,
         fillOpacity: 0.4,
       })
+
+      // Style function for parcels
+      const parcelStyle = () => ({
+        color: '#ff6b35',
+        weight: 3,
+        opacity: 0.9,
+        fillOpacity: 0,
+        dashArray: '5, 5',
+      })
+
+      // Function to add labels to parcels
+      const onEachParcel = (feature: any, layer: any) => {
+        if (feature.properties && feature.properties.parcel_id) {
+          const parcelId = feature.properties.parcel_id
+          const khasraCount = feature.properties.khasra_count || 0
+          const usableAreaHa = feature.properties.usable_area_ha || 0
+          
+          // Add tooltip
+          layer.bindTooltip(
+            `<strong>${parcelId}</strong><br/>` +
+            `Khasras: ${khasraCount}<br/>` +
+            `Usable Area: ${usableAreaHa.toFixed(2)} ha`,
+            { permanent: false, direction: 'center' }
+          )
+          
+          // Add permanent label for parcel ID
+          const bounds = layer.getBounds()
+          const center = bounds.getCenter()
+          
+          L.marker(center, {
+            icon: L.divIcon({
+              className: 'parcel-label',
+              html: `<div style="
+                background: rgba(255, 107, 53, 0.9);
+                color: white;
+                padding: 4px 8px;
+                border-radius: 4px;
+                font-weight: bold;
+                font-size: 12px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                white-space: nowrap;
+              ">${parcelId}</div>`,
+              iconSize: undefined,
+            }),
+          }).addTo(layer._map)
+        }
+      }
 
       return (
         <MapContainer 
@@ -177,6 +225,15 @@ const LeafletMap = dynamic(
               />
             )
           ))}
+          {/* Render parcel boundaries on top with labels */}
+          {parcelsGeoJson && parcelsGeoJson.features && parcelsGeoJson.features.length > 0 && (
+            <GeoJSON 
+              key={`parcels-${parcelsGeoJson.features.length}`} 
+              data={parcelsGeoJson} 
+              style={parcelStyle}
+              onEachFeature={onEachParcel}
+            />
+          )}
         </MapContainer>
       )
     }
@@ -191,9 +248,10 @@ const LeafletMap = dynamic(
   }
 )
 
-export default function MapComponent({ data, selectedLayers, center, zoom, layersData }: MapProps) {
+export default function MapComponent({ data, selectedLayers, center, zoom, parcelsData, layersData }: MapProps) {
   const [geoJsonData, setGeoJsonData] = useState<FeatureCollection | null>(null)
   const [layersGeoJson, setLayersGeoJson] = useState<Array<{ data: FeatureCollection, color: string, name: string }>>([])
+  const [parcelsGeoJson, setParcelsGeoJson] = useState<FeatureCollection | null>(null)
 
   useEffect(() => {
     if (data?.features && Array.isArray(data.features)) {
@@ -248,6 +306,18 @@ export default function MapComponent({ data, selectedLayers, center, zoom, layer
     }
   }, [layersData, selectedLayers])
 
+  // Process parcels data
+  useEffect(() => {
+    if (parcelsData?.features && Array.isArray(parcelsData.features)) {
+      setParcelsGeoJson({
+        type: "FeatureCollection",
+        features: parcelsData.features,
+      })
+    } else {
+      setParcelsGeoJson(null)
+    }
+  }, [parcelsData])
+
   if (!data) {
     return (
       <div className="w-full h-full bg-slate-50 flex items-center justify-center rounded-lg">
@@ -258,7 +328,7 @@ export default function MapComponent({ data, selectedLayers, center, zoom, layer
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden">
-      <LeafletMap center={center} zoom={zoom} geoJsonData={geoJsonData} layersGeoJson={layersGeoJson} />
+      <LeafletMap center={center} zoom={zoom} geoJsonData={geoJsonData} layersGeoJson={layersGeoJson} parcelsGeoJson={parcelsGeoJson} />
     </div>
   )
 }
