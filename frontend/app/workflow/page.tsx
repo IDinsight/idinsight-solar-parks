@@ -201,6 +201,19 @@ function WorkflowContent() {
                             try {
                                 const parcelsGeoJSON = await api.getParcelsGeoJSON(currentProject.id)
                                 setParcelGeoJSON(parcelsGeoJSON)
+                                
+                                // Extract clustering params and results from response
+                                if (parcelsGeoJSON?.clusteringParams) {
+                                    setClusteringParams({
+                                        distance_threshold: parcelsGeoJSON.clusteringParams.distance_threshold,
+                                        min_samples: parcelsGeoJSON.clusteringParams.min_samples
+                                    })
+                                    setClusteringResult({
+                                        total_parcels: parcelsGeoJSON.clusteringParams.total_parcels,
+                                        clustered_khasras: parcelsGeoJSON.clusteringParams.clustered_khasras,
+                                        unclustered_khasras: parcelsGeoJSON.clusteringParams.unclustered_khasras
+                                    })
+                                }
                             } catch (error) {
                                 console.error('Failed to load parcel GeoJSON:', error)
                             }
@@ -356,6 +369,14 @@ function WorkflowContent() {
             // Fetch parcel geometries for map display
             const parcelsGeoJSON = await api.getParcelsGeoJSON(currentProject.id)
             setParcelGeoJSON(parcelsGeoJSON)
+            
+            // Extract clustering params from response (should match what we just sent)
+            if (parcelsGeoJSON?.clusteringParams) {
+                setClusteringParams({
+                    distance_threshold: parcelsGeoJSON.clusteringParams.distance_threshold,
+                    min_samples: parcelsGeoJSON.clusteringParams.min_samples
+                })
+            }
 
             // Refresh project data with clustering status
             const updatedProject = await api.getProject(currentProject.id)

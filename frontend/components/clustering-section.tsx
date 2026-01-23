@@ -63,11 +63,28 @@ export default function ClusteringSection({
           <h3 className="text-lg font-semibold text-slate-900">Clustering Complete</h3>
         </div>
 
-        {/* Display clustering statistics and parameters */}
+        {/* Display clustering parameters and statistics */}
         <div className="p-4 bg-green-50 border border-green-200 rounded-lg space-y-4">
+          {/* Parameters Used */}
+          {clusteringParams && (
+            <div>
+              <h4 className="font-semibold text-green-900 text-sm mb-2">Parameters Used</h4>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-slate-600">Distance Threshold:</span>
+                  <span className="font-medium text-slate-900">{clusteringParams.distance_threshold} meters</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-600">Minimum Khasras per Cluster:</span>
+                  <span className="font-medium text-slate-900">{clusteringParams.min_samples}</span>
+                </div>
+              </div>
+            </div>
+          )}
+          
           {/* Clustering Results Stats */}
           {clusteringResult && (
-            <div>
+            <div className={clusteringParams ? "pt-3 border-t border-green-300" : ""}>
               <h4 className="font-semibold text-green-900 text-sm mb-3">Clustering Results</h4>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
@@ -81,23 +98,6 @@ export default function ClusteringSection({
                 <div className="flex justify-between">
                   <span className="text-slate-600">Unclustered Khasras:</span>
                   <span className="font-bold text-slate-600">{clusteringResult.unclustered_khasras}</span>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {/* Parameters Used */}
-          {clusteringParams && (
-            <div className="pt-3 border-t border-green-300">
-              <h4 className="font-semibold text-green-900 text-sm mb-2">Parameters Used</h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-slate-600">Distance Threshold:</span>
-                  <span className="font-medium text-slate-900">{clusteringParams.distance_threshold} meters</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-600">Minimum Khasras per Cluster:</span>
-                  <span className="font-medium text-slate-900">{clusteringParams.min_samples}</span>
                 </div>
               </div>
             </div>

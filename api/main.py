@@ -900,16 +900,19 @@ async def get_parcels_geojson(
         )
 
     try:
-        parcel_gdf = get_parcels_gdf(db, project_id)
+        parcel_gdf, clustering_params = get_parcels_gdf(db, project_id)
         
         if parcel_gdf is None or len(parcel_gdf) == 0:
             return {
                 "type": "FeatureCollection",
-                "features": []
+                "features": [],
+                "clusteringParams": clustering_params
             }
         
         # Convert to GeoJSON
         geojson = json.loads(parcel_gdf.to_json())
+        # Add clustering params to response
+        geojson["clusteringParams"] = clustering_params
         
         return geojson
     except Exception as e:
@@ -1106,7 +1109,7 @@ async def get_project_stats_endpoint(
             )
 
     # Parcel stats from database
-    parcel_gdf = get_parcels_gdf(db, project_id)
+    parcel_gdf, _ = get_parcels_gdf(db, project_id)
     if (
         parcel_gdf is not None
         and len(parcel_gdf) > 0

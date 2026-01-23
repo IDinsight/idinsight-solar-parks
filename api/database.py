@@ -147,11 +147,35 @@ class LayerFeatureModel(Base):
     properties = Column(JSONB, nullable=True)
 
 
+class ClusteringRunModel(Base):
+    """Clustering run parameters and metadata"""
+    __tablename__ = "clustering_runs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    project_id = Column(String(36), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    
+    # Clustering parameters
+    distance_threshold = Column(Integer, nullable=False)
+    min_samples = Column(Integer, nullable=False)
+    max_distance_considered = Column(Integer, nullable=False)
+    
+    # Results summary
+    total_parcels = Column(Integer, nullable=True)
+    clustered_khasras = Column(Integer, nullable=True)
+    unclustered_khasras = Column(Integer, nullable=True)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    parcels = relationship("ParcelModel", back_populates="clustering_run", cascade="all, delete-orphan")
+
+
 class ParcelModel(Base):
     """Clustered parcel database model"""
     __tablename__ = "parcels"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    clustering_run_id = Column(Integer, ForeignKey("clustering_runs.id", ondelete="CASCADE"), nullable=False)
     project_id = Column(String(36), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     parcel_id = Column(String(100), nullable=False)
     
@@ -171,6 +195,9 @@ class ParcelModel(Base):
     layer_areas = Column(JSONB, nullable=True)
     
     created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    clustering_run = relationship("ClusteringRunModel", back_populates="parcels")
 
 
 # ============ Database Utilities ============

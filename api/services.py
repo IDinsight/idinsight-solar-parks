@@ -19,6 +19,7 @@ import pandas as pd
 import shapely
 from config import settings
 from database import (
+    ClusteringRunModel,
     KhasraModel,
     LayerFeatureModel,
     LayerModel,
@@ -537,16 +538,20 @@ def delete_parcels(db: Session, project_id: str) -> bool:
     if parcel_count == 0:
         return False
 
-    # Delete all parcels
-    db.query(ParcelModel).filter(ParcelModel.project_id == project_id).delete()
+    # Delete all clustering runs (this will cascade delete parcels due to FK)
+    db.query(ClusteringRunModel).filter(ClusteringRunModel.project_id == project_id).delete()
 
     # Reset parcel_id on all khasras
     db.query(KhasraModel).filter(KhasraModel.project_id == project_id).update(
         {"parcel_id": None}
     )
 
-    # Update project status back to khasras_uploaded
-    project.status = ProjectStatus.KHASRAS_UPLOADED
+    # Update project status - check if layers exist
+    layer_count = db.query(LayerModel).filter(LayerModel.project_id == project_id).count()
+    if layer_count > 0:
+        project.status = ProjectStatus.LAYERS_ADDED
+    else:
+        project.status = ProjectStatus.KHASRAS_UPLOADED
     project.updated_at = datetime.utcnow()
 
     db.commit()
@@ -1634,12 +1639,39 @@ def cluster_khasras(
     # Convert to WGS84 for database storage
     parcel_gdf_4326 = parcel_gdf.to_crs("EPSG:4326")
 
-    # Store parcels in database
-    db.query(ParcelModel).filter(ParcelModel.project_id == project_id).delete()
+    # Calculate results summary
+    clustered_count = len(
+        gdf_with_cluster_id[
+            ~gdf_with_cluster_id[cluster_id_col].str.contains("UNCLUSTERED")
+        ]
+    )
+    unclustered_count = len(
+        gdf_with_cluster_id[
+            gdf_with_cluster_id[cluster_id_col].str.contains("UNCLUSTERED")
+        ]
+    )
 
+    # Delete old clustering runs and parcels for this project
+    db.query(ClusteringRunModel).filter(ClusteringRunModel.project_id == project_id).delete()
+
+    # Create clustering run record
+    clustering_run = ClusteringRunModel(
+        project_id=project_id,
+        distance_threshold=request.distance_threshold,
+        min_samples=request.min_samples,
+        max_distance_considered=settings.MAX_DISTANCE_CONSIDERED,
+        total_parcels=len(parcel_gdf),
+        clustered_khasras=clustered_count,
+        unclustered_khasras=unclustered_count,
+    )
+    db.add(clustering_run)
+    db.flush()  # Get the clustering_run.id
+
+    # Store parcels in database
     for _, row in parcel_gdf_4326.iterrows():
         geom = ensure_multipolygon(row.geometry)
         parcel = ParcelModel(
+            clustering_run_id=clustering_run.id,
             project_id=project_id,
             parcel_id=row[cluster_id_col],
             geometry=from_shape(geom, srid=4326) if geom else None,
@@ -1662,17 +1694,6 @@ def cluster_khasras(
     db.commit()
 
     # Build response
-    clustered_count = len(
-        gdf_with_cluster_id[
-            ~gdf_with_cluster_id[cluster_id_col].str.contains("UNCLUSTERED")
-        ]
-    )
-    unclustered_count = len(
-        gdf_with_cluster_id[
-            gdf_with_cluster_id[cluster_id_col].str.contains("UNCLUSTERED")
-        ]
-    )
-
     parcels = []
     for _, row in parcel_gdf.iterrows():
         parcel_stats = ParcelStats(
@@ -1696,6 +1717,8 @@ def cluster_khasras(
         parcels.append(parcel_stats)
 
     return {
+        "distance_threshold": request.distance_threshold,
+        "min_samples": request.min_samples,
         "total_parcels": len(parcel_gdf),
         "clustered_khasras": clustered_count,
         "unclustered_khasras": unclustered_count,
@@ -1776,12 +1799,32 @@ def aggregate_to_parcels(
     return parcel_gdf
 
 
-def get_parcels_gdf(db: Session, project_id: str) -> Optional[gpd.GeoDataFrame]:
-    """Load parcels GeoDataFrame from database, excluding UNCLUSTERED parcels"""
+def get_parcels_gdf(db: Session, project_id: str) -> Tuple[Optional[gpd.GeoDataFrame], Optional[Dict[str, Any]]]:
+    """Load parcels GeoDataFrame from database, excluding UNCLUSTERED parcels.
+    Returns (GeoDataFrame, clustering_params) tuple"""
+    # Get the latest clustering run for this project
+    clustering_run = (
+        db.query(ClusteringRunModel)
+        .filter(ClusteringRunModel.project_id == project_id)
+        .order_by(ClusteringRunModel.created_at.desc())
+        .first()
+    )
+    
+    clustering_params = None
+    if clustering_run:
+        clustering_params = {
+            "distance_threshold": clustering_run.distance_threshold,
+            "min_samples": clustering_run.min_samples,
+            "max_distance_considered": clustering_run.max_distance_considered,
+            "total_parcels": clustering_run.total_parcels,
+            "clustered_khasras": clustering_run.clustered_khasras,
+            "unclustered_khasras": clustering_run.unclustered_khasras,
+        }
+    
     parcels = db.query(ParcelModel).filter(ParcelModel.project_id == project_id).all()
 
     if not parcels:
-        return None
+        return None, clustering_params
 
     data = []
     for p in parcels:
@@ -1807,13 +1850,14 @@ def get_parcels_gdf(db: Session, project_id: str) -> Optional[gpd.GeoDataFrame]:
         data.append(row)
 
     if not data:
-        return None
+        return None, clustering_params
 
     gdf = gpd.GeoDataFrame(data, crs="EPSG:4326")
     # Filter out rows with no geometry
     gdf_filtered = gdf[gdf.geometry.notna()].copy()
     if len(gdf_filtered) == 0:
-        return None
+        return None, clustering_params
+    return gdf_filtered, clustering_params
     return gdf_filtered
 
 
@@ -1852,7 +1896,7 @@ def export_data(
             gdfs_to_export["khasras_with_stats"] = gdf
 
     if export_type in [ExportType.PARCELS, ExportType.ALL]:
-        gdf = get_parcels_gdf(db, project_id)
+        gdf, _ = get_parcels_gdf(db, project_id)
         if gdf is not None:
             gdfs_to_export["parcels"] = gdf
 
