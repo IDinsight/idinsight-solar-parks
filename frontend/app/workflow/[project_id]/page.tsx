@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter, useParams } from "next/navigation"
 import { ProtectedRoute } from "@/components/protected-route"
 import { useProjectStore } from "@/lib/stores/project"
 import UploadSection from "@/components/upload-section"
@@ -43,7 +43,8 @@ export default function WorkflowPage() {
 
 function WorkflowContent() {
     const router = useRouter()
-    const searchParams = useSearchParams()
+    const params = useParams()
+    const projectId = params.project_id as string
     const { currentProject, setCurrentProject, updateProject } = useProjectStore()
 
     // Workflow state
@@ -161,17 +162,19 @@ function WorkflowContent() {
 
     /**
      * Load initial project state on mount and determine starting page
-     * Redirects to dashboard if no project is selected
-     * Checks for project_id URL parameter and loads that project if present
+     * Loads the project from the URL parameter
      */
     useEffect(() => {
-        const projectIdParam = searchParams.get('project_id')
+        if (!projectId) {
+            router.push('/dashboard')
+            return
+        }
         
-        // If project_id is in URL but no current project, load it
-        if (projectIdParam && (!currentProject || currentProject.id !== projectIdParam)) {
+        // Load the project from URL parameter if not current or different
+        if (!currentProject || currentProject.id !== projectId) {
             const loadProjectFromUrl = async () => {
                 try {
-                    const project = await api.getProject(projectIdParam)
+                    const project = await api.getProject(projectId)
                     setCurrentProject(project)
                 } catch (error) {
                     console.error('Failed to load project from URL:', error)
@@ -179,11 +182,6 @@ function WorkflowContent() {
                 }
             }
             loadProjectFromUrl()
-            return
-        }
-
-        if (!currentProject) {
-            router.push('/dashboard')
             return
         }
 

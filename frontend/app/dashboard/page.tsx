@@ -58,7 +58,7 @@ function DashboardContent() {
 
     const handleSelectProject = (project: any) => {
         setCurrentProject(project)
-        router.push('/workflow')
+        router.push(`/workflow/${project.id}`)
     }
 
     const handleDeleteProject = async (projectId: string, e: React.MouseEvent) => {
