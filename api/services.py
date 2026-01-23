@@ -1480,26 +1480,38 @@ def build_optimised_distance_matrix(
             distances.append((i, j, d))
         return distances
 
-    results = Parallel(n_jobs=n_jobs)(
-        delayed(_get_distances_for_geom)(
-            i, geom, geometries, tree, max_distance_considered
+    # Use threading backend to avoid pickling issues with STRtree
+    # Limit to reasonable number of threads to avoid resource leaks
+    n_jobs_safe = min(n_jobs, 4) if n_jobs > 0 else 4
+    
+    with Parallel(n_jobs=n_jobs_safe, backend='threading') as parallel:
+        results = parallel(
+            delayed(_get_distances_for_geom)(
+                i, geom, geometries, tree, max_distance_considered
+            )
+            for i, geom in enumerate(geometries)
         )
-        for i, geom in enumerate(geometries)
-    )
 
     distance_matrix = np.full((n, n), 99999)
     for res_list in results:
         for i, j, d in res_list:
             distance_matrix[i, j] = d
+            distance_matrix[j, i] = d  # Ensure matrix is symmetric
 
     np.fill_diagonal(distance_matrix, 0)
+    
+    # Log matrix statistics for debugging
+    logger.info(f"Distance matrix shape: {distance_matrix.shape}")
+    logger.info(f"Distance matrix min (non-diagonal): {np.min(distance_matrix[~np.eye(n, dtype=bool)])}")
+    logger.info(f"Distance matrix max: {np.max(distance_matrix)}")
+    logger.info(f"Number of finite distances (< 99999): {np.sum(distance_matrix < 99999) - n}")
+    
     return distance_matrix
 
 
 def format_cluster_labels(
     gdf: gpd.GeoDataFrame,
     cluster_id_col: str,
-    distance_threshold: Optional[int] = None,
     area_col: str = "Usable Area (ha)",
 ) -> gpd.GeoDataFrame:
     """Format DBSCAN cluster labels into readable parcel IDs"""
@@ -1598,7 +1610,6 @@ def cluster_khasras(
     gdf_with_cluster_id = format_cluster_labels(
         gdf=gdf_with_cluster_id,
         cluster_id_col=cluster_id_col,
-        distance_threshold=request.distance_threshold,
         area_col="Usable Area (ha)",
     )
 
