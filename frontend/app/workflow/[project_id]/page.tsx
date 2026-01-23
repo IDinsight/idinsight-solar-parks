@@ -9,7 +9,7 @@ import ClusteringSection from "@/components/clustering-section"
 import MapContainer from "@/components/map-container"
 import * as api from "@/lib/api/services"
 import { ExportFormat } from "@/lib/api/types"
-import { ChevronLeft, ChevronRight, Download, ArrowLeft, AlertCircle, Map, Copy, ExternalLink, Check } from "lucide-react"
+import { ChevronLeft, ChevronRight, ArrowLeft, AlertCircle, Map, Copy, ExternalLink, Check, FileSpreadsheet } from "lucide-react"
 
 /**
  * Animated ellipsis component for loading states
@@ -578,7 +578,7 @@ function WorkflowContent() {
                 )}
 
                 {/* Page Indicator */}
-                <div className="flex gap-4 mb-12">
+                <div className="flex gap-4 mb-6">
                     {[
                         { number: 1, label: "Upload Khasras" },
                         { number: 2, label: "Add Layers" },
@@ -587,7 +587,7 @@ function WorkflowContent() {
                     ].map((step) => (
                         <div
                             key={step.number}
-                            className={`flex-1 py-4 px-6 rounded-lg text-center font-semibold transition-all ${currentPage === step.number
+                            className={`flex-1 py-2 px-4 rounded-lg text-center font-semibold transition-all ${currentPage === step.number
                                 ? "bg-blue-600 text-white"
                                 : currentPage > step.number
                                     ? "bg-green-100 text-green-700"
@@ -870,12 +870,12 @@ function WorkflowContent() {
                                             <button
                                                 onClick={() => handleExportData(ExportFormat.KML)}
                                                 disabled={isProcessing}
-                                                className="w-full p-6 border-2 border-slate-200 rounded-lg hover:border-green-500 hover:bg-green-50 transition-all text-left"
+                                                className="w-full p-6 border-2 border-slate-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all text-left"
                                             >
                                                 <div className="flex items-start gap-4">
-                                                    <Download className="w-8 h-8 text-green-600 flex-shrink-0" />
+                                                    <Map className="w-8 h-8 text-blue-600 flex-shrink-0" />
                                                     <div>
-                                                        <h4 className="text-base font-semibold text-slate-900">Download KML</h4>
+                                                        <h4 className="text-base font-semibold text-slate-900">Download KMZ</h4>
                                                         <p className="text-xs text-slate-600 mt-1">All layers for Google Earth</p>
                                                         <p className="text-xs text-slate-500 mt-1">Includes khasras, parcels, and constraint layers</p>
                                                     </div>
@@ -889,7 +889,7 @@ function WorkflowContent() {
                                                 className="w-full p-6 border-2 border-slate-200 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 transition-all text-left"
                                             >
                                                 <div className="flex items-start gap-4">
-                                                    <Download className="w-8 h-8 text-emerald-600 flex-shrink-0" />
+                                                    <FileSpreadsheet className="w-8 h-8 text-emerald-600 flex-shrink-0" />
                                                     <div>
                                                         <h4 className="text-base font-semibold text-slate-900">Download Excel</h4>
                                                         <p className="text-xs text-slate-600 mt-1">Complete statistics workbook</p>
