@@ -528,7 +528,7 @@ function WorkflowContent() {
     const canProceedToExport = isKhasraUploadComplete && areSettlementLayersComplete && isClusteringComplete
 
     return (
-        <main className="min-h-screen bg-slate-50">
+        <main className="min-h-screen bg-slate-50 flex flex-col">
             {/* Header */}
             <div className="bg-white border-b border-slate-200 shadow-sm">
                 <div className="container mx-auto max-w-6xl px-6 py-4">
@@ -559,7 +559,7 @@ function WorkflowContent() {
                 </div>
             </div>
 
-            <div className="container mx-auto max-w-6xl px-6 py-12">
+            <div className="flex-1 flex flex-col container mx-auto max-w-6xl px-6 py-12">
                 {/* Error Display */}
                 {error && (
                     <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
@@ -601,43 +601,45 @@ function WorkflowContent() {
                 </div>
 
                 {/* Content Area */}
-                <div className="bg-white rounded-lg p-8 mb-8 min-h-96">
+                <div className="bg-white rounded-lg p-8 mb-8 flex-1 flex flex-col min-h-0">
                     {/* Page 1: Upload */}
                     {currentPage === 1 && (
-                        <div className="space-y-8">
-                            <div>
+                        <div className="flex flex-col flex-1 min-h-0">
+                            <div className="mb-6">
                                 <h2 className="text-3xl font-bold text-slate-900 mb-2">Step 1: Upload Khasra Boundaries</h2>
                                 <p className="text-base text-slate-600">Upload your KML or GeoJSON file containing land parcel boundaries</p>
                             </div>
-                            <UploadSection
-                                onFileUpload={handleKhasraUpload}
-                                onKhasraDeleted={() => {
-                                    // Reset all workflow state when khasras are deleted
-                                    setIsKhasraUploadComplete(false)
-                                    setConstraintLayersGeoJSON(null)
-                                    setAllProjectLayers([])
-                                    setSettlementLayerStatus(null)
-                                    setActiveProcessingLayer(null)
-                                    setIsClusteringComplete(false)
-                                    setClusteringResult(null)
-                                    setClusteringParams(null)
-                                    setParcelGeoJSON(null)
-                                }}
-                                isProcessing={isProcessing}
-                            />
+                            <div className="flex-1 min-h-0">
+                                <UploadSection
+                                    onFileUpload={handleKhasraUpload}
+                                    onKhasraDeleted={() => {
+                                        // Reset all workflow state when khasras are deleted
+                                        setIsKhasraUploadComplete(false)
+                                        setConstraintLayersGeoJSON(null)
+                                        setAllProjectLayers([])
+                                        setSettlementLayerStatus(null)
+                                        setActiveProcessingLayer(null)
+                                        setIsClusteringComplete(false)
+                                        setClusteringResult(null)
+                                        setClusteringParams(null)
+                                        setParcelGeoJSON(null)
+                                    }}
+                                    isProcessing={isProcessing}
+                                />
+                            </div>
                         </div>
                     )}
 
                     {/* Page 2: Layer Selection */}
                     {currentPage === 2 && (
-                        <div className="space-y-8">
-                            <div>
+                        <div className="flex flex-col flex-1 min-h-0">
+                            <div className="mb-6">
                                 <h2 className="text-3xl font-bold text-slate-900 mb-2">Step 2: Add Layers</h2>
                                 <p className="text-base text-slate-600">Add unusable land layers to exclude from solar park areas</p>
                             </div>
 
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                                <div className="lg:col-span-1 space-y-6">
+                            <div className="flex gap-8 flex-1 min-h-0">
+                                <div className="w-80 flex-shrink-0 space-y-6 overflow-y-auto">
                                     {/* Settlements & Buildings Layer */}
                                     <div className="border border-slate-200 rounded-lg p-4">
                                         <h4 className="font-semibold text-slate-900 mb-2">Settlements & Buildings</h4>
@@ -769,16 +771,18 @@ function WorkflowContent() {
                                         <p className="text-sm">More layers coming soon...</p>
                                     </div>
                                 </div>
-                                <div className="lg:col-span-2 h-[500px]">
+                                <div className="flex-1 min-h-0 flex flex-col">
                                     {khasraGeoJSON ? (
-                                        <MapContainer
-                                            data={khasraGeoJSON}
-                                            center={mapCenter}
-                                            zoom={mapZoom}
-                                            layersData={constraintLayersGeoJSON || undefined}
-                                        />
+                                        <div className="flex-1 min-h-0">
+                                            <MapContainer
+                                                data={khasraGeoJSON}
+                                                center={mapCenter}
+                                                zoom={mapZoom}
+                                                layersData={constraintLayersGeoJSON || undefined}
+                                            />
+                                        </div>
                                     ) : (
-                                        <div className="w-full h-full bg-slate-100 flex items-center justify-center rounded-lg border-2 border-dashed border-slate-300">
+                                        <div className="flex-1 min-h-0 bg-slate-100 flex items-center justify-center rounded-lg border-2 border-dashed border-slate-300">
                                             <p className="text-slate-500">No data available</p>
                                         </div>
                                     )}
@@ -789,16 +793,15 @@ function WorkflowContent() {
 
                     {/* Page 3: Clustering */}
                     {currentPage === 3 && (
-                        <div className="space-y-8">
-                            <div>
+                        <div className="flex flex-col flex-1 min-h-0">
+                            <div className="mb-6">
                                 <h2 className="text-3xl font-bold text-slate-900 mb-2">Step 3: Cluster Khasras into Parcels</h2>
                                 <p className="text-base text-slate-600">
                                     Group adjacent khasras into contiguous parcels for solar development
                                 </p>
                             </div>
-                            <div className="space-y-6">
-                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                                    <div className="lg:col-span-1">
+                            <div className="flex gap-8 flex-1 min-h-0">
+                                <div className="w-80 flex-shrink-0 overflow-y-auto">
                                         <ClusteringSection
                                             data={khasraGeoJSON}
                                             isProcessing={isProcessing}
@@ -811,36 +814,37 @@ function WorkflowContent() {
                                             onClusteringDeleted={handleDeleteClustering}
                                         />
                                     </div>
-                                    <div className="lg:col-span-2 h-[500px]">
+                                    <div className="flex-1 min-h-0 flex flex-col">
                                         {khasraGeoJSON ? (
-                                            <MapContainer
-                                                data={khasraGeoJSON}
-                                                center={mapCenter}
-                                                zoom={mapZoom}
-                                                parcelsData={parcelGeoJSON}
-                                                layersData={constraintLayersGeoJSON || undefined}
-                                            />
+                                            <div className="flex-1 min-h-0">
+                                                <MapContainer
+                                                    data={khasraGeoJSON}
+                                                    center={mapCenter}
+                                                    zoom={mapZoom}
+                                                    parcelsData={parcelGeoJSON}
+                                                    layersData={constraintLayersGeoJSON || undefined}
+                                                />
+                                            </div>
                                         ) : (
-                                            <div className="w-full h-full bg-slate-100 flex items-center justify-center rounded-lg border-2 border-dashed border-slate-300">
+                                            <div className="flex-1 min-h-0 bg-slate-100 flex items-center justify-center rounded-lg border-2 border-dashed border-slate-300">
                                                 <p className="text-slate-500">No data available</p>
                                             </div>
                                         )}
                                     </div>
-                                </div>
                             </div>
                         </div>
                     )}
 
                     {/* Page 4: Export */}
                     {currentPage === 4 && (
-                        <div className="space-y-8">
-                            <div>
+                        <div className="flex flex-col flex-1 min-h-0">
+                            <div className="mb-6">
                                 <h2 className="text-3xl font-bold text-slate-900 mb-2">Step 4: Export Results</h2>
                                 <p className="text-base text-slate-600">Download your analysis results in various formats</p>
                             </div>
 
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                                <div className="lg:col-span-1 space-y-6">
+                            <div className="flex gap-8 flex-1 min-h-0">
+                                <div className="w-80 flex-shrink-0 space-y-6 overflow-y-auto">
                                     {/* Summary Stats */}
                                     {clusteringResult && (
                                         <div className="space-y-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
@@ -901,7 +905,7 @@ function WorkflowContent() {
                                     </div>
                                 </div>
 
-                                <div className="lg:col-span-2 h-[500px] relative">
+                                <div className="flex-1 min-h-0 flex flex-col relative">
                                     {/* Floating Map Controls */}
                                     <div className="absolute top-3 right-3 z-[1000] bg-white rounded-lg shadow-lg border border-slate-200 px-4 py-2">
                                         <div className="flex items-center gap-3">
@@ -934,15 +938,17 @@ function WorkflowContent() {
 
                                     {/* Map */}
                                     {khasraGeoJSON ? (
-                                        <MapContainer
-                                            data={khasraGeoJSON}
-                                            center={mapCenter}
-                                            zoom={mapZoom}
-                                            parcelsData={parcelGeoJSON}
-                                            layersData={constraintLayersGeoJSON || undefined}
-                                        />
+                                        <div className="flex-1 min-h-0">
+                                            <MapContainer
+                                                data={khasraGeoJSON}
+                                                center={mapCenter}
+                                                zoom={mapZoom}
+                                                parcelsData={parcelGeoJSON}
+                                                layersData={constraintLayersGeoJSON || undefined}
+                                            />
+                                        </div>
                                     ) : (
-                                        <div className="w-full h-full bg-slate-100 flex items-center justify-center rounded-lg border-2 border-dashed border-slate-300">
+                                        <div className="flex-1 min-h-0 bg-slate-100 flex items-center justify-center rounded-lg border-2 border-dashed border-slate-300">
                                             <p className="text-slate-500">No data available</p>
                                         </div>
                                     )}
