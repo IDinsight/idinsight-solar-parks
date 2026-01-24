@@ -7,19 +7,23 @@ DONE:
 - Add settlement layer
 - export stats excel as expected
 - project management page
+- make layers show up online...
+- test clustering
+- export a coloured in KML, I dare you. DONE!
+- added full screen map page
 
 TO DO:
 
-- make layers show up online...
+- add the other layers
+- refresh login issue
+- distance_matrix issue after deleting khasras persists...
+- make khasra page maps expand
 - use alembic for migrations
 - also save usable khasra shape
-- add the other layers
-- test clustering
-- export a coloured in KML, I dare you.
 
 Later:
 
-- user management
+- user management with permissions
 - khasra api integration
 
 # Solar Parks Analysis API

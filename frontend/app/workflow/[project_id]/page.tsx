@@ -980,7 +980,7 @@ function WorkflowContent() {
                                 (currentPage === 2 && !canProceedToClustering) ||
                                 (currentPage === 3 && !canProceedToExport)
                             }
-                            className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-semibold rounded-lg transition-colors ml-auto"
+                            className="flex items-center gap-2 px-6 py-3 border border-blue-600 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-semibold rounded-lg transition-colors ml-auto"
                         >
                             Next
                             <ChevronRight className="w-5 h-5" />
