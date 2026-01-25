@@ -16,14 +16,14 @@ interface MapProps {
 }
 
 // Define colors for different layer types
-const LAYER_COLORS: Record<string, string> = {
-  'Buildings': '#e74c3c',       // Red
-  'Settlements': '#f39c12',     // Orange
-  'Crops': '#27ae60',           // Green
-  'Water': '#3498db',           // Blue
-  'Slopes': '#9b59b6',          // Purple
-  'Other': '#95a5a6',           // Gray
-  'khasras': '#2c3e50',         // Dark gray (default for khasras)
+export const LAYER_COLORS: Record<string, string> = {
+  'Isolated Buildings': '#8b8743d1',
+  'Settlements': '#b500008b',
+  'Crops': '#827100ae',
+  'Water': '#31e4ffc9',
+  'Slopes': '#9c9c9cbf',
+  'Other': '#fcffffd3',
+  'khasras': '#00ff4ca0',
 }
 
 // Create the entire map as a single dynamic component to avoid SSR issues
@@ -33,15 +33,15 @@ const LeafletMap = dynamic(
     const L = require("leaflet")
 
     // Helper component to handle map resize and fit bounds
-    function MapController({ geoJsonData, layersGeoJson }: { 
+    function MapController({ geoJsonData, layersGeoJson }: {
       geoJsonData: FeatureCollection | null
-      layersGeoJson: Array<{ data: FeatureCollection, color: string }> 
+      layersGeoJson: Array<{ data: FeatureCollection, color: string }>
     }) {
       const map = useMap()
-      
+
       useEffect(() => {
         if (!map || !map.getContainer()) return
-        
+
         // Invalidate size multiple times with delays
         const timeouts = [0, 100, 250, 500, 1000].map((delay) =>
           setTimeout(() => {
@@ -76,16 +76,16 @@ const LeafletMap = dynamic(
       // Fit bounds when geoJsonData changes
       useEffect(() => {
         if (!map || !map.getContainer()) return
-        
+
         try {
           let allBounds: any = null
-          
+
           // Add khasra bounds
           if (geoJsonData && geoJsonData.features.length > 0) {
             const geoJsonLayer = L.geoJSON(geoJsonData)
             allBounds = geoJsonLayer.getBounds()
           }
-          
+
           // Add layer bounds
           if (layersGeoJson && Array.isArray(layersGeoJson)) {
             layersGeoJson.forEach(layer => {
@@ -99,7 +99,7 @@ const LeafletMap = dynamic(
               }
             })
           }
-          
+
           if (allBounds && allBounds.isValid()) {
             // Use requestAnimationFrame to ensure DOM is ready
             requestAnimationFrame(() => {
@@ -123,7 +123,7 @@ const LeafletMap = dynamic(
     }
 
     // Return the actual map component
-    return function MapInner({ center, zoom, geoJsonData, layersGeoJson, parcelsGeoJson }: { 
+    return function MapInner({ center, zoom, geoJsonData, layersGeoJson, parcelsGeoJson }: {
       center: [number, number]
       zoom: number
       geoJsonData: FeatureCollection | null
@@ -142,14 +142,14 @@ const LeafletMap = dynamic(
       const onEachKhasra = (feature: any, layer: any) => {
         if (feature.properties) {
           const props = feature.properties
-          
+
           // Build tooltip content with all available stats
           let tooltipContent = `<strong>Khasra: ${props.khasra_id_unique || props.khasra_id || 'N/A'}</strong><br/>`
-          
+
           if (props.original_area_ha !== null && props.original_area_ha !== undefined) {
             tooltipContent += `Original Area: ${props.original_area_ha.toFixed(4)} ha<br/>`
           }
-          
+
           if (props.usable_area_ha !== null && props.usable_area_ha !== undefined) {
             tooltipContent += `Usable Area: ${props.usable_area_ha.toFixed(4)} ha`
             if (props.usable_area_percent !== null && props.usable_area_percent !== undefined) {
@@ -157,7 +157,7 @@ const LeafletMap = dynamic(
             }
             tooltipContent += `<br/>`
           }
-          
+
           if (props.usable_available_area_ha !== null && props.usable_available_area_ha !== undefined) {
             tooltipContent += `Usable & Available: ${props.usable_available_area_ha.toFixed(4)} ha`
             if (props.usable_available_area_percent !== null && props.usable_available_area_percent !== undefined) {
@@ -165,7 +165,7 @@ const LeafletMap = dynamic(
             }
             tooltipContent += `<br/>`
           }
-          
+
           if (props.unusable_area_ha !== null && props.unusable_area_ha !== undefined) {
             tooltipContent += `Unusable Area: ${props.unusable_area_ha.toFixed(4)} ha`
             if (props.unusable_area_percent !== null && props.unusable_area_percent !== undefined) {
@@ -173,14 +173,14 @@ const LeafletMap = dynamic(
             }
             tooltipContent += `<br/>`
           }
-          
+
           if (props.parcel_id) {
             tooltipContent += `Parcel: ${props.parcel_id}<br/>`
           }
-          
+
           // Add tooltip on hover
-          layer.bindTooltip(tooltipContent, { 
-            permanent: false, 
+          layer.bindTooltip(tooltipContent, {
+            permanent: false,
             direction: 'top',
             className: 'khasra-tooltip'
           })
@@ -211,7 +211,7 @@ const LeafletMap = dynamic(
           const parcelId = feature.properties.parcel_id
           const khasraCount = feature.properties.khasra_count || 0
           const usableAreaHa = feature.properties.usable_area_ha || 0
-          
+
           // Add tooltip on hover
           layer.bindTooltip(
             `<strong>${parcelId}</strong><br/>` +
@@ -219,12 +219,12 @@ const LeafletMap = dynamic(
             `Usable Area: ${usableAreaHa.toFixed(2)} ha`,
             { permanent: false, direction: 'top' }
           )
-          
+
           // Add permanent label in the center of the parcel
-          layer.on('add', function() {
+          layer.on('add', function () {
             const bounds = layer.getBounds()
             const center = bounds.getCenter()
-            
+
             const label = L.marker(center, {
               icon: L.divIcon({
                 className: 'parcel-label',
@@ -246,14 +246,14 @@ const LeafletMap = dynamic(
               }),
               interactive: false, // Make label non-interactive so it doesn't block clicks
             })
-            
+
             label.addTo(layer._map)
-            
+
             // Store reference to remove label when layer is removed
             layer._label = label
           })
-          
-          layer.on('remove', function() {
+
+          layer.on('remove', function () {
             if (layer._label) {
               layer._map.removeLayer(layer._label)
             }
@@ -262,10 +262,10 @@ const LeafletMap = dynamic(
       }
 
       return (
-        <MapContainer 
-          center={center} 
-          zoom={zoom} 
-          style={{ width: "100%", height: "100%" }} 
+        <MapContainer
+          center={center}
+          zoom={zoom}
+          style={{ width: "100%", height: "100%" }}
           scrollWheelZoom={true}
           key="main-map" // Stable key to prevent recreation
         >
@@ -276,9 +276,9 @@ const LeafletMap = dynamic(
           />
           {/* Render khasras first (bottom layer) */}
           {geoJsonData && geoJsonData.features.length > 0 && (
-            <GeoJSON 
-              key={`khasras-${geoJsonData.features.length}`} 
-              data={geoJsonData} 
+            <GeoJSON
+              key={`khasras-${geoJsonData.features.length}`}
+              data={geoJsonData}
               style={khasraStyle}
               onEachFeature={onEachKhasra}
             />
@@ -286,18 +286,18 @@ const LeafletMap = dynamic(
           {/* Render layers on top */}
           {layersGeoJson.map((layer, index) => (
             layer.data && layer.data.features.length > 0 && (
-              <GeoJSON 
-                key={`layer-${layer.name}-${layer.data.features.length}`} 
-                data={layer.data} 
+              <GeoJSON
+                key={`layer-${layer.name}-${layer.data.features.length}`}
+                data={layer.data}
                 style={layerStyle(layer.color)}
               />
             )
           ))}
           {/* Render parcel boundaries on top with labels */}
           {parcelsGeoJson && parcelsGeoJson.features && parcelsGeoJson.features.length > 0 && (
-            <GeoJSON 
-              key={`parcels-${parcelsGeoJson.features.length}`} 
-              data={parcelsGeoJson} 
+            <GeoJSON
+              key={`parcels-${parcelsGeoJson.features.length}`}
+              data={parcelsGeoJson}
               style={parcelStyle}
               onEachFeature={onEachParcel}
             />
@@ -306,7 +306,7 @@ const LeafletMap = dynamic(
       )
     }
   }),
-  { 
+  {
     ssr: false,
     loading: () => (
       <div className="w-full h-full bg-slate-50 flex items-center justify-center rounded-lg">

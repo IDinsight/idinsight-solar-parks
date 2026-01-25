@@ -739,7 +739,7 @@ function WorkflowContent() {
                                                             <span className="text-sm font-medium text-green-700">Settlements</span>
                                                         </div>
                                                         <span className="text-xs text-slate-600">
-                                                            {settlementLayerStatus.settlements?.feature_count} features, {settlementLayerStatus.settlements?.area_ha?.toFixed(2)} ha
+                                                            {settlementLayerStatus.settlements?.area_ha?.toFixed(2)} ha
                                                         </span>
                                                     </div>
                                                     <div className="flex items-center justify-between">
@@ -750,7 +750,7 @@ function WorkflowContent() {
                                                             <span className="text-sm font-medium text-green-700">Isolated Buildings</span>
                                                         </div>
                                                         <span className="text-xs text-slate-600">
-                                                            {settlementLayerStatus.isolated?.feature_count} features, {settlementLayerStatus.isolated?.area_ha?.toFixed(2)} ha
+                                                            {settlementLayerStatus.isolated?.area_ha?.toFixed(2)} ha
                                                         </span>
                                                     </div>
                                                 </div>

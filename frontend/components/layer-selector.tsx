@@ -2,6 +2,7 @@
 
 import { Layers, Loader2 } from "lucide-react"
 import { useState } from "react"
+import { LAYER_COLORS } from "@/components/map-container"
 import MapContainer from "@/components/map-container"
 
 interface LayerSelectorProps {
@@ -12,14 +13,6 @@ interface LayerSelectorProps {
   mapCenter: [number, number]
   mapZoom: number
   clusters: any[]
-}
-
-const LAYER_COLORS: Record<string, string> = {
-  Buildings: "bg-red-500",
-  Settlements: "bg-yellow-500",
-  Crops: "bg-green-500",
-  Water: "bg-blue-500",
-  Slopes: "bg-purple-500",
 }
 
 export default function LayerSelector({

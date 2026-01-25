@@ -1,32 +1,47 @@
+# Solar Parks Analysis API
+
+## Dev TO-DO List
+
 DONE:
 
+- Project management page
 - Khasra upload
 - Settlement layer
 - Basic clustering (untested)
 - Export and stat calculations
 - Add settlement layer
-- export stats excel as expected
-- project management page
-- make layers show up online...
-- test clustering
-- export a coloured in KML, I dare you. DONE!
-- added full screen map page
+- Export stats excel as expected
+- Make layers show up online
+- Test clustering
+- Export a coloured in KML, I dare you. DONE!
+- Added full screen map page
+- Fixed: distance_matrix issue after deleting khasras persists...
 
 TO DO:
 
+- clarify colour scheme of map items throughout
+- BUG: FIX DISTANCE MATRIX ON NEW PROJECT etc. First attempt is always wrong. Better after clearing the first distance matrix but still DBScan seems to be stochastic??
 - add the other layers
-- refresh login issue
-- distance_matrix issue after deleting khasras persists...
-- make khasra page maps expand
+- BUG: Fix stats showing on hover on the map
+- BUG: refresh login issue
+
+- make maps take up whole right side and not refresh with every page change
 - use alembic for migrations
 - also save usable khasra shape
 
 Later:
 
+- First add buildings, then add settlements. Show all buildings on map always.
+- Give ability to turn layers on and off online map
+- show inter-khasra distance histogram to help with threshold selection. give suggested threshold.
+- clustering based on usable shapes?
+- thin-area filtering?
+- flood risk?
+- host on AWS
 - user management with permissions
 - khasra api integration
 
-# Solar Parks Analysis API
+## About
 
 A FastAPI application for analyzing land parcels (khasras) for solar park development in India.
 

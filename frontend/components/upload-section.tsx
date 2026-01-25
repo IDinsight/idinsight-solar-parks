@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useEffect, useRef, useState } from "react"
-import { Upload, FileUp, AlertTriangle, Trash2 } from "lucide-react"
+import { FileUp, AlertTriangle, Trash2 } from "lucide-react"
 import MapComponent from "./map-container"
 import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
 import { useProjectStore } from "@/lib/stores/project"
