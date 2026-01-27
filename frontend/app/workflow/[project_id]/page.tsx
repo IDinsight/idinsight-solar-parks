@@ -9,7 +9,7 @@ import ClusteringSection from "@/components/clustering-section"
 import MapContainer, { LAYER_COLORS } from "@/components/map-container"
 import * as api from "@/lib/api/services"
 import { ExportFormat } from "@/lib/api/types"
-import { ChevronLeft, ChevronRight, ArrowLeft, AlertCircle, Map, Copy, ExternalLink, Check, FileSpreadsheet, Trash2 } from "lucide-react"
+import { ChevronLeft, ChevronRight, ArrowLeft, AlertCircle, Map, Copy, ExternalLink, Check, Link, FileSpreadsheet, Trash2 } from "lucide-react"
 
 
 function AnimatedEllipsis() {
@@ -751,15 +751,14 @@ function WorkflowContent() {
                                 key={step.number}
                                 onClick={() => canNavigateToStep && updateCurrentPage(step.number)}
                                 disabled={!canNavigateToStep}
-                                className={`flex-1 py-2 px-4 rounded-lg text-center font-semibold transition-all ${
-                                    currentPage === step.number
-                                        ? "bg-blue-600 text-white"
-                                        : currentPage > step.number
-                                            ? "bg-green-100 text-green-700 hover:bg-green-200 cursor-pointer"
-                                            : canNavigateToStep
-                                                ? "bg-slate-200 text-slate-700 hover:bg-slate-300 cursor-pointer"
-                                                : "bg-slate-200 text-slate-500 cursor-not-allowed"
-                                }`}
+                                className={`flex-1 py-2 px-4 rounded-lg text-center font-semibold transition-all ${currentPage === step.number
+                                    ? "bg-blue-600 text-white"
+                                    : currentPage > step.number
+                                        ? "bg-green-100 text-green-700 hover:bg-green-200 cursor-pointer"
+                                        : canNavigateToStep
+                                            ? "bg-slate-200 text-slate-700 hover:bg-slate-300 cursor-pointer"
+                                            : "bg-slate-200 text-slate-500 cursor-not-allowed"
+                                    }`}
                             >
                                 <div className="text-sm">Step {step.number}</div>
                                 <div className="text-xs mt-1">{step.label}</div>
@@ -1170,8 +1169,43 @@ function WorkflowContent() {
 
                                     {/* Download Section */}
                                     <div>
-                                        <h3 className="text-base font-semibold text-slate-900 mb-4">Download Files</h3>
                                         <div className="space-y-4">
+                                            {/* Floating Map Controls */}
+                                            <div className="w-full p-6 border-2 border-slate-200 rounded-lg rounded-lg px-4 py-4">
+
+                                                <div className="flex items-start gap-4">
+                                                    <Map className="w-8 h-8 text-blue-600 flex-shrink-0" />
+                                                    <div>
+                                                        <h4 className="text-base font-semibold text-slate-900">Online Map</h4>
+                                                        <p className="text-xs text-slate-600 mt-1">Full screen version of the online map</p>
+                                                        <div className="flex items-start justify-start gap-3 mt-4">
+                                                            <button
+                                                                onClick={handleOpenMapInNewTab}
+                                                                className="flex items-center gap-1.5 p-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded transition-colors"
+                                                            >
+                                                                <ExternalLink className="w-3.5 h-3.5" />
+                                                                Open
+                                                            </button>
+                                                            <button
+                                                                onClick={handleCopyMapLink}
+                                                                className="flex items-center gap-1.5 p-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded transition-colors"
+                                                            >
+                                                                {mapLinkCopied ? (
+                                                                    <>
+                                                                        <Link className="w-3.5 h-3.5" />
+                                                                        Copied
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <Link className="w-3.5 h-3.5" />
+                                                                        Copy
+                                                                    </>
+                                                                )}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                             {/* KML */}
                                             <button
                                                 onClick={() => handleExportData(ExportFormat.KML)}
@@ -1208,36 +1242,6 @@ function WorkflowContent() {
                                 </div>
 
                                 <div className="flex-1 min-h-0 flex flex-col relative">
-                                    {/* Floating Map Controls */}
-                                    <div className="absolute top-3 right-3 z-[1000] bg-white rounded-lg shadow-lg border border-slate-200 px-4 py-2">
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-xs font-medium text-slate-600">Online Map:</span>
-                                            <button
-                                                onClick={handleOpenMapInNewTab}
-                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded transition-colors"
-                                            >
-                                                <ExternalLink className="w-3.5 h-3.5" />
-                                                Full Screen
-                                            </button>
-                                            <button
-                                                onClick={handleCopyMapLink}
-                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded transition-colors"
-                                            >
-                                                {mapLinkCopied ? (
-                                                    <>
-                                                        <Check className="w-3.5 h-3.5" />
-                                                        Copied!
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Copy className="w-3.5 h-3.5" />
-                                                        Copy Link
-                                                    </>
-                                                )}
-                                            </button>
-                                        </div>
-                                    </div>
-
                                     {/* Map */}
                                     {khasraGeoJSON ? (
                                         <div className="flex-1 min-h-0">
