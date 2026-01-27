@@ -15,14 +15,20 @@ interface MapProps {
   layersData?: Record<string, any>
 }
 
+interface VisibleLayers {
+  khasras: boolean
+  parcels: boolean
+  layers: Record<string, boolean>
+}
+
 // Define colors for different layer types
 export const LAYER_COLORS: Record<string, string> = {
-  'Isolated Buildings': '#97498ed1',
-  'Settlements': '#b500008b',
-  'Cropland': '#988400ae',
-  'Water': '#00d9ffc4',
-  'Slopes': '#9c9c9cbf',
-  'Other': '#fcffffd3',
+  'Isolated Buildings': '#ff97f3',
+  'Settlements': '#cf0000',
+  'Cropland': '#9c8c24',
+  'Water': '#00d9ff',
+  'Slopes': '#b9b9b9',
+  'Other': '#fcfffff7',
 }
 
 // Create the entire map as a single dynamic component to avoid SSR issues
@@ -121,6 +127,94 @@ const LeafletMap = dynamic(
       return null
     }
 
+    // Legend component
+    function MapLegend({ visibleLayers, setVisibleLayers, layersGeoJson }: {
+      visibleLayers: VisibleLayers
+      setVisibleLayers: React.Dispatch<React.SetStateAction<VisibleLayers>>
+      layersGeoJson: Array<{ data: FeatureCollection, color: string, name: string }>
+    }) {
+      const { useState } = require("react")
+      const [isExpanded, setIsExpanded] = useState(true)
+
+      return (
+        <div style={{
+          position: 'absolute',
+          top: '10px',
+          right: '10px',
+          zIndex: 1000,
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          padding: '12px',
+          borderRadius: '6px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+          minWidth: '180px',
+          maxWidth: '220px',
+        }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: isExpanded ? '8px' : '0',
+              cursor: 'pointer',
+            }}
+            onClick={() => setIsExpanded(!isExpanded)}
+          >
+            <div style={{ fontWeight: 600, fontSize: '13px', color: '#334155' }}>
+              Map Layers
+            </div>
+            <div style={{ fontSize: '12px', color: '#64748b' }}>
+              {isExpanded ? '▼' : '▶'}
+            </div>
+          </div>
+
+          {isExpanded && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {/* Khasras toggle */}
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '12px' }}>
+                <input
+                  type="checkbox"
+                  checked={visibleLayers.khasras}
+                  onChange={(e) => setVisibleLayers(prev => ({ ...prev, khasras: e.target.checked }))}
+                  style={{ cursor: 'pointer' }}
+                />
+                <div style={{ width: '12px', height: '12px', border: '2px solid #2c3e50', borderRadius: '2px' }} />
+                <span style={{ color: '#334155' }}>Khasras</span>
+              </label>
+
+              {/* Parcels toggle */}
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '12px' }}>
+                <input
+                  type="checkbox"
+                  checked={visibleLayers.parcels}
+                  onChange={(e) => setVisibleLayers(prev => ({ ...prev, parcels: e.target.checked }))}
+                  style={{ cursor: 'pointer' }}
+                />
+                <div style={{ width: '12px', height: '12px', border: '2px dashed #ff6b35', borderRadius: '2px' }} />
+                <span style={{ color: '#334155' }}>Parcels</span>
+              </label>
+
+              {/* Constraint layers toggles */}
+              {layersGeoJson.map((layer) => (
+                <label key={layer.name} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '12px' }}>
+                  <input
+                    type="checkbox"
+                    checked={visibleLayers.layers[layer.name] !== false}
+                    onChange={(e) => setVisibleLayers(prev => ({
+                      ...prev,
+                      layers: { ...prev.layers, [layer.name]: e.target.checked }
+                    }))}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  <div style={{ width: '12px', height: '12px', backgroundColor: layer.color, borderRadius: '2px' }} />
+                  <span style={{ color: '#334155' }}>{layer.name}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+      )
+    }
+
     // Return the actual map component
     return function MapInner({ center, zoom, geoJsonData, layersGeoJson, parcelsGeoJson }: {
       center: [number, number]
@@ -129,12 +223,18 @@ const LeafletMap = dynamic(
       layersGeoJson: Array<{ data: FeatureCollection, color: string, name: string }>
       parcelsGeoJson: FeatureCollection | null
     }) {
+      const { useState } = require("react")
+      const [visibleLayers, setVisibleLayers] = useState<VisibleLayers>({
+        khasras: true,
+        parcels: true,
+        layers: {},
+      })
       // Style function for khasras (base layer)
       const khasraStyle = () => ({
-        color: '#2c3e50',
+        color: '#ffffff',
         weight: 2,
-        opacity: 0.6,
-        fillOpacity: 0.1,
+        opacity: 0.8,
+        fillOpacity: 0,
       })
 
       // Function to add tooltips to khasras
@@ -197,9 +297,9 @@ const LeafletMap = dynamic(
 
       // Style function for parcels
       const parcelStyle = () => ({
-        color: '#ff6b35',
-        weight: 3,
-        opacity: 0.9,
+        color: '#000000',
+        weight: 2,
+        opacity: 0.8,
         fillOpacity: 0,
         dashArray: '5, 5',
       })
@@ -261,47 +361,55 @@ const LeafletMap = dynamic(
       }
 
       return (
-        <MapContainer
-          center={center}
-          zoom={zoom}
-          style={{ width: "100%", height: "100%" }}
-          scrollWheelZoom={true}
-          key="main-map" // Stable key to prevent recreation
-        >
-          <MapController geoJsonData={geoJsonData} layersGeoJson={layersGeoJson} />
-          <TileLayer
-            attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-          {/* Render constraint layers first (bottom) */}
-          {layersGeoJson.map((layer) => (
-            layer.data && layer.data.features.length > 0 && (
+        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+          <MapContainer
+            center={center}
+            zoom={zoom}
+            style={{ width: "100%", height: "100%" }}
+            scrollWheelZoom={true}
+            key="main-map" // Stable key to prevent recreation
+          >
+            <MapController geoJsonData={geoJsonData} layersGeoJson={layersGeoJson} />
+            <TileLayer
+              attribution='&copy; <a href="https://www.esri.com">Esri</a>, Maxar, Earthstar Geographics'
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+              maxZoom={19}
+            />
+            {/* Render constraint layers first (bottom) */}
+            {layersGeoJson.map((layer) => (
+              layer.data && layer.data.features.length > 0 && visibleLayers.layers[layer.name] !== false && (
+                <GeoJSON
+                  key={`layer-${layer.name}-${layer.data.features.length}`}
+                  data={layer.data}
+                  style={layerStyle(layer.color)}
+                />
+              )
+            ))}
+            {/* Render parcel boundaries in the middle */}
+            {visibleLayers.parcels && parcelsGeoJson && parcelsGeoJson.features && parcelsGeoJson.features.length > 0 && (
               <GeoJSON
-                key={`layer-${layer.name}-${layer.data.features.length}`}
-                data={layer.data}
-                style={layerStyle(layer.color)}
+                key={`parcels-${parcelsGeoJson.features.length}`}
+                data={parcelsGeoJson}
+                style={parcelStyle}
+                onEachFeature={onEachParcel}
               />
-            )
-          ))}
-          {/* Render parcel boundaries in the middle */}
-          {parcelsGeoJson && parcelsGeoJson.features && parcelsGeoJson.features.length > 0 && (
-            <GeoJSON
-              key={`parcels-${parcelsGeoJson.features.length}`}
-              data={parcelsGeoJson}
-              style={parcelStyle}
-              onEachFeature={onEachParcel}
-            />
-          )}
-          {/* Render khasras last (top layer for hover) */}
-          {geoJsonData && geoJsonData.features.length > 0 && (
-            <GeoJSON
-              key={`khasras-${geoJsonData.features.length}`}
-              data={geoJsonData}
-              style={khasraStyle}
-              onEachFeature={onEachKhasra}
-            />
-          )}
-        </MapContainer>
+            )}
+            {/* Render khasras last (top layer for hover) */}
+            {visibleLayers.khasras && geoJsonData && geoJsonData.features.length > 0 && (
+              <GeoJSON
+                key={`khasras-${geoJsonData.features.length}`}
+                data={geoJsonData}
+                style={khasraStyle}
+                onEachFeature={onEachKhasra}
+              />
+            )}
+          </MapContainer>
+          <MapLegend
+            visibleLayers={visibleLayers}
+            setVisibleLayers={setVisibleLayers}
+            layersGeoJson={layersGeoJson}
+          />
+        </div>
       )
     }
   }),
