@@ -177,7 +177,7 @@ const LeafletMap = dynamic(
                   onChange={(e) => setVisibleLayers(prev => ({ ...prev, khasras: e.target.checked }))}
                   style={{ cursor: 'pointer' }}
                 />
-                <div style={{ width: '12px', height: '12px', border: '2px solid #2c3e50', borderRadius: '2px' }} />
+                <div style={{ width: '12px', height: '12px', border: '2px solid #000000', borderRadius: '2px' }} />
                 <span style={{ color: '#334155' }}>Khasras</span>
               </label>
 
@@ -189,7 +189,7 @@ const LeafletMap = dynamic(
                   onChange={(e) => setVisibleLayers(prev => ({ ...prev, parcels: e.target.checked }))}
                   style={{ cursor: 'pointer' }}
                 />
-                <div style={{ width: '12px', height: '12px', border: '2px dashed #ff6b35', borderRadius: '2px' }} />
+                <div style={{ width: '12px', height: '12px', border: '2px dashed #000000', borderRadius: '2px' }} />
                 <span style={{ color: '#334155' }}>Parcels</span>
               </label>
 
@@ -295,13 +295,22 @@ const LeafletMap = dynamic(
         fillOpacity: 0.4,
       })
 
-      // Style function for parcels
+      // Style function for parcels (white outline)
+      const parcelOutlineStyle = () => ({
+        color: '#ffffff',
+        weight: 5,
+        opacity: 1,
+        fillOpacity: 0,
+        dashArray: '5, 3',
+      })
+
+      // Style function for parcels (black line on top)
       const parcelStyle = () => ({
         color: '#000000',
         weight: 2,
         opacity: 0.8,
         fillOpacity: 0,
-        dashArray: '5, 5',
+        dashArray: '5, 3',
       })
 
       // Function to add labels to parcels
@@ -385,6 +394,14 @@ const LeafletMap = dynamic(
                 />
               )
             ))}
+            {/* Render parcel white outline first */}
+            {visibleLayers.parcels && parcelsGeoJson && parcelsGeoJson.features && parcelsGeoJson.features.length > 0 && (
+              <GeoJSON
+                key={`parcels-outline-${parcelsGeoJson.features.length}`}
+                data={parcelsGeoJson}
+                style={parcelOutlineStyle}
+              />
+            )}
             {/* Render parcel boundaries in the middle */}
             {visibleLayers.parcels && parcelsGeoJson && parcelsGeoJson.features && parcelsGeoJson.features.length > 0 && (
               <GeoJSON
