@@ -229,7 +229,15 @@ const LeafletMap = dynamic(
         parcels: true,
         layers: {},
       })
-      // Style function for khasras (base layer)
+      // Style function for khasras (gray outline)
+      const khasraOutlineStyle = () => ({
+        color: '#808080',
+        weight: 4,
+        opacity: 1,
+        fillOpacity: 0,
+      })
+
+      // Style function for khasras (white line on top)
       const khasraStyle = () => ({
         color: '#ffffff',
         weight: 2,
@@ -420,6 +428,14 @@ const LeafletMap = dynamic(
                 data={parcelsGeoJson}
                 style={parcelStyle}
                 onEachFeature={onEachParcel}
+              />
+            )}
+            {/* Render khasra gray outline first */}
+            {visibleLayers.khasras && geoJsonData && geoJsonData.features.length > 0 && (
+              <GeoJSON
+                key={`khasras-outline-${geoJsonData.features.length}`}
+                data={geoJsonData}
+                style={khasraOutlineStyle}
               />
             )}
             {/* Render khasras last (top layer for hover) */}
