@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter, useParams } from "next/navigation"
+import { useRouter, useParams, useSearchParams } from "next/navigation"
 import { ProtectedRoute } from "@/components/protected-route"
 import { useProjectStore } from "@/lib/stores/project"
 import UploadSection from "@/components/upload-section"
@@ -41,11 +41,15 @@ export default function WorkflowPage() {
 function WorkflowContent() {
     const router = useRouter()
     const params = useParams()
+    const searchParams = useSearchParams()
     const projectId = params.project_id as string
     const { currentProject, setCurrentProject, updateProject } = useProjectStore()
 
-    // Workflow state
-    const [currentPage, setCurrentPage] = useState(1)
+    // Workflow state - initialize from URL if available
+    const [currentPage, setCurrentPage] = useState(() => {
+        const pageFromUrl = searchParams.get('page')
+        return pageFromUrl ? parseInt(pageFromUrl) : 1
+    })
     const [isProcessing, setIsProcessing] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
@@ -82,6 +86,14 @@ function WorkflowContent() {
 
     // Map link state
     const [mapLinkCopied, setMapLinkCopied] = useState(false)
+
+    /**
+     * Update current page and persist to URL
+     */
+    const updateCurrentPage = (page: number) => {
+        setCurrentPage(page)
+        router.replace(`/workflow/${projectId}?page=${page}`, { scroll: false })
+    }
 
     /**
      * Fetch and update constraint layers whenever we're on page 2 or later
@@ -231,7 +243,7 @@ function WorkflowContent() {
                 const project = await api.getProject(currentProject.id)
                 updateProject(project)
 
-                // Determine starting page based on project completion status
+                // Load project state data based on completion status
                 if (project.khasra_count && project.khasra_count > 0) {
                     setIsKhasraUploadComplete(true)
 
@@ -253,12 +265,9 @@ function WorkflowContent() {
                         console.error('Failed to load khasra GeoJSON:', error)
                     }
 
-                    // Determine which page to start on
-                    const hasLayers = project.layers_added && project.layers_added.length > 0
+                    // Check if project has clustering complete and load parcel data
                     const isClustered = project.status === 'clustered' || project.status === 'completed'
-
-                    if (hasLayers && isClustered) {
-                        // Project is fully complete - go to export page
+                    if (isClustered) {
                         setIsClusteringComplete(true)
 
                         try {
@@ -279,18 +288,7 @@ function WorkflowContent() {
                         } catch (error) {
                             console.error('Failed to load parcel GeoJSON:', error)
                         }
-
-                        setCurrentPage(4)
-                    } else if (hasLayers) {
-                        // Layers added but not clustered yet - go to layers page
-                        setCurrentPage(2)
-                    } else {
-                        // Only khasras added - stay on upload page
-                        setCurrentPage(1)
                     }
-                } else {
-                    // No khasras - stay on upload page
-                    setCurrentPage(1)
                 }
             } catch (error) {
                 console.error('Failed to load project:', error)
@@ -741,20 +739,33 @@ function WorkflowContent() {
                         { number: 2, label: "Add Layers" },
                         { number: 3, label: "Clustering" },
                         { number: 4, label: "Export" },
-                    ].map((step) => (
-                        <div
-                            key={step.number}
-                            className={`flex-1 py-2 px-4 rounded-lg text-center font-semibold transition-all ${currentPage === step.number
-                                ? "bg-blue-600 text-white"
-                                : currentPage > step.number
-                                    ? "bg-green-100 text-green-700"
-                                    : "bg-slate-200 text-slate-500"
+                    ].map((step) => {
+                        const canNavigateToStep =
+                            step.number === 1 ||
+                            (step.number === 2 && canProceedToLayerSelection) ||
+                            (step.number === 3 && canProceedToClustering) ||
+                            (step.number === 4 && canProceedToExport)
+
+                        return (
+                            <button
+                                key={step.number}
+                                onClick={() => canNavigateToStep && updateCurrentPage(step.number)}
+                                disabled={!canNavigateToStep}
+                                className={`flex-1 py-2 px-4 rounded-lg text-center font-semibold transition-all ${
+                                    currentPage === step.number
+                                        ? "bg-blue-600 text-white"
+                                        : currentPage > step.number
+                                            ? "bg-green-100 text-green-700 hover:bg-green-200 cursor-pointer"
+                                            : canNavigateToStep
+                                                ? "bg-slate-200 text-slate-700 hover:bg-slate-300 cursor-pointer"
+                                                : "bg-slate-200 text-slate-500 cursor-not-allowed"
                                 }`}
-                        >
-                            <div className="text-sm">Step {step.number}</div>
-                            <div className="text-xs mt-1">{step.label}</div>
-                        </div>
-                    ))}
+                            >
+                                <div className="text-sm">Step {step.number}</div>
+                                <div className="text-xs mt-1">{step.label}</div>
+                            </button>
+                        )
+                    })}
                 </div>
 
                 {/* Content Area */}
@@ -1245,7 +1256,7 @@ function WorkflowContent() {
                 <div className="flex gap-4 justify-between">
                     {currentPage > 1 && (
                         <button
-                            onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                            onClick={() => updateCurrentPage(Math.max(1, currentPage - 1))}
                             disabled={isProcessing}
                             className="flex items-center gap-2 px-6 py-3 border border-blue-600 hover:bg-blue-100 disabled:bg-slate-400 text-blue-600 font-semibold rounded-lg transition-colors"
                         >
@@ -1256,7 +1267,7 @@ function WorkflowContent() {
 
                     {currentPage < 4 && (
                         <button
-                            onClick={() => setCurrentPage((prev) => Math.min(4, prev + 1))}
+                            onClick={() => updateCurrentPage(Math.min(4, currentPage + 1))}
                             disabled={
                                 isProcessing ||
                                 (currentPage === 1 && !canProceedToLayerSelection) ||
