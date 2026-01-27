@@ -246,11 +246,11 @@ const LeafletMap = dynamic(
           let tooltipContent = `<strong>Khasra: ${props.khasra_id_unique || props.khasra_id || 'N/A'}</strong><br/>`
 
           if (props.original_area_ha !== null && props.original_area_ha !== undefined) {
-            tooltipContent += `Original Area: ${props.original_area_ha.toFixed(4)} ha<br/>`
+            tooltipContent += `Original Area: ${props.original_area_ha.toFixed(1)} ha<br/>`
           }
 
           if (props.usable_area_ha !== null && props.usable_area_ha !== undefined) {
-            tooltipContent += `Usable Area: ${props.usable_area_ha.toFixed(4)} ha`
+            tooltipContent += `Usable Area: ${props.usable_area_ha.toFixed(1)} ha`
             if (props.usable_area_percent !== null && props.usable_area_percent !== undefined) {
               tooltipContent += ` (${props.usable_area_percent.toFixed(1)}%)`
             }
@@ -258,7 +258,7 @@ const LeafletMap = dynamic(
           }
 
           if (props.usable_available_area_ha !== null && props.usable_available_area_ha !== undefined) {
-            tooltipContent += `Usable & Available: ${props.usable_available_area_ha.toFixed(4)} ha`
+            tooltipContent += `Usable & Available: ${props.usable_available_area_ha.toFixed(1)} ha`
             if (props.usable_available_area_percent !== null && props.usable_available_area_percent !== undefined) {
               tooltipContent += ` (${props.usable_available_area_percent.toFixed(1)}%)`
             }
@@ -266,7 +266,7 @@ const LeafletMap = dynamic(
           }
 
           if (props.unusable_area_ha !== null && props.unusable_area_ha !== undefined) {
-            tooltipContent += `Unusable Area: ${props.unusable_area_ha.toFixed(4)} ha`
+            tooltipContent += `Unusable Area: ${props.unusable_area_ha.toFixed(1)} ha`
             if (props.unusable_area_percent !== null && props.unusable_area_percent !== undefined) {
               tooltipContent += ` (${props.unusable_area_percent.toFixed(1)}%)`
             }
@@ -324,7 +324,7 @@ const LeafletMap = dynamic(
           layer.bindTooltip(
             `<strong>${parcelId}</strong><br/>` +
             `Khasras: ${khasraCount}<br/>` +
-            `Usable Area: ${usableAreaHa.toFixed(2)} ha`,
+            `Usable Area: ${usableAreaHa.toFixed(1)} ha`,
             { permanent: false, direction: 'top' }
           )
 
