@@ -21,10 +21,11 @@ DONE:
 - BUG: Fix stats showing on hover on the map
 - BUG: refresh login issue
 - make maps take up whole right side and not refresh with every page change
-- add slopes
+- add slopes WIP
 
 TO DO:
 
+- test and fix slopes
 - khasra tooltip before layers etc shows N/A - should show original area.
 - BUG: FIX DISTANCE MATRIX ON NEW PROJECT etc. First attempt is always wrong. Better after clearing the first distance matrix but still DBScan seems to be stochastic??
 - add per-layer areas to excel output
