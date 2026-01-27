@@ -156,6 +156,7 @@ export default function FullScreenMapPage() {
             {/* Full Screen Map */}
             <div className="flex-1 relative">
                 <MapContainer
+                    projectId={projectId}
                     data={khasrasData}
                     center={mapCenter}
                     zoom={mapZoom}

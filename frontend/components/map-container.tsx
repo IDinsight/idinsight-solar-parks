@@ -2,15 +2,17 @@
 import dynamic from "next/dynamic"
 import { useEffect, useState } from "react"
 import type { FeatureCollection } from "geojson"
+import { useMapStore } from "@/lib/stores/map"
 
 // Import Leaflet CSS
 import "leaflet/dist/leaflet.css"
 
 interface MapProps {
+  projectId: string
   data: any
   selectedLayers?: string[]
-  center: [number, number]
-  zoom: number
+  center?: [number, number]
+  zoom?: number
   parcelsData?: any
   layersData?: Record<string, any>
 }
@@ -38,11 +40,14 @@ const LeafletMap = dynamic(
     const L = require("leaflet")
 
     // Helper component to handle map resize and fit bounds
-    function MapController({ geoJsonData, layersGeoJson }: {
+    function MapController({ geoJsonData, layersGeoJson, shouldAutoFit }: {
       geoJsonData: FeatureCollection | null
       layersGeoJson: Array<{ data: FeatureCollection, color: string }>
+      shouldAutoFit: boolean
     }) {
       const map = useMap()
+      const { useState } = require("react")
+      const [hasAutoFitted, setHasAutoFitted] = useState(false)
 
       useEffect(() => {
         if (!map || !map.getContainer()) return
@@ -78,9 +83,10 @@ const LeafletMap = dynamic(
         }
       }, [map])
 
-      // Fit bounds when geoJsonData changes
+      // Fit bounds when geoJsonData changes (only once if shouldAutoFit is true)
       useEffect(() => {
         if (!map || !map.getContainer()) return
+        if (!shouldAutoFit || hasAutoFitted) return
 
         try {
           let allBounds: any = null
@@ -112,6 +118,7 @@ const LeafletMap = dynamic(
                 try {
                   if (map && map.getContainer()) {
                     map.fitBounds(allBounds, { padding: [20, 20], maxZoom: 16 })
+                    setHasAutoFitted(true)
                   }
                 } catch (e) {
                   // Ignore errors during cleanup
@@ -122,19 +129,20 @@ const LeafletMap = dynamic(
         } catch (e) {
           console.error("Error fitting bounds:", e)
         }
-      }, [map, geoJsonData, layersGeoJson])
+      }, [map, geoJsonData, layersGeoJson, shouldAutoFit, hasAutoFitted])
 
       return null
     }
 
     // Legend component
-    function MapLegend({ visibleLayers, setVisibleLayers, layersGeoJson }: {
+    function MapLegend({ visibleLayers, setVisibleLayers, layersGeoJson, hasParcels, isExpanded, setIsExpanded }: {
       visibleLayers: VisibleLayers
       setVisibleLayers: React.Dispatch<React.SetStateAction<VisibleLayers>>
       layersGeoJson: Array<{ data: FeatureCollection, color: string, name: string }>
+      hasParcels: boolean
+      isExpanded: boolean
+      setIsExpanded: (expanded: boolean) => void
     }) {
-      const { useState } = require("react")
-      const [isExpanded, setIsExpanded] = useState(true)
 
       return (
         <div style={{
@@ -181,17 +189,19 @@ const LeafletMap = dynamic(
                 <span style={{ color: '#334155' }}>Khasras</span>
               </label>
 
-              {/* Parcels toggle */}
-              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '12px' }}>
-                <input
-                  type="checkbox"
-                  checked={visibleLayers.parcels}
-                  onChange={(e) => setVisibleLayers(prev => ({ ...prev, parcels: e.target.checked }))}
-                  style={{ cursor: 'pointer' }}
-                />
-                <div style={{ width: '12px', height: '12px', border: '2px dashed #000000', borderRadius: '2px' }} />
-                <span style={{ color: '#334155' }}>Parcels</span>
-              </label>
+              {/* Parcels toggle - only show if parcels exist */}
+              {hasParcels && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '12px' }}>
+                  <input
+                    type="checkbox"
+                    checked={visibleLayers.parcels}
+                    onChange={(e) => setVisibleLayers(prev => ({ ...prev, parcels: e.target.checked }))}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  <div style={{ width: '12px', height: '12px', border: '2px dashed #000000', borderRadius: '2px' }} />
+                  <span style={{ color: '#334155' }}>Parcels</span>
+                </label>
+              )}
 
               {/* Constraint layers toggles */}
               {layersGeoJson.map((layer) => (
@@ -215,20 +225,62 @@ const LeafletMap = dynamic(
       )
     }
 
+    // Helper component to track map view changes
+    function MapViewTracker({ onViewChange, onBaseLayerChange }: {
+      onViewChange: (center: [number, number], zoom: number) => void
+      onBaseLayerChange: (layer: 'satellite' | 'street') => void
+    }) {
+      const map = useMap()
+
+      useEffect(() => {
+        if (!map) return
+
+        const handleMoveEnd = () => {
+          const center = map.getCenter()
+          const zoom = map.getZoom()
+          onViewChange([center.lat, center.lng], zoom)
+        }
+
+        const handleBaseLayerChange = (e: any) => {
+          const layerName = e.name
+          if (layerName === 'Satellite') {
+            onBaseLayerChange('satellite')
+          } else if (layerName === 'Street Map') {
+            onBaseLayerChange('street')
+          }
+        }
+
+        map.on('moveend', handleMoveEnd)
+        map.on('zoomend', handleMoveEnd)
+        map.on('baselayerchange', handleBaseLayerChange)
+
+        return () => {
+          map.off('moveend', handleMoveEnd)
+          map.off('zoomend', handleMoveEnd)
+          map.off('baselayerchange', handleBaseLayerChange)
+        }
+      }, [map, onViewChange, onBaseLayerChange])
+
+      return null
+    }
+
     // Return the actual map component
-    return function MapInner({ center, zoom, geoJsonData, layersGeoJson, parcelsGeoJson }: {
+    return function MapInner({ center, zoom, geoJsonData, layersGeoJson, parcelsGeoJson, baseLayer, visibleLayers, setVisibleLayers, legendExpanded, setLegendExpanded, onViewChange, onBaseLayerChange, shouldAutoFit }: {
       center: [number, number]
       zoom: number
       geoJsonData: FeatureCollection | null
       layersGeoJson: Array<{ data: FeatureCollection, color: string, name: string }>
       parcelsGeoJson: FeatureCollection | null
+      baseLayer: 'satellite' | 'street'
+      visibleLayers: VisibleLayers
+      setVisibleLayers: React.Dispatch<React.SetStateAction<VisibleLayers>>
+      legendExpanded: boolean
+      setLegendExpanded: (expanded: boolean) => void
+      onViewChange: (center: [number, number], zoom: number) => void
+      onBaseLayerChange: (layer: 'satellite' | 'street') => void
+      shouldAutoFit: boolean
     }) {
-      const { useState } = require("react")
-      const [visibleLayers, setVisibleLayers] = useState<VisibleLayers>({
-        khasras: true,
-        parcels: true,
-        layers: {},
-      })
+      const hasParcels = parcelsGeoJson && parcelsGeoJson.features && parcelsGeoJson.features.length > 0
       // Style function for khasras (gray outline)
       const khasraOutlineStyle = () => ({
         color: '#808080',
@@ -386,16 +438,17 @@ const LeafletMap = dynamic(
             scrollWheelZoom={true}
             key="main-map" // Stable key to prevent recreation
           >
-            <MapController geoJsonData={geoJsonData} layersGeoJson={layersGeoJson} />
+            <MapController geoJsonData={geoJsonData} layersGeoJson={layersGeoJson} shouldAutoFit={shouldAutoFit} />
+            <MapViewTracker onViewChange={onViewChange} onBaseLayerChange={onBaseLayerChange} />
             <LayersControl position="bottomright">
-              <LayersControl.BaseLayer checked name="Satellite">
+              <LayersControl.BaseLayer checked={baseLayer === 'satellite'} name="Satellite">
                 <TileLayer
                   attribution='&copy; <a href="https://www.esri.com">Esri</a>, Maxar, Earthstar Geographics'
                   url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                   maxZoom={19}
                 />
               </LayersControl.BaseLayer>
-              <LayersControl.BaseLayer name="Street Map">
+              <LayersControl.BaseLayer checked={baseLayer === 'street'} name="Street Map">
                 <TileLayer
                   attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -452,6 +505,9 @@ const LeafletMap = dynamic(
             visibleLayers={visibleLayers}
             setVisibleLayers={setVisibleLayers}
             layersGeoJson={layersGeoJson}
+            hasParcels={hasParcels}
+            isExpanded={legendExpanded}
+            setIsExpanded={setLegendExpanded}
           />
         </div>
       )
@@ -467,10 +523,83 @@ const LeafletMap = dynamic(
   }
 )
 
-export default function MapComponent({ data, selectedLayers, center, zoom, parcelsData, layersData }: MapProps) {
+export default function MapComponent({ projectId, data, selectedLayers, center, zoom, parcelsData, layersData }: MapProps) {
   const [geoJsonData, setGeoJsonData] = useState<FeatureCollection | null>(null)
   const [layersGeoJson, setLayersGeoJson] = useState<Array<{ data: FeatureCollection, color: string, name: string }>>([])
   const [parcelsGeoJson, setParcelsGeoJson] = useState<FeatureCollection | null>(null)
+
+  // Get map store and initialize project map state if needed
+  const {
+    getMapState,
+    initializeProjectMap,
+    setViewState,
+    setVisibleLayers: storeSetVisibleLayers,
+    setBaseLayer,
+    setLegendExpanded: storeSetLegendExpanded,
+  } = useMapStore()
+
+  // Initialize map state for this project on mount
+  useEffect(() => {
+    if (projectId) {
+      initializeProjectMap(projectId, {
+        viewState: {
+          center: center || [20, 77],
+          zoom: zoom || 5,
+        },
+      })
+    }
+  }, [projectId, initializeProjectMap])
+
+  // Get current map state or use defaults
+  const mapState = getMapState(projectId)
+  const baseLayer = mapState?.mapState.baseLayer || 'satellite'
+  const legendExpanded = mapState?.mapState.legendExpanded ?? true
+  const visibleLayers = mapState?.visibleLayers || {
+    khasras: true,
+    parcels: true,
+    layers: {},
+  }
+
+  // Use stored view state with fallback to props
+  const mapCenter = mapState?.viewState.center || center || [20, 77]
+  const mapZoom = mapState?.viewState.zoom || zoom || 5
+
+  // Only auto-fit if we don't have stored view state (first time viewing this project)
+  const shouldAutoFit = !mapState?.viewState.center && !mapState?.viewState.zoom
+
+  // Handle visible layer changes
+  const handleSetVisibleLayers = (updater: React.SetStateAction<VisibleLayers>) => {
+    if (!projectId) return
+
+    const currentLayers = getMapState(projectId)?.visibleLayers || {
+      khasras: true,
+      parcels: true,
+      layers: {},
+    }
+    const newLayers = typeof updater === 'function' ? updater(currentLayers) : updater
+    storeSetVisibleLayers(projectId, newLayers)
+  }
+
+  // Handle legend expand/collapse
+  const handleSetLegendExpanded = (expanded: boolean) => {
+    if (projectId) {
+      storeSetLegendExpanded(projectId, expanded)
+    }
+  }
+
+  // Handle view changes (zoom/pan)
+  const handleViewChange = (newCenter: [number, number], newZoom: number) => {
+    if (projectId) {
+      setViewState(projectId, { center: newCenter, zoom: newZoom })
+    }
+  }
+
+  // Handle base layer changes
+  const handleBaseLayerChange = (layer: 'satellite' | 'street') => {
+    if (projectId) {
+      setBaseLayer(projectId, layer)
+    }
+  }
 
   useEffect(() => {
     if (data?.features && Array.isArray(data.features)) {
@@ -547,7 +676,21 @@ export default function MapComponent({ data, selectedLayers, center, zoom, parce
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden">
-      <LeafletMap center={center} zoom={zoom} geoJsonData={geoJsonData} layersGeoJson={layersGeoJson} parcelsGeoJson={parcelsGeoJson} />
+      <LeafletMap
+        center={mapCenter}
+        zoom={mapZoom}
+        geoJsonData={geoJsonData}
+        layersGeoJson={layersGeoJson}
+        parcelsGeoJson={parcelsGeoJson}
+        baseLayer={baseLayer}
+        visibleLayers={visibleLayers}
+        setVisibleLayers={handleSetVisibleLayers}
+        legendExpanded={legendExpanded}
+        setLegendExpanded={handleSetLegendExpanded}
+        onViewChange={handleViewChange}
+        onBaseLayerChange={handleBaseLayerChange}
+        shouldAutoFit={shouldAutoFit}
+      />
     </div>
   )
 }

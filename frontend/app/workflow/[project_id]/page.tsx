@@ -1076,6 +1076,7 @@ function WorkflowContent() {
                                     {khasraGeoJSON ? (
                                         <div className="flex-1 min-h-0">
                                             <MapContainer
+                                                projectId={currentProject.id}
                                                 data={khasraGeoJSON}
                                                 center={mapCenter}
                                                 zoom={mapZoom}
@@ -1119,6 +1120,7 @@ function WorkflowContent() {
                                     {khasraGeoJSON ? (
                                         <div className="flex-1 min-h-0">
                                             <MapContainer
+                                                projectId={currentProject.id}
                                                 data={khasraGeoJSON}
                                                 center={mapCenter}
                                                 zoom={mapZoom}
@@ -1246,6 +1248,7 @@ function WorkflowContent() {
                                     {khasraGeoJSON ? (
                                         <div className="flex-1 min-h-0">
                                             <MapContainer
+                                                projectId={currentProject.id}
                                                 data={khasraGeoJSON}
                                                 center={mapCenter}
                                                 zoom={mapZoom}
