@@ -851,6 +851,74 @@ def load_layer_gdf_by_id(db: Session, layer_id: int) -> Optional[gpd.GeoDataFram
 # ============ Builtin Layer Processing ============
 
 
+def get_landcover_shapes(
+    landcover_data: np.ndarray,
+    transform,
+    class_name: str,
+    class_value_lookup_dict: Dict[str, List[int]],
+    raster_crs: str = "EPSG:4326",
+    target_crs: str = "EPSG:24378",
+) -> gpd.GeoDataFrame:
+    """
+    Extract vector shapes from landcover raster for a specific class.
+
+    Args:
+        landcover_data: Raster data array
+        transform: Raster transform
+        class_name: Name of landcover class (e.g., "Cropland", "Open surface water")
+        class_value_lookup_dict: Mapping from class names to raster values
+        raster_crs: Input CRS of raster
+        target_crs: Target CRS for output
+
+    Returns:
+        GeoDataFrame with extracted shapes
+    """
+    from rasterio.features import shapes as rasterio_shapes
+    from shapely.geometry import shape
+
+    # Get array values for this class
+    class_values = class_value_lookup_dict[class_name]
+
+    # Create mask
+    layer_mask = np.isin(landcover_data, class_values)
+
+    # Extract vector shapes
+    vector_shapes = [
+        {"geometry": shape(geom), "properties": {"class": class_name}}
+        for geom, class_value in rasterio_shapes(
+            landcover_data, mask=layer_mask, transform=transform
+        )
+    ]
+
+    shapes_gdf = gpd.GeoDataFrame(vector_shapes, crs=raster_crs)
+    shapes_gdf = shapes_gdf.to_crs(target_crs)
+
+    return shapes_gdf
+
+
+def load_landcover_class_mapping(legend_path: Path) -> Dict[str, List[int]]:
+    """
+    Load landcover class to value mapping from CSV legend.
+
+    Returns:
+        Dictionary mapping class names to list of raster values
+    """
+    import pandas as pd
+
+    legend_df = pd.read_csv(legend_path)
+    value_class_dict = legend_df.set_index("map_value")["class_b"].to_dict()
+
+    # Invert to get class -> [values] mapping
+    class_value_dict = {}
+    for value, class_name in value_class_dict.items():
+        if class_name not in class_value_dict:
+            class_value_dict[class_name] = [value]
+        else:
+            class_value_dict[class_name].append(value)
+
+    return class_value_dict
+
+
 def process_settlement_layer(
     db: Session,
     project_id: str,
@@ -1290,6 +1358,454 @@ def process_settlement_layer(
         settlements_layer.details = f"Error: {str(e)}"
         isolated_layer.status = "failed"
         isolated_layer.details = f"Error: {str(e)}"
+        db.commit()
+        raise
+
+
+def process_cropland_layer(
+    db: Session,
+    project_id: str,
+    create_only: bool = False,
+) -> LayerInfo:
+    """
+    Process cropland layer from landcover TIFF data.
+
+    Steps:
+    1. Load khasras and get bounding box
+    2. Load landcover TIFF tiles that overlap project
+    3. Extract cropland shapes using class_b="Cropland"
+    4. Overlay with khasras to get intersection
+    5. Save to database
+
+    Args:
+        db: Database session
+        project_id: Project ID
+        create_only: If True, only create layer record and return
+
+    Returns:
+        LayerInfo object
+    """
+    import rasterio
+    import rasterio.mask
+
+    project = get_project(db, project_id)
+    if not project:
+        raise ValueError(f"Project {project_id} not found")
+
+    # Check if layer exists
+    existing_layer = (
+        db.query(LayerModel)
+        .filter(LayerModel.project_id == project_id, LayerModel.name == "Cropland")
+        .first()
+    )
+
+    if create_only:
+        if existing_layer:
+            return LayerInfo(
+                layer_type=LayerType.CROPLAND.value,
+                name=existing_layer.name,
+                description="Agricultural cropland areas",
+                is_unusable=existing_layer.is_unusable,
+                parameters=existing_layer.parameters or {},
+                status=existing_layer.status,
+                details=existing_layer.details,
+                area_ha=existing_layer.total_area_ha,
+                feature_count=existing_layer.feature_count,
+            )
+        else:
+            # Create placeholder layer
+            cropland_layer = LayerModel(
+                project_id=project_id,
+                name="Cropland",
+                layer_type=LayerType.CROPLAND.value,
+                is_unusable=True,
+                status="in_progress",
+                details="Queued for processing...",
+                parameters={},
+            )
+            db.add(cropland_layer)
+            db.commit()
+
+            return LayerInfo(
+                layer_type=LayerType.CROPLAND.value,
+                name="Cropland",
+                description="Agricultural cropland areas",
+                is_unusable=True,
+                parameters={},
+                status="in_progress",
+                details="Queued for processing",
+            )
+
+    # Create or update layer record
+    if existing_layer:
+        cropland_layer = existing_layer
+        cropland_layer.status = "in_progress"
+        cropland_layer.details = "Loading khasras data"
+    else:
+        cropland_layer = LayerModel(
+            project_id=project_id,
+            name="Cropland",
+            layer_type=LayerType.CROPLAND.value,
+            is_unusable=True,
+            status="in_progress",
+            details="Loading khasras data",
+            parameters={},
+        )
+        db.add(cropland_layer)
+
+    db.commit()
+
+    try:
+        # Load khasras
+        update_layer_status(db, cropland_layer, "in_progress", "Loading khasras data")
+        gdf = get_khasras_gdf(db, project_id, projected=False)
+        if gdf is None:
+            raise ValueError("Khasras must be uploaded first")
+
+        # Project to target CRS
+        gdf = gdf.to_crs(f"EPSG:{settings.INDIA_PROJECTED_CRS}")
+        gdf_4326 = gdf.to_crs("EPSG:4326")
+
+        # Load legend
+        update_layer_status(
+            db, cropland_layer, "in_progress", "Loading landcover legend"
+        )
+        legend_path = (
+            Path(settings.DATA_DIR) / "landcover" / "legend_processed.csv"
+        )
+        class_value_dict = load_landcover_class_mapping(legend_path)
+
+        # Load landcover TIFF and extract cropland shapes
+        update_layer_status(
+            db, cropland_layer, "in_progress", "Loading landcover TIFF data"
+        )
+        landcover_dir = Path(settings.DATA_DIR) / "landcover"
+
+        # Find which TIFF files overlap the project bounds
+        # For now, use 30N_070E_2020.tif (covers MP region)
+        # TODO: Add logic to auto-detect overlapping tiles
+        tiff_path = landcover_dir / "30N_070E_2020.tif"
+
+        if not tiff_path.exists():
+            raise FileNotFoundError(
+                f"Landcover TIFF not found at {tiff_path}. "
+                f"Please ensure the landcover data is available."
+            )
+
+        with rasterio.open(tiff_path) as src:
+            update_layer_status(
+                db, cropland_layer, "in_progress", "Extracting cropland from landcover"
+            )
+
+            # Mask to khasra bounds
+            masked_data, masked_transform = rasterio.mask.mask(
+                src, [gdf_4326.unary_union], crop=True
+            )
+            masked_data = np.squeeze(masked_data)
+
+            # Extract cropland shapes
+            cropland_shapes_gdf = get_landcover_shapes(
+                landcover_data=masked_data,
+                transform=masked_transform,
+                class_name="Cropland",
+                class_value_lookup_dict=class_value_dict,
+                raster_crs=str(src.crs),
+                target_crs=f"EPSG:{settings.INDIA_PROJECTED_CRS}",
+            )
+
+        if cropland_shapes_gdf.empty:
+            update_layer_status(
+                db,
+                cropland_layer,
+                "successful",
+                "No cropland found in project area",
+            )
+            cropland_layer.feature_count = 0
+            cropland_layer.total_area_ha = 0.0
+            db.commit()
+
+            return LayerInfo(
+                layer_type=LayerType.CROPLAND.value,
+                name="Cropland",
+                description="Agricultural cropland areas",
+                is_unusable=True,
+                parameters={},
+                status="successful",
+                details="No cropland found",
+                area_ha=0,
+                feature_count=0,
+            )
+
+        # Overlay with khasras
+        update_layer_status(
+            db, cropland_layer, "in_progress", "Overlaying cropland with khasras"
+        )
+        cropland_overlay_gdf = gpd.overlay(
+            cropland_shapes_gdf, gdf, how="intersection"
+        )
+        cropland_overlay_gdf = cropland_overlay_gdf.dissolve(
+            by="Khasra ID (Unique)"
+        ).reset_index()
+
+        # Calculate areas
+        area_col = "Unavailable Area - Cropland (ha)"
+        cropland_overlay_gdf[area_col] = cropland_overlay_gdf.geometry.area / 10_000
+
+        # Delete existing features
+        db.query(LayerFeatureModel).filter(
+            LayerFeatureModel.layer_id == cropland_layer.id
+        ).delete()
+
+        # Save to database using helper function
+        update_layer_status(
+            db,
+            cropland_layer,
+            "in_progress",
+            "Saving cropland features to database",
+        )
+
+        layer_info = _save_builtin_layer_with_status(
+            db=db,
+            layer=cropland_layer,
+            layer_gdf=cropland_overlay_gdf,
+            area_col=area_col,
+        )
+
+        # Update layer status
+        cropland_layer.status = "successful"
+        cropland_layer.details = (
+            f"Successfully processed {len(cropland_overlay_gdf)} cropland features"
+        )
+        db.commit()
+
+        # Update project timestamp
+        project.updated_at = datetime.utcnow()
+        db.commit()
+
+        return layer_info
+
+    except Exception as e:
+        cropland_layer.status = "failed"
+        cropland_layer.details = f"Error: {str(e)}"
+        db.commit()
+        raise
+
+
+def process_water_layer(
+    db: Session,
+    project_id: str,
+    create_only: bool = False,
+) -> LayerInfo:
+    """
+    Process water layer from landcover TIFF data.
+
+    Steps:
+    1. Load khasras and get bounding box
+    2. Load landcover TIFF tiles that overlap project
+    3. Extract water shapes using class_b="Open surface water"
+    4. Overlay with khasras to get intersection
+    5. Save to database
+
+    Args:
+        db: Database session
+        project_id: Project ID
+        create_only: If True, only create layer record and return
+
+    Returns:
+        LayerInfo object
+    """
+    import rasterio
+    import rasterio.mask
+
+    project = get_project(db, project_id)
+    if not project:
+        raise ValueError(f"Project {project_id} not found")
+
+    # Check if layer exists
+    existing_layer = (
+        db.query(LayerModel)
+        .filter(LayerModel.project_id == project_id, LayerModel.name == "Water")
+        .first()
+    )
+
+    if create_only:
+        if existing_layer:
+            return LayerInfo(
+                layer_type=LayerType.WATER.value,
+                name=existing_layer.name,
+                description="Open surface water bodies",
+                is_unusable=existing_layer.is_unusable,
+                parameters=existing_layer.parameters or {},
+                status=existing_layer.status,
+                details=existing_layer.details,
+                area_ha=existing_layer.total_area_ha,
+                feature_count=existing_layer.feature_count,
+            )
+        else:
+            # Create placeholder layer
+            water_layer = LayerModel(
+                project_id=project_id,
+                name="Water",
+                layer_type=LayerType.WATER.value,
+                is_unusable=True,
+                status="in_progress",
+                details="Queued for processing...",
+                parameters={},
+            )
+            db.add(water_layer)
+            db.commit()
+
+            return LayerInfo(
+                layer_type=LayerType.WATER.value,
+                name="Water",
+                description="Open surface water bodies",
+                is_unusable=True,
+                parameters={},
+                status="in_progress",
+                details="Queued for processing",
+            )
+
+    # Create or update layer record
+    if existing_layer:
+        water_layer = existing_layer
+        water_layer.status = "in_progress"
+        water_layer.details = "Loading khasras data"
+    else:
+        water_layer = LayerModel(
+            project_id=project_id,
+            name="Water",
+            layer_type=LayerType.WATER.value,
+            is_unusable=True,
+            status="in_progress",
+            details="Loading khasras data",
+            parameters={},
+        )
+        db.add(water_layer)
+
+    db.commit()
+
+    try:
+        # Load khasras
+        update_layer_status(db, water_layer, "in_progress", "Loading khasras data")
+        gdf = get_khasras_gdf(db, project_id, projected=False)
+        if gdf is None:
+            raise ValueError("Khasras must be uploaded first")
+
+        # Project to target CRS
+        gdf = gdf.to_crs(f"EPSG:{settings.INDIA_PROJECTED_CRS}")
+        gdf_4326 = gdf.to_crs("EPSG:4326")
+
+        # Load legend
+        update_layer_status(db, water_layer, "in_progress", "Loading landcover legend")
+        legend_path = (
+            Path(settings.DATA_DIR) / "landcover" / "legend_processed.csv"
+        )
+        class_value_dict = load_landcover_class_mapping(legend_path)
+
+        # Load landcover TIFF and extract water shapes
+        update_layer_status(
+            db, water_layer, "in_progress", "Loading landcover TIFF data"
+        )
+        landcover_dir = Path(settings.DATA_DIR) / "landcover"
+
+        # Find which TIFF files overlap the project bounds
+        # For now, use 30N_070E_2020.tif (covers MP region)
+        # TODO: Add logic to auto-detect overlapping tiles
+        tiff_path = landcover_dir / "30N_070E_2020.tif"
+
+        if not tiff_path.exists():
+            raise FileNotFoundError(
+                f"Landcover TIFF not found at {tiff_path}. "
+                f"Please ensure the landcover data is available."
+            )
+
+        with rasterio.open(tiff_path) as src:
+            update_layer_status(
+                db, water_layer, "in_progress", "Extracting water from landcover"
+            )
+
+            # Mask to khasra bounds
+            masked_data, masked_transform = rasterio.mask.mask(
+                src, [gdf_4326.unary_union], crop=True
+            )
+            masked_data = np.squeeze(masked_data)
+
+            # Extract water shapes
+            water_shapes_gdf = get_landcover_shapes(
+                landcover_data=masked_data,
+                transform=masked_transform,
+                class_name="Open surface water",
+                class_value_lookup_dict=class_value_dict,
+                raster_crs=str(src.crs),
+                target_crs=f"EPSG:{settings.INDIA_PROJECTED_CRS}",
+            )
+
+        if water_shapes_gdf.empty:
+            update_layer_status(
+                db, water_layer, "successful", "No water bodies found in project area"
+            )
+            water_layer.feature_count = 0
+            water_layer.total_area_ha = 0.0
+            db.commit()
+
+            return LayerInfo(
+                layer_type=LayerType.WATER.value,
+                name="Water",
+                description="Open surface water bodies",
+                is_unusable=True,
+                parameters={},
+                status="successful",
+                details="No water bodies found",
+                area_ha=0,
+                feature_count=0,
+            )
+
+        # Overlay with khasras
+        update_layer_status(
+            db, water_layer, "in_progress", "Overlaying water with khasras"
+        )
+        water_overlay_gdf = gpd.overlay(water_shapes_gdf, gdf, how="intersection")
+        water_overlay_gdf = water_overlay_gdf.dissolve(
+            by="Khasra ID (Unique)"
+        ).reset_index()
+
+        # Calculate areas
+        area_col = "Unusable Area - Water (ha)"
+        water_overlay_gdf[area_col] = water_overlay_gdf.geometry.area / 10_000
+
+        # Delete existing features
+        db.query(LayerFeatureModel).filter(
+            LayerFeatureModel.layer_id == water_layer.id
+        ).delete()
+
+        # Save to database using helper function
+        update_layer_status(
+            db, water_layer, "in_progress", "Saving water features to database"
+        )
+
+        layer_info = _save_builtin_layer_with_status(
+            db=db,
+            layer=water_layer,
+            layer_gdf=water_overlay_gdf,
+            area_col=area_col,
+        )
+
+        # Update layer status
+        water_layer.status = "successful"
+        water_layer.details = (
+            f"Successfully processed {len(water_overlay_gdf)} water features"
+        )
+        db.commit()
+
+        # Update project timestamp
+        project.updated_at = datetime.utcnow()
+        db.commit()
+
+        return layer_info
+
+    except Exception as e:
+        water_layer.status = "failed"
+        water_layer.details = f"Error: {str(e)}"
         db.commit()
         raise
 
@@ -2240,6 +2756,42 @@ def process_settlement_layer_background(
     except Exception as e:
         print(f"Error in background settlement layer processing: {e}")
         # The function already marks layers as failed in the database
+    finally:
+        db.close()
+
+
+def process_cropland_layer_background(project_id: str):
+    """Background task to process cropland layer"""
+    from database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        process_cropland_layer(
+            db=db,
+            project_id=project_id,
+            create_only=False,
+        )
+    except Exception as e:
+        print(f"Error in background cropland layer processing: {e}")
+        # The function already marks layer as failed in the database
+    finally:
+        db.close()
+
+
+def process_water_layer_background(project_id: str):
+    """Background task to process water layer"""
+    from database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        process_water_layer(
+            db=db,
+            project_id=project_id,
+            create_only=False,
+        )
+    except Exception as e:
+        print(f"Error in background water layer processing: {e}")
+        # The function already marks layer as failed in the database
     finally:
         db.close()
 

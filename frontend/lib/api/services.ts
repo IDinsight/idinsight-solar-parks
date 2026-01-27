@@ -137,6 +137,22 @@ export async function generateSettlementLayer(
     return response.data
 }
 
+export async function generateCroplandLayer(projectId: string): Promise<LayerUploadResponse> {
+    const response = await apiClient.post<LayerUploadResponse>(
+        `/projects/${projectId}/layers/cropland`,
+        {}
+    )
+    return response.data
+}
+
+export async function generateWaterLayer(projectId: string): Promise<LayerUploadResponse> {
+    const response = await apiClient.post<LayerUploadResponse>(
+        `/projects/${projectId}/layers/water`,
+        {}
+    )
+    return response.data
+}
+
 export async function listProjectLayers(projectId: string): Promise<LayerInfo[]> {
     const response = await apiClient.get<LayerInfo[]>(`/projects/${projectId}/layers`)
     return response.data

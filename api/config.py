@@ -97,6 +97,18 @@ AVAILABLE_LAYERS = {
             },
         },
     },
+    "cropland": {
+        "name": "Cropland",
+        "description": "Agricultural cropland areas from landcover data",
+        "required": False,
+        "parameters": {},
+    },
+    "water": {
+        "name": "Water",
+        "description": "Open surface water bodies from landcover data",
+        "required": False,
+        "parameters": {},
+    },
 }
 
 # Export formats available

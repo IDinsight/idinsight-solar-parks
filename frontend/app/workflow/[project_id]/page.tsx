@@ -70,6 +70,8 @@ function WorkflowContent() {
         min_buildings: 5,
     })
     const [settlementLayerStatus, setSettlementLayerStatus] = useState<any>(null)
+    const [croplandLayerStatus, setCroplandLayerStatus] = useState<any>(null)
+    const [waterLayerStatus, setWaterLayerStatus] = useState<any>(null)
 
     // Step 3: Clustering state
     const [isClusteringComplete, setIsClusteringComplete] = useState(false)
@@ -104,6 +106,18 @@ function WorkflowContent() {
                             isolated: isolatedBuildingsLayer,
                             processing: settlementsLayer?.status === "in_progress" || isolatedBuildingsLayer?.status === "in_progress"
                         })
+                    }
+
+                    // Update cropland layer status
+                    const croplandLayer = layers.find((l: any) => l.name === "Cropland")
+                    if (croplandLayer) {
+                        setCroplandLayerStatus(croplandLayer)
+                    }
+
+                    // Update water layer status
+                    const waterLayer = layers.find((l: any) => l.name === "Water")
+                    if (waterLayer) {
+                        setWaterLayerStatus(waterLayer)
                     }
 
                     const layersGeoJSON = await api.getProjectLayersGeoJSON(currentProject.id)
@@ -147,6 +161,36 @@ function WorkflowContent() {
                         const layersGeoJSON = await api.getProjectLayersGeoJSON(currentProject.id)
                         setConstraintLayersGeoJSON(layersGeoJSON)
 
+                        const project = await api.getProject(currentProject.id)
+                        updateProject(project)
+                    }
+                }
+
+                if (activeProcessingLayer === "Cropland") {
+                    const croplandLayer = layers.find((l: any) => l.name === "Cropland")
+
+                    setCroplandLayerStatus(croplandLayer)
+
+                    if (croplandLayer?.status !== "in_progress") {
+                        setActiveProcessingLayer(null)
+                        // Refresh all data
+                        const layersGeoJSON = await api.getProjectLayersGeoJSON(currentProject.id)
+                        setConstraintLayersGeoJSON(layersGeoJSON)
+                        const project = await api.getProject(currentProject.id)
+                        updateProject(project)
+                    }
+                }
+
+                if (activeProcessingLayer === "Water") {
+                    const waterLayer = layers.find((l: any) => l.name === "Water")
+
+                    setWaterLayerStatus(waterLayer)
+
+                    if (waterLayer?.status !== "in_progress") {
+                        setActiveProcessingLayer(null)
+                        // Refresh all data
+                        const layersGeoJSON = await api.getProjectLayersGeoJSON(currentProject.id)
+                        setConstraintLayersGeoJSON(layersGeoJSON)
                         const project = await api.getProject(currentProject.id)
                         updateProject(project)
                     }
@@ -363,6 +407,122 @@ function WorkflowContent() {
         } catch (error: any) {
             setError(error.response?.data?.detail || 'Failed to delete layers')
             console.error("Error deleting settlement layers:", error)
+        } finally {
+            setIsProcessing(false)
+        }
+    }
+
+    /**
+     * Generate cropland layer from landcover data
+     */
+    const handleGenerateCroplandLayer = async () => {
+        if (!currentProject) return
+
+        setActiveProcessingLayer("Cropland")
+        setError(null)
+
+        setCroplandLayerStatus({
+            status: "in_progress",
+            details: "Queued for processing..."
+        })
+
+        try {
+            await api.generateCroplandLayer(currentProject.id)
+            // Polling effect will automatically track progress
+        } catch (error: any) {
+            setError(error.response?.data?.detail || 'Failed to generate cropland layer')
+            console.error("Error generating cropland layer:", error)
+            setActiveProcessingLayer(null)
+            setCroplandLayerStatus(null)
+        }
+    }
+
+    /**
+     * Delete cropland layer
+     */
+    const handleDeleteCroplandLayer = async () => {
+        if (!currentProject) return
+
+        const confirmed = confirm("Are you sure you want to delete the Cropland layer?")
+        if (!confirmed) return
+
+        setIsProcessing(true)
+        setError(null)
+
+        try {
+            await api.deleteLayer(currentProject.id, "Cropland")
+            setCroplandLayerStatus(null)
+
+            // Refresh all layers and GeoJSON data
+            const updatedLayers = await api.listProjectLayers(currentProject.id)
+            setAllProjectLayers(updatedLayers)
+
+            const updatedLayersGeoJSON = await api.getProjectLayersGeoJSON(currentProject.id)
+            setConstraintLayersGeoJSON(updatedLayersGeoJSON)
+
+            const updatedProject = await api.getProject(currentProject.id)
+            updateProject(updatedProject)
+        } catch (error: any) {
+            setError(error.response?.data?.detail || 'Failed to delete cropland layer')
+            console.error("Error deleting cropland layer:", error)
+        } finally {
+            setIsProcessing(false)
+        }
+    }
+
+    /**
+     * Generate water layer from landcover data
+     */
+    const handleGenerateWaterLayer = async () => {
+        if (!currentProject) return
+
+        setActiveProcessingLayer("Water")
+        setError(null)
+
+        setWaterLayerStatus({
+            status: "in_progress",
+            details: "Queued for processing..."
+        })
+
+        try {
+            await api.generateWaterLayer(currentProject.id)
+            // Polling effect will automatically track progress
+        } catch (error: any) {
+            setError(error.response?.data?.detail || 'Failed to generate water layer')
+            console.error("Error generating water layer:", error)
+            setActiveProcessingLayer(null)
+            setWaterLayerStatus(null)
+        }
+    }
+
+    /**
+     * Delete water layer
+     */
+    const handleDeleteWaterLayer = async () => {
+        if (!currentProject) return
+
+        const confirmed = confirm("Are you sure you want to delete the Water layer?")
+        if (!confirmed) return
+
+        setIsProcessing(true)
+        setError(null)
+
+        try {
+            await api.deleteLayer(currentProject.id, "Water")
+            setWaterLayerStatus(null)
+
+            // Refresh all layers and GeoJSON data
+            const updatedLayers = await api.listProjectLayers(currentProject.id)
+            setAllProjectLayers(updatedLayers)
+
+            const updatedLayersGeoJSON = await api.getProjectLayersGeoJSON(currentProject.id)
+            setConstraintLayersGeoJSON(updatedLayersGeoJSON)
+
+            const updatedProject = await api.getProject(currentProject.id)
+            updateProject(updatedProject)
+        } catch (error: any) {
+            setError(error.response?.data?.detail || 'Failed to delete water layer')
+            console.error("Error deleting water layer:", error)
         } finally {
             setIsProcessing(false)
         }
@@ -766,9 +926,114 @@ function WorkflowContent() {
                                         )}
                                     </div>
 
-                                    {/* Placeholder for future layers */}
-                                    <div className="border border-slate-200 border-dashed rounded-lg p-4 text-center text-slate-400">
-                                        <p className="text-sm">More layers coming soon...</p>
+                                    {/* Cropland Layer */}
+                                    <div className="border border-slate-200 rounded-lg p-4">
+                                        <h4 className="font-semibold text-slate-900 mb-2">Cropland</h4>
+                                        <p className="text-xs text-slate-600 mb-4">
+                                            Automatically detect agricultural cropland from landcover data
+                                        </p>
+
+                                        {!croplandLayerStatus || croplandLayerStatus?.status === "failed" ? (
+                                            <>
+                                                <button
+                                                    onClick={handleGenerateCroplandLayer}
+                                                    disabled={isProcessing || activeProcessingLayer === "Cropland"}
+                                                    className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-semibold rounded-lg transition-colors"
+                                                >
+                                                    Run Layer
+                                                </button>
+                                            </>
+                                        ) : croplandLayerStatus?.status === "in_progress" ? (
+                                            <div className="space-y-3">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-4 h-4 rounded-full border-2 border-blue-600 border-t-transparent animate-spin flex-shrink-0" />
+                                                    <span className="text-sm font-medium text-blue-700">Processing</span>
+                                                </div>
+                                                <p className="text-xs text-slate-600 ml-6">
+                                                    {croplandLayerStatus?.details || "Processing"}
+                                                    <AnimatedEllipsis />
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <div className="space-y-2 mb-4">
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                                                                <span className="text-white text-xs">✓</span>
+                                                            </div>
+                                                            <span className="text-sm font-medium text-green-700">Cropland</span>
+                                                        </div>
+                                                        <span className="text-xs text-slate-600">
+                                                            {croplandLayerStatus?.area_ha?.toFixed(2)} ha
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                <button
+                                                    onClick={handleDeleteCroplandLayer}
+                                                    disabled={isProcessing}
+                                                    className="w-full px-4 py-2 border border-red-600 hover:bg-red-100 text-red-600 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-400 text-sm font-semibold rounded-lg transition-colors"
+                                                >
+                                                    Delete Layer
+                                                </button>
+                                            </>
+                                        )}
+                                    </div>
+
+                                    {/* Water Layer */}
+                                    <div className="border border-slate-200 rounded-lg p-4">
+                                        <h4 className="font-semibold text-slate-900 mb-2">Water</h4>
+                                        <p className="text-xs text-slate-600 mb-4">
+                                            Automatically detect water bodies from landcover data
+                                        </p>
+
+                                        {!waterLayerStatus || waterLayerStatus?.status === "failed" ? (
+                                            <>
+                                                <button
+                                                    onClick={handleGenerateWaterLayer}
+                                                    disabled={isProcessing || activeProcessingLayer === "Water"}
+                                                    className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-semibold rounded-lg transition-colors"
+                                                >
+                                                    Run Layer
+                                                </button>
+                                            </>
+                                        ) : waterLayerStatus?.status === "in_progress" ? (
+                                            <div className="space-y-3">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-4 h-4 rounded-full border-2 border-blue-600 border-t-transparent animate-spin flex-shrink-0" />
+                                                    <span className="text-sm font-medium text-blue-700">Processing</span>
+                                                </div>
+                                                <p className="text-xs text-slate-600 ml-6">
+                                                    {waterLayerStatus?.details || "Processing"}
+                                                    <AnimatedEllipsis />
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <div className="space-y-2 mb-4">
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                                                                <span className="text-white text-xs">✓</span>
+                                                            </div>
+                                                            <span className="text-sm font-medium text-green-700">Water</span>
+                                                        </div>
+                                                        <span className="text-xs text-slate-600">
+                                                            {waterLayerStatus?.area_ha?.toFixed(2)} ha
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                <button
+                                                    onClick={handleDeleteWaterLayer}
+                                                    disabled={isProcessing}
+                                                    className="w-full px-4 py-2 border border-red-600 hover:bg-red-100 text-red-600 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-400 text-sm font-semibold rounded-lg transition-colors"
+                                                >
+                                                    Delete Layer
+                                                </button>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="flex-1 min-h-0 flex flex-col">

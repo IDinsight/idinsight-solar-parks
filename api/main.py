@@ -75,10 +75,14 @@ from services import (
     get_parcels_gdf,
     get_project,
     list_projects,
+    process_cropland_layer,
+    process_cropland_layer_background,
     process_custom_layer_background,
     process_khasra_upload,
     process_settlement_layer,
     process_settlement_layer_background,
+    process_water_layer,
+    process_water_layer_background,
 )
 from sqlalchemy import delete as sql_delete
 from sqlalchemy.orm import Session
@@ -647,6 +651,138 @@ async def generate_settlement_layer_endpoint(
         project_id=project_id,
         message="Settlement layer processing started. Poll /projects/{project_id}/layers for status updates.",
         layers_added=list(layer_infos),
+    )
+
+
+@app.post(
+    "/projects/{project_id}/layers/cropland",
+    response_model=LayerUploadResponse,
+    tags=["Layers"],
+    summary="Generate cropland layer from landcover data",
+)
+async def generate_cropland_layer_endpoint(
+    project_id: str,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Automatically generate cropland layer from landcover TIFF data.
+
+    This endpoint returns immediately and processes the layer in the background.
+    Poll `/projects/{project_id}/layers` to check processing status.
+
+    This endpoint:
+    1. Loads landcover TIFF data for the project area
+    2. Extracts cropland polygons (class="Cropland")
+    3. Overlays with khasras to get intersection
+    4. Saves cropland layer (marked as unusable)
+    """
+    project = get_project(db, project_id)
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project {project_id} not found",
+        )
+
+    if not project.khasra_count or project.khasra_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Khasras must be uploaded before generating cropland layer",
+        )
+
+    # Create placeholder layer record
+    temp_db = SessionLocal()
+    try:
+        layer_info = process_cropland_layer(
+            db=temp_db,
+            project_id=project_id,
+            create_only=True,
+        )
+        temp_db.close()
+    except Exception as e:
+        temp_db.close()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error initializing cropland layer: {str(e)}",
+        )
+
+    # Schedule background processing
+    background_tasks.add_task(
+        process_cropland_layer_background,
+        project_id=project_id,
+    )
+
+    return LayerUploadResponse(
+        project_id=project_id,
+        message="Cropland layer processing started. Poll /projects/{project_id}/layers for status updates.",
+        layers_added=[layer_info],
+    )
+
+
+@app.post(
+    "/projects/{project_id}/layers/water",
+    response_model=LayerUploadResponse,
+    tags=["Layers"],
+    summary="Generate water layer from landcover data",
+)
+async def generate_water_layer_endpoint(
+    project_id: str,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Automatically generate water layer from landcover TIFF data.
+
+    This endpoint returns immediately and processes the layer in the background.
+    Poll `/projects/{project_id}/layers` to check processing status.
+
+    This endpoint:
+    1. Loads landcover TIFF data for the project area
+    2. Extracts water body polygons (class="Open surface water")
+    3. Overlays with khasras to get intersection
+    4. Saves water layer (marked as unusable)
+    """
+    project = get_project(db, project_id)
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project {project_id} not found",
+        )
+
+    if not project.khasra_count or project.khasra_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Khasras must be uploaded before generating water layer",
+        )
+
+    # Create placeholder layer record
+    temp_db = SessionLocal()
+    try:
+        layer_info = process_water_layer(
+            db=temp_db,
+            project_id=project_id,
+            create_only=True,
+        )
+        temp_db.close()
+    except Exception as e:
+        temp_db.close()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error initializing water layer: {str(e)}",
+        )
+
+    # Schedule background processing
+    background_tasks.add_task(
+        process_water_layer_background,
+        project_id=project_id,
+    )
+
+    return LayerUploadResponse(
+        project_id=project_id,
+        message="Water layer processing started. Poll /projects/{project_id}/layers for status updates.",
+        layers_added=[layer_info],
     )
 
 
