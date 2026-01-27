@@ -273,17 +273,8 @@ const LeafletMap = dynamic(
             attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          {/* Render khasras first (bottom layer) */}
-          {geoJsonData && geoJsonData.features.length > 0 && (
-            <GeoJSON
-              key={`khasras-${geoJsonData.features.length}`}
-              data={geoJsonData}
-              style={khasraStyle}
-              onEachFeature={onEachKhasra}
-            />
-          )}
-          {/* Render layers on top */}
-          {layersGeoJson.map((layer, index) => (
+          {/* Render constraint layers first (bottom) */}
+          {layersGeoJson.map((layer) => (
             layer.data && layer.data.features.length > 0 && (
               <GeoJSON
                 key={`layer-${layer.name}-${layer.data.features.length}`}
@@ -292,13 +283,22 @@ const LeafletMap = dynamic(
               />
             )
           ))}
-          {/* Render parcel boundaries on top with labels */}
+          {/* Render parcel boundaries in the middle */}
           {parcelsGeoJson && parcelsGeoJson.features && parcelsGeoJson.features.length > 0 && (
             <GeoJSON
               key={`parcels-${parcelsGeoJson.features.length}`}
               data={parcelsGeoJson}
               style={parcelStyle}
               onEachFeature={onEachParcel}
+            />
+          )}
+          {/* Render khasras last (top layer for hover) */}
+          {geoJsonData && geoJsonData.features.length > 0 && (
+            <GeoJSON
+              key={`khasras-${geoJsonData.features.length}`}
+              data={geoJsonData}
+              style={khasraStyle}
+              onEachFeature={onEachKhasra}
             />
           )}
         </MapContainer>
