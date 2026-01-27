@@ -6,10 +6,10 @@ import { ProtectedRoute } from "@/components/protected-route"
 import { useProjectStore } from "@/lib/stores/project"
 import UploadSection from "@/components/upload-section"
 import ClusteringSection from "@/components/clustering-section"
-import MapContainer from "@/components/map-container"
+import MapContainer, { LAYER_COLORS } from "@/components/map-container"
 import * as api from "@/lib/api/services"
 import { ExportFormat } from "@/lib/api/types"
-import { ChevronLeft, ChevronRight, ArrowLeft, AlertCircle, Map, Copy, ExternalLink, Check, FileSpreadsheet } from "lucide-react"
+import { ChevronLeft, ChevronRight, ArrowLeft, AlertCircle, Map, Copy, ExternalLink, Check, FileSpreadsheet, Trash2 } from "lucide-react"
 
 
 function AnimatedEllipsis() {
@@ -810,7 +810,19 @@ function WorkflowContent() {
                                 <div className="w-80 flex-shrink-0 space-y-6 overflow-y-auto">
                                     {/* Settlements & Buildings Layer */}
                                     <div className="border border-slate-200 rounded-lg p-4">
-                                        <h4 className="font-semibold text-slate-900 mb-2">Settlements & Buildings</h4>
+                                        <div className="flex items-start justify-between mb-2">
+                                            <h4 className="font-semibold text-slate-900">Settlements & Buildings</h4>
+                                            {settlementLayerStatus && !(settlementLayerStatus.settlements?.status === "failed" && settlementLayerStatus.isolated?.status === "failed") && !settlementLayerStatus.processing && (
+                                                <button
+                                                    onClick={handleDeleteSettlementLayers}
+                                                    disabled={isProcessing}
+                                                    className="p-1 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                                                    title="Delete Layer"
+                                                >
+                                                    <Trash2 className="w-4 h-4 text-red-600" />
+                                                </button>
+                                            )}
+                                        </div>
                                         <p className="text-xs text-slate-600 mb-4">
                                             Automatically detect settlements and isolated buildings from VIDA rooftop data
                                         </p>
@@ -875,7 +887,7 @@ function WorkflowContent() {
                                                     disabled={isProcessing || activeProcessingLayer === "Settlements"}
                                                     className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-semibold rounded-lg transition-colors"
                                                 >
-                                                    {(settlementLayerStatus?.settlements?.status === "failed" || settlementLayerStatus?.isolated?.status === "failed") ? "Retry" : "Run Layer"}
+                                                    {(settlementLayerStatus?.settlements?.status === "failed" || settlementLayerStatus?.isolated?.status === "failed") ? "Retry" : "Add Layer"}
                                                 </button>
                                             </>
                                         ) : settlementLayerStatus.processing ? (
@@ -905,13 +917,13 @@ function WorkflowContent() {
                                         ) : (
                                             <>
                                                 {/* Completed Status */}
-                                                <div className="space-y-2 mb-4">
+                                                <div className="space-y-2">
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-2">
-                                                            <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                                                            <div className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: LAYER_COLORS['Settlements'] }}>
                                                                 <span className="text-white text-xs">✓</span>
                                                             </div>
-                                                            <span className="text-sm font-medium text-green-700">Settlements</span>
+                                                            <span className="text-sm font-medium" style={{ color: LAYER_COLORS['Settlements'] }}>Settlements</span>
                                                         </div>
                                                         <span className="text-xs text-slate-600">
                                                             {settlementLayerStatus.settlements?.area_ha?.toFixed(2)} ha
@@ -919,31 +931,35 @@ function WorkflowContent() {
                                                     </div>
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-2">
-                                                            <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                                                            <div className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: LAYER_COLORS['Isolated Buildings'] }}>
                                                                 <span className="text-white text-xs">✓</span>
                                                             </div>
-                                                            <span className="text-sm font-medium text-green-700">Isolated Buildings</span>
+                                                            <span className="text-sm font-medium" style={{ color: LAYER_COLORS['Isolated Buildings'] }}>Isolated Buildings</span>
                                                         </div>
                                                         <span className="text-xs text-slate-600">
                                                             {settlementLayerStatus.isolated?.area_ha?.toFixed(2)} ha
                                                         </span>
                                                     </div>
                                                 </div>
-
-                                                <button
-                                                    onClick={handleDeleteSettlementLayers}
-                                                    disabled={isProcessing}
-                                                    className="w-full px-4 py-2 border border-red-600 hover:bg-red-100  text-red-600 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-400 text-sm font-semibold rounded-lg transition-colors"
-                                                >
-                                                    Delete Layer
-                                                </button>
                                             </>
                                         )}
                                     </div>
 
                                     {/* Cropland Layer */}
                                     <div className="border border-slate-200 rounded-lg p-4">
-                                        <h4 className="font-semibold text-slate-900 mb-2">Cropland</h4>
+                                        <div className="flex items-start justify-between mb-2">
+                                            <h4 className="font-semibold text-slate-900">Cropland</h4>
+                                            {croplandLayerStatus && croplandLayerStatus?.status !== "failed" && croplandLayerStatus?.status !== "in_progress" && (
+                                                <button
+                                                    onClick={handleDeleteCroplandLayer}
+                                                    disabled={isProcessing}
+                                                    className="p-1 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                                                    title="Delete Layer"
+                                                >
+                                                    <Trash2 className="w-4 h-4 text-red-600" />
+                                                </button>
+                                            )}
+                                        </div>
                                         <p className="text-xs text-slate-600 mb-4">
                                             Automatically detect agricultural cropland from landcover data
                                         </p>
@@ -962,7 +978,7 @@ function WorkflowContent() {
                                                     disabled={isProcessing || activeProcessingLayer === "Cropland"}
                                                     className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-semibold rounded-lg transition-colors"
                                                 >
-                                                    {croplandLayerStatus?.status === "failed" ? "Retry" : "Run Layer"}
+                                                    {croplandLayerStatus?.status === "failed" ? "Retry" : "Add Layer"}
                                                 </button>
                                             </>
                                         ) : croplandLayerStatus?.status === "in_progress" ? (
@@ -977,35 +993,37 @@ function WorkflowContent() {
                                                 </p>
                                             </div>
                                         ) : (
-                                            <>
-                                                <div className="space-y-2 mb-4">
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
-                                                                <span className="text-white text-xs">✓</span>
-                                                            </div>
-                                                            <span className="text-sm font-medium text-green-700">Cropland</span>
+                                            <div className="space-y-2">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: LAYER_COLORS['Cropland'] }}>
+                                                            <span className="text-white text-xs">✓</span>
                                                         </div>
-                                                        <span className="text-xs text-slate-600">
-                                                            {croplandLayerStatus?.area_ha?.toFixed(2)} ha
-                                                        </span>
+                                                        <span className="text-sm font-medium" style={{ color: LAYER_COLORS['Cropland'] }}>Cropland</span>
                                                     </div>
+                                                    <span className="text-xs text-slate-600">
+                                                        {croplandLayerStatus?.area_ha?.toFixed(2)} ha
+                                                    </span>
                                                 </div>
-
-                                                <button
-                                                    onClick={handleDeleteCroplandLayer}
-                                                    disabled={isProcessing}
-                                                    className="w-full px-4 py-2 border border-red-600 hover:bg-red-100 text-red-600 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-400 text-sm font-semibold rounded-lg transition-colors"
-                                                >
-                                                    Delete Layer
-                                                </button>
-                                            </>
+                                            </div>
                                         )}
                                     </div>
 
                                     {/* Water Layer */}
                                     <div className="border border-slate-200 rounded-lg p-4">
-                                        <h4 className="font-semibold text-slate-900 mb-2">Water</h4>
+                                        <div className="flex items-start justify-between mb-2">
+                                            <h4 className="font-semibold text-slate-900">Water</h4>
+                                            {waterLayerStatus && waterLayerStatus?.status !== "failed" && waterLayerStatus?.status !== "in_progress" && (
+                                                <button
+                                                    onClick={handleDeleteWaterLayer}
+                                                    disabled={isProcessing}
+                                                    className="p-1 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                                                    title="Delete Layer"
+                                                >
+                                                    <Trash2 className="w-4 h-4 text-red-600" />
+                                                </button>
+                                            )}
+                                        </div>
                                         <p className="text-xs text-slate-600 mb-4">
                                             Automatically detect water bodies from landcover data
                                         </p>
@@ -1024,7 +1042,7 @@ function WorkflowContent() {
                                                     disabled={isProcessing || activeProcessingLayer === "Water"}
                                                     className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-semibold rounded-lg transition-colors"
                                                 >
-                                                    {waterLayerStatus?.status === "failed" ? "Retry" : "Run Layer"}
+                                                    {waterLayerStatus?.status === "failed" ? "Retry" : "Add Layer"}
                                                 </button>
                                             </>
                                         ) : waterLayerStatus?.status === "in_progress" ? (
@@ -1039,29 +1057,19 @@ function WorkflowContent() {
                                                 </p>
                                             </div>
                                         ) : (
-                                            <>
-                                                <div className="space-y-2 mb-4">
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
-                                                                <span className="text-white text-xs">✓</span>
-                                                            </div>
-                                                            <span className="text-sm font-medium text-green-700">Water</span>
+                                            <div className="space-y-2">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: LAYER_COLORS['Water'] }}>
+                                                            <span className="text-white text-xs">✓</span>
                                                         </div>
-                                                        <span className="text-xs text-slate-600">
-                                                            {waterLayerStatus?.area_ha?.toFixed(2)} ha
-                                                        </span>
+                                                        <span className="text-sm font-medium" style={{ color: LAYER_COLORS['Water'] }}>Water</span>
                                                     </div>
+                                                    <span className="text-xs text-slate-600">
+                                                        {waterLayerStatus?.area_ha?.toFixed(2)} ha
+                                                    </span>
                                                 </div>
-
-                                                <button
-                                                    onClick={handleDeleteWaterLayer}
-                                                    disabled={isProcessing}
-                                                    className="w-full px-4 py-2 border border-red-600 hover:bg-red-100 text-red-600 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-400 text-sm font-semibold rounded-lg transition-colors"
-                                                >
-                                                    Delete Layer
-                                                </button>
-                                            </>
+                                            </div>
                                         )}
                                     </div>
                                 </div>
