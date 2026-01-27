@@ -68,6 +68,17 @@ class ProjectModel(Base):
     # Relationships
     khasras = relationship("KhasraModel", back_populates="project", cascade="all, delete-orphan")
     layers = relationship("LayerModel", back_populates="project", cascade="all, delete-orphan")
+    clustering_runs = relationship(
+        "ClusteringRunModel",
+        back_populates="project",
+        cascade="all, delete-orphan"
+    )
+    parcels = relationship(
+        "ParcelModel",
+        back_populates="project",
+        cascade="all, delete-orphan",
+        foreign_keys="[ParcelModel.project_id]"
+    )
 
 
 class KhasraModel(Base):
@@ -167,6 +178,7 @@ class ClusteringRunModel(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
+    project = relationship("ProjectModel", back_populates="clustering_runs")
     parcels = relationship("ParcelModel", back_populates="clustering_run", cascade="all, delete-orphan")
 
 
@@ -197,6 +209,7 @@ class ParcelModel(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
+    project = relationship("ProjectModel", back_populates="parcels")
     clustering_run = relationship("ClusteringRunModel", back_populates="parcels")
 
 

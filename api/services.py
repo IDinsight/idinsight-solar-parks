@@ -520,14 +520,18 @@ def delete_khasras(db: Session, project_id: str) -> bool:
     if khasra_count == 0:
         return False
 
-    # Delete all khasras (cascades to related data)
-    db.query(KhasraModel).filter(KhasraModel.project_id == project_id).delete()
+    # Delete in proper order: parent tables first to avoid orphans
 
-    # Delete all layers
+    # 1. Delete clustering runs (this cascades to parcels via FK constraint)
+    db.query(ClusteringRunModel).filter(
+        ClusteringRunModel.project_id == project_id
+    ).delete()
+
+    # 2. Delete all layers (this cascades to layer_features via FK constraint)
     db.query(LayerModel).filter(LayerModel.project_id == project_id).delete()
 
-    # Delete all parcels (clustering results)
-    db.query(ParcelModel).filter(ParcelModel.project_id == project_id).delete()
+    # 3. Delete all khasras
+    db.query(KhasraModel).filter(KhasraModel.project_id == project_id).delete()
 
     # Delete distance matrix file if it exists
     if project.distance_matrix_path:
