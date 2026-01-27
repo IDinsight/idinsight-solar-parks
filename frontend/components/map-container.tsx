@@ -303,7 +303,7 @@ const LeafletMap = dynamic(
       const khasraOutlineStyle = () => ({
         color: '#808080',
         weight: 4,
-        opacity: 1,
+        opacity: 0.8,
         fillOpacity: 0,
       })
 
@@ -312,7 +312,7 @@ const LeafletMap = dynamic(
         color: '#ffffff',
         weight: 2,
         opacity: 0.8,
-        fillOpacity: 0,
+        fillOpacity: 0.2,
       })
 
       // Function to add tooltips to khasras
