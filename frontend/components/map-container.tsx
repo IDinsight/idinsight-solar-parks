@@ -25,9 +25,9 @@ interface VisibleLayers {
 
 // Define colors for different layer types
 export const LAYER_COLORS: Record<string, string> = {
-  'Isolated Buildings': '#ff97f3',
+  'Isolated Buildings': '#ff83f1',
   'Settlements': '#cf0000',
-  'Cropland': '#9c8c24',
+  'Cropland': '#ab9928',
   'Water': '#00d9ff',
   'Slopes - North Facing': '#191919',  // Grey
   'Slopes - Other Facing': '#cfcfcf',  // Light grey/white-ish
@@ -301,16 +301,16 @@ const LeafletMap = dynamic(
       const hasParcels = parcelsGeoJson && parcelsGeoJson.features && parcelsGeoJson.features.length > 0
       // Style function for khasras (gray outline)
       const khasraOutlineStyle = () => ({
-        color: '#808080',
-        weight: 4,
+        color: '#424242',
+        weight: 2,
         opacity: 0.8,
-        fillOpacity: 0,
+        fillOpacity: 0.2,
       })
 
       // Style function for khasras (white line on top)
       const khasraStyle = () => ({
-        color: '#ffffff',
-        weight: 2,
+        color: '#e1e1e1',
+        weight: 1,
         opacity: 0.8,
         fillOpacity: 0.2,
       })

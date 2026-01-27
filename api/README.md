@@ -20,13 +20,16 @@ DONE:
 - add crops and water
 - BUG: Fix stats showing on hover on the map
 - BUG: refresh login issue
+- Give ability to turn layers on and off online map
 - make maps take up whole right side and not refresh with every page change
+- bug fixes
+- try for sagar
 
 TO DO:
 
+- add per-layer areas to excel output
 - khasra tooltip before layers etc shows N/A - should show original area.
 - BUG: FIX DISTANCE MATRIX ON NEW PROJECT etc. First attempt is always wrong. Better after clearing the first distance matrix but still DBScan seems to be stochastic??
-- add per-layer areas to excel output
 
 - use alembic for migrations
 - also save usable khasra shape
@@ -34,7 +37,6 @@ TO DO:
 Later:
 
 - First add buildings, then add settlements. Show all buildings on map always.
-- Give ability to turn layers on and off online map
 - show inter-khasra distance histogram to help with threshold selection. give suggested threshold.
 - clustering based on usable shapes?
 - thin-area filtering?
