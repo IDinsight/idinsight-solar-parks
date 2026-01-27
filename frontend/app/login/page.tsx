@@ -28,24 +28,22 @@ export default function LoginPage() {
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-slate-100 flex items-center justify-center p-4">
             <div className="w-full max-w-md">
                 {/* Logo and Title */}
-                <div className="text-center mb-8">
-                    <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4 shadow-lg">
+                <div className="inline-flex flex-row  items-center justify-center w-full mb-10 gap-6">
+                    <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl">
                         <Sun className="w-10 h-10 text-white" />
                     </div>
-                    <h1 className="text-3xl font-bold text-slate-900 mb-2">
-                        Solar Park Analysis
-                    </h1>
-                    <p className="text-slate-600">
-                        Identify optimal parcels for solar development
-                    </p>
+                    <div className="text-left">
+                        <h1 className="text-3xl font-bold text-slate-900 mb-1">
+                            Solar Park Analysis
+                        </h1>
+                        <p className="text-slate-600">
+                            Identify optimal parcels for solar parks
+                        </p>
+                    </div>
                 </div>
 
                 {/* Login Card */}
                 <div className="bg-white rounded-2xl shadow-xl p-8">
-                    <h2 className="text-2xl font-semibold text-slate-900 mb-6">
-                        Sign in to continue
-                    </h2>
-
                     {error && (
                         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
                             <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
@@ -126,11 +124,6 @@ export default function LoginPage() {
                         </p>
                     </div>
                 </div>
-
-                {/* Footer */}
-                <p className="text-center text-sm text-slate-500 mt-8">
-                    Solar Park Parcel Identification System
-                </p>
             </div>
         </div>
     )
