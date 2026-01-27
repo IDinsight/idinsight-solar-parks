@@ -53,6 +53,10 @@ class Settings(BaseSettings):
     SETTLEMENT_EPS: int = 50  # meters for settlement clustering
     SETTLEMENT_MIN_BUILDINGS: int = 5
 
+    # NASA Earthdata credentials for DEM download
+    EARTHDATA_USERNAME: str = os.getenv("EARTHDATA_USERNAME", "")
+    EARTHDATA_PASSWORD: str = os.getenv("EARTHDATA_PASSWORD", "")
+
     class Config:
         env_file = ".env"
         extra = "ignore"
@@ -108,6 +112,37 @@ AVAILABLE_LAYERS = {
         "description": "Open surface water bodies from landcover data",
         "required": False,
         "parameters": {},
+    },
+    "slopes": {
+        "name": "Slopes",
+        "description": "Steep slopes from NASA ALOS PALSAR DEM data",
+        "required": False,
+        "parameters": {
+            "include_north_slopes": {
+                "type": "bool",
+                "default": True,
+                "description": "Include north-facing slopes (45-135° aspect, >7° angle)",
+            },
+            "include_other_slopes": {
+                "type": "bool",
+                "default": True,
+                "description": "Include other-facing slopes (>10° angle)",
+            },
+            "north_min_angle": {
+                "type": "float",
+                "default": 7.0,
+                "min": 0,
+                "max": 90,
+                "description": "Minimum slope angle for north-facing slopes (degrees)",
+            },
+            "other_min_angle": {
+                "type": "float",
+                "default": 10.0,
+                "min": 0,
+                "max": 90,
+                "description": "Minimum slope angle for other-facing slopes (degrees)",
+            },
+        },
     },
 }
 

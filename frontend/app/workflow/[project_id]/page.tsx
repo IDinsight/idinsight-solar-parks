@@ -74,6 +74,15 @@ function WorkflowContent() {
     const [croplandLayerStatus, setCroplandLayerStatus] = useState<any>(null)
     const [waterLayerStatus, setWaterLayerStatus] = useState<any>(null)
 
+    // Slopes layer configuration
+    const [slopesLayerParams, setSlopesLayerParams] = useState({
+        include_north_slopes: true,
+        include_other_slopes: true,
+        north_min_angle: 7.0,
+        other_min_angle: 10.0,
+    })
+    const [slopesLayerStatus, setSlopesLayerStatus] = useState<any>(null)
+
     // Step 3: Clustering state
     const [isClusteringComplete, setIsClusteringComplete] = useState(false)
     const [clusteringResult, setClusteringResult] = useState<any>(null)
@@ -91,6 +100,7 @@ function WorkflowContent() {
     const [showDeleteSettlementModal, setShowDeleteSettlementModal] = useState(false)
     const [showDeleteCroplandModal, setShowDeleteCroplandModal] = useState(false)
     const [showDeleteWaterModal, setShowDeleteWaterModal] = useState(false)
+    const [showDeleteSlopesModal, setShowDeleteSlopesModal] = useState(false)
     const [isDeletingLayer, setIsDeletingLayer] = useState(false)
 
     /**
@@ -99,6 +109,26 @@ function WorkflowContent() {
     const updateCurrentPage = (page: number) => {
         setCurrentPage(page)
         router.replace(`/workflow/${projectId}?page=${page}`, { scroll: false })
+    }
+
+    /**
+     * Calculate optimal zoom level based on geographic bounds
+     * Uses a simple heuristic: larger areas need lower zoom levels
+     */
+    const calculateZoomLevel = (bounds: { minx: number, maxx: number, miny: number, maxy: number }): number => {
+        const lngDiff = bounds.maxx - bounds.minx
+        const latDiff = bounds.maxy - bounds.miny
+        const maxDiff = Math.max(lngDiff, latDiff)
+
+        // Approximate zoom levels based on angular extent
+        // These values are tuned for typical project sizes
+        if (maxDiff > 2) return 8   // Very large area (>200km)
+        if (maxDiff > 1) return 9   // Large area (~100-200km)
+        if (maxDiff > 0.5) return 10 // Medium area (~50-100km)
+        if (maxDiff > 0.2) return 11 // Smaller area (~20-50km)
+        if (maxDiff > 0.1) return 12 // Small area (~10-20km)
+        if (maxDiff > 0.05) return 13 // Very small area (~5-10km)
+        return 14 // Tiny area (<5km)
     }
 
     /**
@@ -133,6 +163,12 @@ function WorkflowContent() {
                     const waterLayer = layers.find((l: any) => l.name === "Water")
                     if (waterLayer) {
                         setWaterLayerStatus(waterLayer)
+                    }
+
+                    // Update slopes layer status
+                    const slopesLayer = layers.find((l: any) => l.name === "Slopes")
+                    if (slopesLayer) {
+                        setSlopesLayerStatus(slopesLayer)
                     }
 
                     const layersGeoJSON = await api.getProjectLayersGeoJSON(currentProject.id)
@@ -210,6 +246,21 @@ function WorkflowContent() {
                         updateProject(project)
                     }
                 }
+
+                if (activeProcessingLayer === "Slopes") {
+                    const slopesLayer = layers.find((l: any) => l.name === "Slopes")
+
+                    setSlopesLayerStatus(slopesLayer)
+
+                    if (slopesLayer?.status !== "in_progress") {
+                        setActiveProcessingLayer(null)
+                        // Refresh all data
+                        const layersGeoJSON = await api.getProjectLayersGeoJSON(currentProject.id)
+                        setConstraintLayersGeoJSON(layersGeoJSON)
+                        const project = await api.getProject(currentProject.id)
+                        updateProject(project)
+                    }
+                }
             } catch (error) {
                 console.error("Error polling layer status:", error)
             }
@@ -264,7 +315,7 @@ function WorkflowContent() {
                                 const centerLng = (khasraSummary.bounds.minx + khasraSummary.bounds.maxx) / 2
                                 const centerLat = (khasraSummary.bounds.miny + khasraSummary.bounds.maxy) / 2
                                 setMapCenter([centerLat, centerLng])
-                                setMapZoom(10)
+                                setMapZoom(calculateZoomLevel(khasraSummary.bounds))
                             }
                         }
                     } catch (error) {
@@ -328,7 +379,7 @@ function WorkflowContent() {
                 const centerLng = (uploadResponse.bounds.minx + uploadResponse.bounds.maxx) / 2
                 const centerLat = (uploadResponse.bounds.miny + uploadResponse.bounds.maxy) / 2
                 setMapCenter([centerLat, centerLng])
-                setMapZoom(10)
+                setMapZoom(calculateZoomLevel(uploadResponse.bounds))
             }
 
             // Refresh project data
@@ -515,6 +566,56 @@ function WorkflowContent() {
         } catch (error: any) {
             setError(error.response?.data?.detail || 'Failed to delete water layer')
             console.error("Error deleting water layer:", error)
+        } finally {
+            setIsDeletingLayer(false)
+        }
+    }
+
+    /**
+     * Generate slopes layer from NASA ALOS DEM data
+     */
+    const handleGenerateSlopesLayer = async () => {
+        if (!currentProject) return
+
+        setActiveProcessingLayer("Slopes")
+        setError(null)
+
+        setSlopesLayerStatus({ status: "in_progress", details: "Queued for processing..." })
+
+        try {
+            await api.generateSlopesLayer(currentProject.id, slopesLayerParams)
+            // Polling effect will automatically track progress
+        } catch (error: any) {
+            setError(error.response?.data?.detail || 'Failed to generate slopes layer')
+            console.error("Error generating slopes layer:", error)
+            setActiveProcessingLayer(null)
+            setSlopesLayerStatus(null)
+        }
+    }
+
+    /**
+     * Delete slopes layer
+     */
+    const handleDeleteSlopesLayer = async () => {
+        if (!currentProject) return
+
+        setIsDeletingLayer(true)
+        setError(null)
+
+        try {
+            await api.deleteLayer(currentProject.id, "Slopes")
+
+            setSlopesLayerStatus(null)
+            setShowDeleteSlopesModal(false)
+
+            const updatedLayersGeoJSON = await api.getProjectLayersGeoJSON(currentProject.id)
+            setConstraintLayersGeoJSON(updatedLayersGeoJSON)
+
+            const updatedProject = await api.getProject(currentProject.id)
+            updateProject(updatedProject)
+        } catch (error: any) {
+            setError(error.response?.data?.detail || 'Failed to delete slopes layer')
+            console.error("Error deleting slopes layer:", error)
         } finally {
             setIsDeletingLayer(false)
         }
@@ -1068,6 +1169,122 @@ function WorkflowContent() {
                                             </div>
                                         )}
                                     </div>
+
+                                    {/* Slopes Layer */}
+                                    <div className="border border-slate-200 rounded-lg p-4">
+                                        <div className="flex items-start justify-between mb-2">
+                                            <h4 className="font-semibold text-slate-900">Slopes</h4>
+                                            {slopesLayerStatus && slopesLayerStatus?.status !== "failed" && slopesLayerStatus?.status !== "in_progress" && (
+                                                <button
+                                                    onClick={() => setShowDeleteSlopesModal(true)}
+                                                    disabled={isDeletingLayer}
+                                                    className="p-1 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                                                    title="Delete Layer"
+                                                >
+                                                    <Trash2 className="w-4 h-4 text-red-600" />
+                                                </button>
+                                            )}
+                                        </div>
+                                        <p className="text-xs text-slate-600 mb-4">
+                                            Automatically detect steep slopes from NASA ALOS DEM data
+                                        </p>
+
+                                        {!slopesLayerStatus || slopesLayerStatus?.status === "failed" ? (
+                                            <>
+                                                {/* Show alert if failed */}
+                                                {slopesLayerStatus?.status === "failed" && (
+                                                    <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded flex items-center gap-2">
+                                                        <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                                                        <span className="text-sm text-red-700">Failed to generate slopes layer. Please try again.</span>
+                                                    </div>
+                                                )}
+
+                                                {/* Parameters */}
+                                                <div className="space-y-3 mb-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={slopesLayerParams.include_north_slopes}
+                                                            onChange={(e) => setSlopesLayerParams({ ...slopesLayerParams, include_north_slopes: e.target.checked })}
+                                                            className="w-4 h-4 text-blue-600 rounded"
+                                                        />
+                                                        <label className="text-xs font-medium text-slate-700">Include North Slopes (45-135°)</label>
+                                                    </div>
+                                                    {slopesLayerParams.include_north_slopes && (
+                                                        <div className="ml-6">
+                                                            <label className="text-xs font-medium text-slate-700">Min Angle (degrees)</label>
+                                                            <input
+                                                                type="number"
+                                                                step="0.5"
+                                                                min="0"
+                                                                max="90"
+                                                                value={slopesLayerParams.north_min_angle}
+                                                                onChange={(e) => setSlopesLayerParams({ ...slopesLayerParams, north_min_angle: parseFloat(e.target.value) || 0 })}
+                                                                className="w-full mt-1 px-3 py-2 text-sm border border-slate-300 rounded-md"
+                                                            />
+                                                        </div>
+                                                    )}
+                                                    <div className="flex items-center gap-2">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={slopesLayerParams.include_other_slopes}
+                                                            onChange={(e) => setSlopesLayerParams({ ...slopesLayerParams, include_other_slopes: e.target.checked })}
+                                                            className="w-4 h-4 text-blue-600 rounded"
+                                                        />
+                                                        <label className="text-xs font-medium text-slate-700">Include Other Slopes</label>
+                                                    </div>
+                                                    {slopesLayerParams.include_other_slopes && (
+                                                        <div className="ml-6">
+                                                            <label className="text-xs font-medium text-slate-700">Min Angle (degrees)</label>
+                                                            <input
+                                                                type="number"
+                                                                step="0.5"
+                                                                min="0"
+                                                                max="90"
+                                                                value={slopesLayerParams.other_min_angle}
+                                                                onChange={(e) => setSlopesLayerParams({ ...slopesLayerParams, other_min_angle: parseFloat(e.target.value) || 0 })}
+                                                                className="w-full mt-1 px-3 py-2 text-sm border border-slate-300 rounded-md"
+                                                            />
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                <button
+                                                    onClick={handleGenerateSlopesLayer}
+                                                    disabled={isProcessing || activeProcessingLayer === "Slopes" || (!slopesLayerParams.include_north_slopes && !slopesLayerParams.include_other_slopes)}
+                                                    className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-semibold rounded-lg transition-colors"
+                                                >
+                                                    {slopesLayerStatus?.status === "failed" ? "Retry" : "Add Layer"}
+                                                </button>
+                                            </>
+                                        ) : slopesLayerStatus?.status === "in_progress" ? (
+                                            <div className="space-y-3">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-4 h-4 rounded-full border-2 border-blue-600 border-t-transparent animate-spin flex-shrink-0" />
+                                                    <span className="text-sm font-medium text-blue-700">Processing</span>
+                                                </div>
+                                                <p className="text-xs text-slate-600 ml-6">
+                                                    {slopesLayerStatus?.details || "Processing"}
+                                                    <AnimatedEllipsis />
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-2">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: LAYER_COLORS['Slopes'] || '#9333ea' }}>
+                                                            <span className="text-white text-xs">✓</span>
+                                                        </div>
+                                                        <span className="text-sm font-medium" style={{ color: LAYER_COLORS['Slopes'] || '#9333ea' }}>Slopes</span>
+                                                    </div>
+                                                    <span className="text-xs text-slate-600">
+                                                        {slopesLayerStatus?.area_ha?.toFixed(2)} ha
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
                                 </div>
                                 <div className="flex-1 min-h-0 flex flex-col">
                                     {khasraGeoJSON ? (
@@ -1387,6 +1604,40 @@ function WorkflowContent() {
                             </button>
                             <button
                                 onClick={handleDeleteWaterLayer}
+                                disabled={isDeletingLayer}
+                                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+                            >
+                                {isDeletingLayer ? "Deleting..." : "Delete Layer"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Slopes Layer Modal */}
+            {showDeleteSlopesModal && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[1000]">
+                    <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl relative z-[1001]">
+                        <div className="flex items-center gap-3 mb-4">
+                            <AlertTriangle className="w-6 h-6 text-red-600" />
+                            <h3 className="text-lg font-semibold text-slate-900">Delete Slopes Layer?</h3>
+                        </div>
+                        <div className="mb-6">
+                            <p className="text-slate-700 mb-3">
+                                This will permanently delete the Slopes layer.
+                            </p>
+                            <p className="text-red-600 font-medium text-sm">This action cannot be undone.</p>
+                        </div>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowDeleteSlopesModal(false)}
+                                disabled={isDeletingLayer}
+                                className="flex-1 px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-900 font-medium rounded-lg transition-colors disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDeleteSlopesLayer}
                                 disabled={isDeletingLayer}
                                 className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
                             >

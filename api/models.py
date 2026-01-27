@@ -229,6 +229,32 @@ class SettlementLayerRequest(BaseModel):
     )
 
 
+# ============ Slopes Layer Models ============
+
+class SlopesLayerRequest(BaseModel):
+    """Request to generate slopes layer from NASA ALOS PALSAR DEM data"""
+    include_north_slopes: bool = Field(
+        default=True,
+        description="Include north-facing steep slopes (NE to NW, 45-135°, >7° angle)"
+    )
+    include_other_slopes: bool = Field(
+        default=True,
+        description="Include other steep slopes (south/east/west facing, >10° angle)"
+    )
+    north_min_angle: float = Field(
+        default=7.0,
+        ge=0,
+        le=90,
+        description="Minimum slope angle for north-facing slopes (degrees)"
+    )
+    other_min_angle: float = Field(
+        default=10.0,
+        ge=0,
+        le=90,
+        description="Minimum slope angle for other-facing slopes (degrees)"
+    )
+
+
 # ============ Calculate Areas Models ============
 
 class CalculateAreasResponse(BaseModel):

@@ -57,6 +57,7 @@ from models import (
     ProjectResponse,
     ProjectStatsResponse,
     SettlementLayerRequest,
+    SlopesLayerRequest,
     Token,
     User,
 )
@@ -81,6 +82,8 @@ from services import (
     process_khasra_upload,
     process_settlement_layer,
     process_settlement_layer_background,
+    process_slopes_layer,
+    process_slopes_layer_background,
     process_water_layer,
     process_water_layer_background,
 )
@@ -782,6 +785,90 @@ async def generate_water_layer_endpoint(
     return LayerUploadResponse(
         project_id=project_id,
         message="Water layer processing started. Poll /projects/{project_id}/layers for status updates.",
+        layers_added=[layer_info],
+    )
+
+
+@app.post(
+    "/projects/{project_id}/layers/slopes",
+    response_model=LayerUploadResponse,
+    tags=["Layers"],
+    summary="Generate slopes layer from NASA ALOS DEM data",
+)
+async def generate_slopes_layer_endpoint(
+    project_id: str,
+    background_tasks: BackgroundTasks,
+    request: SlopesLayerRequest = SlopesLayerRequest(),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Automatically generate slopes layer from NASA ALOS PALSAR DEM data.
+
+    This endpoint returns immediately and processes the layer in the background.
+    Poll `/projects/{project_id}/layers` to check processing status.
+
+    This endpoint:
+    1. Downloads DEM tiles from NASA ALOS using ASF API for the project area
+    2. Calculates slope angles and aspects from DEM data
+    3. Extracts steep slope areas based on configurable thresholds:
+       - North-facing slopes (45-135° aspect): Minimum angle configurable (default 7°)
+       - Other slopes (remaining aspects): Minimum angle configurable (default 10°)
+    4. Overlays with khasras to get intersection
+    5. Saves slopes layer (marked as unusable)
+
+    **Parameters:**
+    - `include_north_slopes`: Include north-facing steep slopes (NE to NW, 45-135°)
+    - `include_other_slopes`: Include other steep slopes (south/east/west facing)
+    - `north_min_angle`: Minimum slope angle for north-facing slopes (degrees)
+    - `other_min_angle`: Minimum slope angle for other-facing slopes (degrees)
+    """
+    project = get_project(db, project_id)
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project {project_id} not found",
+        )
+
+    if not project.khasra_count or project.khasra_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Khasras must be uploaded before generating slopes layer",
+        )
+
+    # Create placeholder layer record
+    temp_db = SessionLocal()
+    try:
+        layer_info = process_slopes_layer(
+            db=temp_db,
+            project_id=project_id,
+            include_north_slopes=request.include_north_slopes,
+            include_other_slopes=request.include_other_slopes,
+            north_min_angle=request.north_min_angle,
+            other_min_angle=request.other_min_angle,
+            create_only=True,
+        )
+        temp_db.close()
+    except Exception as e:
+        temp_db.close()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error initializing slopes layer: {str(e)}",
+        )
+
+    # Schedule background processing
+    background_tasks.add_task(
+        process_slopes_layer_background,
+        project_id=project_id,
+        include_north_slopes=request.include_north_slopes,
+        include_other_slopes=request.include_other_slopes,
+        north_min_angle=request.north_min_angle,
+        other_min_angle=request.other_min_angle,
+    )
+
+    return LayerUploadResponse(
+        project_id=project_id,
+        message="Slopes layer processing started. Poll /projects/{project_id}/layers for status updates.",
         layers_added=[layer_info],
     )
 

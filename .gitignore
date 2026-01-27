@@ -7,3 +7,4 @@ data
 **/node_modules/**
 **/.next/
 **/.env
+backend/.env

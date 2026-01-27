@@ -1830,6 +1830,454 @@ def process_water_layer(
         raise
 
 
+def process_slopes_layer(
+    db: Session,
+    project_id: str,
+    include_north_slopes: bool = True,
+    include_other_slopes: bool = True,
+    north_min_angle: float = 7.0,
+    other_min_angle: float = 10.0,
+    create_only: bool = False,
+) -> LayerInfo:
+    """
+    Process slopes layer from NASA ALOS PALSAR DEM data.
+
+    Steps:
+    1. Load khasras and get bounding box
+    2. Search and download DEM tiles from NASA ALOS using ASF API
+    3. Calculate slopes and aspects from DEM
+    4. Extract steep slope areas based on angle thresholds
+    5. Overlay with khasras to get intersection
+    6. Save to database
+
+    Args:
+        db: Database session
+        project_id: Project ID
+        include_north_slopes: Include north-facing slopes (45-135° aspect)
+        include_other_slopes: Include other-facing slopes  (<45° or >135° aspect)
+        north_min_angle: Minimum angle for north slopes (degrees)
+        other_min_angle: Minimum angle for other slopes (degrees)
+        create_only: If True, only create layer record and return
+
+    Returns:
+        LayerInfo object
+    """
+    project = get_project(db, project_id)
+    if not project:
+        raise ValueError(f"Project {project_id} not found")
+
+    # Check if layer exists
+    existing_layer = (
+        db.query(LayerModel)
+        .filter(LayerModel.project_id == project_id, LayerModel.name == "Slopes")
+        .first()
+    )
+
+    if create_only:
+        if existing_layer:
+            return LayerInfo(
+                layer_type=LayerType.BUILTIN.value,
+                name=existing_layer.name,
+                description="Steep slopes unsuitable for solar",
+                is_unusable=existing_layer.is_unusable,
+                parameters=existing_layer.parameters or {},
+                status=existing_layer.status,
+                details=existing_layer.details,
+                area_ha=existing_layer.total_area_ha,
+                feature_count=existing_layer.feature_count,
+            )
+        else:
+            # Create placeholder layer
+            slopes_layer = LayerModel(
+                project_id=project_id,
+                name="Slopes",
+                layer_type=LayerType.BUILTIN.value,
+                is_unusable=True,
+                status="in_progress",
+                details="Queued for processing...",
+                parameters={
+                    "include_north_slopes": include_north_slopes,
+                    "include_other_slopes": include_other_slopes,
+                    "north_min_angle": north_min_angle,
+                    "other_min_angle": other_min_angle,
+                },
+            )
+            db.add(slopes_layer)
+            db.commit()
+
+            return LayerInfo(
+                layer_type=LayerType.BUILTIN.value,
+                name="Slopes",
+                description="Steep slopes unsuitable for solar",
+                is_unusable=True,
+                parameters={
+                    "include_north_slopes": include_north_slopes,
+                    "include_other_slopes": include_other_slopes,
+                    "north_min_angle": north_min_angle,
+                    "other_min_angle": other_min_angle,
+                },
+                status="in_progress",
+                details="Queued for processing",
+            )
+
+    # Create or update layer record
+    if existing_layer:
+        slopes_layer = existing_layer
+        slopes_layer.status = "in_progress"
+        slopes_layer.details = "Loading khasras data"
+        slopes_layer.parameters = {
+            "include_north_slopes": include_north_slopes,
+            "include_other_slopes": include_other_slopes,
+            "north_min_angle": north_min_angle,
+            "other_min_angle": other_min_angle,
+        }
+    else:
+        slopes_layer = LayerModel(
+            project_id=project_id,
+            name="Slopes",
+            layer_type=LayerType.BUILTIN.value,
+            is_unusable=True,
+            status="in_progress",
+            details="Loading khasras data",
+            parameters={
+                "include_north_slopes": include_north_slopes,
+                "include_other_slopes": include_other_slopes,
+                "north_min_angle": north_min_angle,
+                "other_min_angle": other_min_angle,
+            },
+        )
+        db.add(slopes_layer)
+
+    db.commit()
+
+    try:
+        # Load khasras
+        update_layer_status(db, slopes_layer, "in_progress", "Loading khasras data")
+        gdf = get_khasras_gdf(db, project_id, projected=False)
+        if gdf is None:
+            raise ValueError("Khasras must be uploaded first")
+
+        # Project to target CRS and get bounds
+        gdf = gdf.to_crs(f"EPSG:{settings.INDIA_PROJECTED_CRS}")
+        gdf_4326 = gdf.to_crs("EPSG:4326")
+
+        # Get bounding box for DEM search
+        xmin, ymin, xmax, ymax = gdf_4326.total_bounds
+        from shapely.geometry import Polygon as ShapelyPolygon
+
+        bbox_poly = ShapelyPolygon([
+            (xmin, ymin),
+            (xmax, ymin),
+            (xmax, ymax),
+            (xmin, ymax),
+            (xmin, ymin)
+        ])
+        wkt_string = bbox_poly.wkt
+
+        # Search for DEM data using ASF
+        update_layer_status(
+            db, slopes_layer, "in_progress", "Searching for NASA ALOS DEM tiles"
+        )
+
+        try:
+            import asf_search as asf
+        except ImportError:
+            raise ValueError(
+                "asf_search package not installed. Install with: pip install asf_search"
+            )
+
+        results = asf.geo_search(
+            platform=[asf.PLATFORM.ALOS],
+            processingLevel=asf.PRODUCT_TYPE.RTC_HIGH_RES,
+            intersectsWith=wkt_string
+        )
+
+        if not results:
+            raise ValueError("No DEM tiles found for the project area")
+
+        update_layer_status(
+            db,
+            slopes_layer,
+            "in_progress",
+            f"Found {len(results)} DEM tiles, downloading...",
+        )
+
+        # Authenticate with NASA Earthdata
+        update_layer_status(
+            db,
+            slopes_layer,
+            "in_progress",
+            "Authenticating with NASA Earthdata",
+        )
+
+        if not settings.EARTHDATA_USERNAME or not settings.EARTHDATA_PASSWORD:
+            raise ValueError(
+                "NASA Earthdata credentials not configured. "
+                "Please set EARTHDATA_USERNAME and EARTHDATA_PASSWORD environment variables."
+            )
+
+        try:
+            session = asf.ASFSession().auth_with_creds(
+                settings.EARTHDATA_USERNAME,
+                settings.EARTHDATA_PASSWORD
+            )
+        except Exception as e:
+            raise ValueError(f"Failed to authenticate with NASA Earthdata: {str(e)}")
+
+        # Create DEM directory
+        dem_dir = settings.DATA_DIR / "nasa_alos_palsar_dems"
+        dem_dir.mkdir(parents=True, exist_ok=True)
+
+        # Download DEM files
+        dem_files = []
+        for idx, result in enumerate(results):
+            update_layer_status(
+                db,
+                slopes_layer,
+                "in_progress",
+                f"Downloading DEM tile {idx+1}/{len(results)}",
+            )
+
+            # Create subdirectory for this DEM
+            dem_name = result.properties['sceneName'].replace('.zip', '')
+            dem_subdir = dem_dir / dem_name
+            dem_subdir.mkdir(parents=True, exist_ok=True)
+
+            # Download if not already downloaded
+            dem_tif_path = dem_subdir / f"{dem_name}.tif"
+            if not dem_tif_path.exists():
+                result.download(path=str(dem_subdir), session=session)
+                # ASF downloads as .zip, need to extract
+                import zipfile as zf
+                zip_path = dem_subdir / f"{dem_name}.zip"
+                if zip_path.exists():
+                    with zf.ZipFile(zip_path, 'r') as zip_ref:
+                        zip_ref.extractall(dem_subdir)
+                    # Find the .tif file (usually has _dem suffix)
+                    tif_files = list(dem_subdir.glob("*.tif"))
+                    if tif_files:
+                        # Rename to standard name
+                        tif_files[0].rename(dem_tif_path)
+
+            dem_files.append((dem_subdir, dem_name))
+
+        # Process each DEM file to extract slopes
+        update_layer_status(
+            db, slopes_layer, "in_progress", "Processing DEM files to calculate slopes"
+        )
+
+        all_slope_gdfs = []
+
+        for dem_subdir, dem_name in dem_files:
+            update_layer_status(
+                db,
+                slopes_layer,
+                "in_progress",
+                f"Processing {dem_name}",
+            )
+
+            dem_tif_path = dem_subdir / f"{dem_name}.tif"
+            if not dem_tif_path.exists():
+                logger.warning(f"DEM file not found: {dem_tif_path}")
+                continue
+
+            # Process this DEM to extract slopes
+            slope_types_to_process = []
+            if include_north_slopes:
+                slope_types_to_process.append(("north", north_min_angle))
+            if include_other_slopes:
+                slope_types_to_process.append(("other", other_min_angle))
+
+            for slope_type, min_angle in slope_types_to_process:
+                try:
+                    slope_gdf = _extract_steep_slopes_from_dem(
+                        dem_filepath=dem_tif_path,
+                        dem_subdir=dem_subdir,
+                        dem_filename=dem_name,
+                        slope_type=slope_type,
+                        min_angle=min_angle,
+                        output_crs=settings.INDIA_PROJECTED_CRS,
+                    )
+                    if len(slope_gdf) > 0:
+                        all_slope_gdfs.append(slope_gdf)
+                except Exception as e:
+                    logger.warning(f"Error processing {dem_name} ({slope_type}): {e}")
+                    continue
+
+        if not all_slope_gdfs:
+            update_layer_status(
+                db, slopes_layer, "successful", "No steep slopes found in project area"
+            )
+            slopes_layer.feature_count = 0
+            slopes_layer.total_area_ha = 0.0
+            db.commit()
+
+            return LayerInfo(
+                layer_type=LayerType.BUILTIN.value,
+                name="Slopes",
+                description="Steep slopes unsuitable for solar",
+                is_unusable=True,
+                parameters=slopes_layer.parameters,
+                status="successful",
+                details="No steep slopes found",
+                area_ha=0,
+                feature_count=0,
+            )
+
+        # Combine all slope geometries
+        update_layer_status(
+            db, slopes_layer, "in_progress", "Combining slope geometries"
+        )
+        slopes_gdf = pd.concat(all_slope_gdfs, ignore_index=True)
+
+        # Overlay with khasras
+        update_layer_status(
+            db, slopes_layer, "in_progress", "Overlaying slopes with khasras"
+        )
+        slopes_overlay_gdf = gpd.overlay(slopes_gdf, gdf, how="intersection")
+        slopes_overlay_gdf = slopes_overlay_gdf.dissolve(
+            by="Khasra ID (Unique)"
+        ).reset_index()
+
+        # Calculate areas
+        area_col = "Unusable Area - Slopes (ha)"
+        slopes_overlay_gdf[area_col] = slopes_overlay_gdf.geometry.area / 10_000
+
+        # Delete existing features
+        db.query(LayerFeatureModel).filter(
+            LayerFeatureModel.layer_id == slopes_layer.id
+        ).delete()
+
+        # Save to database
+        update_layer_status(
+            db, slopes_layer, "in_progress", "Saving slopes features to database"
+        )
+
+        layer_info = _save_builtin_layer_with_status(
+            db=db,
+            layer=slopes_layer,
+            layer_gdf=slopes_overlay_gdf,
+            area_col=area_col,
+        )
+
+        # Update layer status
+        slopes_layer.status = "successful"
+        slopes_layer.details = "Slope layer processed successfully"
+
+        # Update project timestamp
+        project.updated_at = datetime.utcnow()
+        db.commit()
+
+        return layer_info
+
+    except Exception as e:
+        slopes_layer.status = "failed"
+        slopes_layer.details = f"Error: {str(e)}"
+        db.commit()
+        raise
+
+
+def _extract_steep_slopes_from_dem(
+    dem_filepath: Path,
+    dem_subdir: Path,
+    dem_filename: str,
+    slope_type: str,
+    min_angle: float,
+    output_crs: int,
+) -> gpd.GeoDataFrame:
+    """
+    Extract steep slope polygons from a DEM file.
+
+    Args:
+        dem_filepath: Path to DEM .tif file
+        dem_subdir: Directory containing DEM and cached arrays
+        dem_filename: Name of DEM file (without extension)
+        slope_type: Either "north" or "other"
+        min_angle: Minimum slope angle in degrees
+        output_crs: Output CRS EPSG code
+
+    Returns:
+        GeoDataFrame of steep slope polygons
+    """
+    from rasterio.features import shapes
+    from shapely.geometry import shape
+    import rasterio
+
+    if slope_type not in ["north", "other"]:
+        raise ValueError("slope_type must be either 'north' or 'other'")
+
+    # Try to load pre-calculated slopes and aspects
+    slope_file = dem_subdir / f"{dem_filename}_magnitude.npy"
+    aspect_file = dem_subdir / f"{dem_filename}_aspect.npy"
+
+    if slope_file.exists() and aspect_file.exists():
+        slope_pydem = np.load(slope_file)
+        aspect_pydem = np.load(aspect_file)
+
+        # Load transform from the DEM file
+        with rasterio.open(dem_filepath) as src:
+            transform = src.transform
+            input_crs = src.crs
+    else:
+        # Calculate slopes and aspects using pydem
+        try:
+            from pydem.dem_processing import DEMProcessor
+        except ImportError:
+            raise ValueError(
+                "pydem package not installed. Install with: pip install pydem"
+            )
+
+        dem_proc = DEMProcessor(str(dem_filepath))
+        transform = dem_proc.transform
+
+        with rasterio.open(dem_filepath) as src:
+            input_crs = src.crs
+
+        slope_pydem, aspect_pydem = dem_proc.calc_slopes_directions()
+
+        # Save for future use
+        np.save(slope_file, slope_pydem)
+        np.save(aspect_file, aspect_pydem)
+
+    # Convert from radians to degrees
+    aspect = np.degrees(aspect_pydem)
+    slope = np.degrees(slope_pydem)
+
+    # Clean negative values
+    aspect[aspect < 0] = 0
+    slope[slope < 0] = 0
+
+    # Apply slope/aspect filters based on type
+    if slope_type == "north":
+        # North-facing slopes: NE to NW (45-135°) with angle > min_angle
+        slope_mask = np.where(
+            (aspect >= 45) & (aspect < 135) & (slope > min_angle), True, False
+        )
+    elif slope_type == "other":
+        # Other-facing slopes: remaining directions with angle > min_angle
+        slope_mask = np.where(
+            ((aspect < 45) | (aspect >= 135)) & (slope > min_angle), True, False
+        )
+
+    # Extract vector shapes from raster mask
+    vector_shapes = [
+        {"geometry": shape(geom)}
+        for geom, class_value in shapes(slope, mask=slope_mask, transform=transform)
+    ]
+
+    if not vector_shapes:
+        return gpd.GeoDataFrame(columns=["geometry"], crs=f"EPSG:{output_crs}")
+
+    slope_shapes_gdf = gpd.GeoDataFrame(vector_shapes)
+
+    # Set CRS and transform to output CRS
+    if input_crs:
+        slope_shapes_gdf = slope_shapes_gdf.set_crs(input_crs)
+    slope_shapes_gdf = slope_shapes_gdf.to_crs(f"EPSG:{output_crs}")
+
+    return slope_shapes_gdf
+
+
 def _save_builtin_layer_with_status(
     db: Session,
     layer: LayerModel,
@@ -2811,6 +3259,34 @@ def process_water_layer_background(project_id: str):
         )
     except Exception as e:
         print(f"Error in background water layer processing: {e}")
+        # The function already marks layer as failed in the database
+    finally:
+        db.close()
+
+
+def process_slopes_layer_background(
+    project_id: str,
+    include_north_slopes: bool = True,
+    include_other_slopes: bool = True,
+    north_min_angle: float = 7.0,
+    other_min_angle: float = 10.0,
+):
+    """Background task to process slopes layer"""
+    from database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        process_slopes_layer(
+            db=db,
+            project_id=project_id,
+            include_north_slopes=include_north_slopes,
+            include_other_slopes=include_other_slopes,
+            north_min_angle=north_min_angle,
+            other_min_angle=other_min_angle,
+            create_only=False,
+        )
+    except Exception as e:
+        print(f"Error in background slopes layer processing: {e}")
         # The function already marks layer as failed in the database
     finally:
         db.close()

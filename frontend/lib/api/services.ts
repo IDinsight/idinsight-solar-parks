@@ -153,6 +153,22 @@ export async function generateWaterLayer(projectId: string): Promise<LayerUpload
     return response.data
 }
 
+export async function generateSlopesLayer(
+    projectId: string,
+    params?: {
+        include_north_slopes?: boolean
+        include_other_slopes?: boolean
+        north_min_angle?: number
+        other_min_angle?: number
+    }
+): Promise<LayerUploadResponse> {
+    const response = await apiClient.post<LayerUploadResponse>(
+        `/projects/${projectId}/layers/slopes`,
+        params || {}
+    )
+    return response.data
+}
+
 export async function listProjectLayers(projectId: string): Promise<LayerInfo[]> {
     const response = await apiClient.get<LayerInfo[]>(`/projects/${projectId}/layers`)
     return response.data

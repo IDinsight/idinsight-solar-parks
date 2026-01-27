@@ -21,11 +21,12 @@ DONE:
 - BUG: Fix stats showing on hover on the map
 - BUG: refresh login issue
 - make maps take up whole right side and not refresh with every page change
+- add slopes
 
 TO DO:
 
+- khasra tooltip before layers etc shows N/A - should show original area.
 - BUG: FIX DISTANCE MATRIX ON NEW PROJECT etc. First attempt is always wrong. Better after clearing the first distance matrix but still DBScan seems to be stochastic??
-- add slopes
 - add per-layer areas to excel output
 
 - use alembic for migrations
@@ -97,6 +98,14 @@ make install
 cp .env.example .env
 # Edit .env with your settings
 ```
+
+**Important**: To use the slopes layer feature, you need NASA Earthdata credentials:
+- Register for a free account at [NASA Earthdata](https://urs.earthdata.nasa.gov/users/new)
+- Add your credentials to the `.env` file:
+  ```
+  EARTHDATA_USERNAME=your_username
+  EARTHDATA_PASSWORD=your_password
+  ```
 
 ## Configuration
 
