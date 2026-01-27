@@ -894,7 +894,12 @@ def get_landcover_shapes(
         )
     ]
 
-    shapes_gdf = gpd.GeoDataFrame(vector_shapes, crs=raster_crs)
+    # Handle empty case
+    if not vector_shapes:
+        return gpd.GeoDataFrame(columns=['geometry', 'class'], crs=target_crs)
+
+    # Create GeoDataFrame using from_features which handles GeoJSON-like dictionaries
+    shapes_gdf = gpd.GeoDataFrame.from_features(vector_shapes, crs=raster_crs)
     shapes_gdf = shapes_gdf.to_crs(target_crs)
 
     return shapes_gdf
@@ -2516,13 +2521,17 @@ def build_optimised_distance_matrix(
             distance_matrix[j, i] = d  # Ensure matrix is symmetric
 
     np.fill_diagonal(distance_matrix, 0)
-    
+
     # Log matrix statistics for debugging
     logger.info(f"Distance matrix shape: {distance_matrix.shape}")
-    logger.info(f"Distance matrix min (non-diagonal): {np.min(distance_matrix[~np.eye(n, dtype=bool)])}")
-    logger.info(f"Distance matrix max: {np.max(distance_matrix)}")
-    logger.info(f"Number of finite distances (< 99999): {np.sum(distance_matrix < 99999) - n}")
-    
+    if n > 1:
+        non_diagonal = distance_matrix[~np.eye(n, dtype=bool)]
+        logger.info(f"Distance matrix min (non-diagonal): {np.min(non_diagonal)}")
+        logger.info(f"Distance matrix max: {np.max(distance_matrix)}")
+        logger.info(f"Number of finite distances (< 99999): {np.sum(distance_matrix < 99999) - n}")
+    else:
+        logger.info("Single khasra - no pairwise distances to compute")
+
     return distance_matrix
 
 
