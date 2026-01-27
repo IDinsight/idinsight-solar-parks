@@ -527,6 +527,7 @@ export default function MapComponent({ projectId, data, selectedLayers, center, 
   const [geoJsonData, setGeoJsonData] = useState<FeatureCollection | null>(null)
   const [layersGeoJson, setLayersGeoJson] = useState<Array<{ data: FeatureCollection, color: string, name: string }>>([])
   const [parcelsGeoJson, setParcelsGeoJson] = useState<FeatureCollection | null>(null)
+  const [layerFeatureCounts, setLayerFeatureCounts] = useState<Record<string, number>>({})
 
   // Get map store and initialize project map state if needed
   const {
@@ -624,6 +625,7 @@ export default function MapComponent({ projectId, data, selectedLayers, center, 
     try {
       const processedLayers: Array<{ data: FeatureCollection, color: string, name: string }> = []
       const layersToCheck = selectedLayers || []
+      const newLayerNames = new Set<string>()
 
       Object.entries(layersData).forEach(([layerName, layerInfo]: [string, any]) => {
         // Check if this layer should be displayed based on selectedLayers
@@ -644,15 +646,56 @@ export default function MapComponent({ projectId, data, selectedLayers, center, 
             color,
             name: layerName,
           })
+          newLayerNames.add(layerName)
         }
       })
 
       setLayersGeoJson(processedLayers)
+
+      // Track feature counts to detect when layers are recreated
+      const newFeatureCounts: Record<string, number> = {}
+      processedLayers.forEach(layer => {
+        newFeatureCounts[layer.name] = layer.data.features.length
+      })
+
+      // Ensure all processed layers are visible in the store (new layers default to visible)
+      if (projectId && processedLayers.length > 0) {
+        const currentVisibleLayers = getMapState(projectId)?.visibleLayers || {
+          khasras: true,
+          parcels: true,
+          layers: {},
+        }
+
+        // Check if any layers are new or need to be set to visible
+        let needsUpdate = false
+        const updatedLayers = { ...currentVisibleLayers.layers }
+
+        newLayerNames.forEach((layerName) => {
+          const isNewLayer = !(layerName in updatedLayers)
+          const hasNewData = layerFeatureCounts[layerName] !== newFeatureCounts[layerName]
+
+          // Set to visible if it's a new layer OR if the layer has been recreated with different data
+          if (isNewLayer || hasNewData) {
+            updatedLayers[layerName] = true
+            needsUpdate = true
+          }
+        })
+
+        if (needsUpdate) {
+          storeSetVisibleLayers(projectId, {
+            ...currentVisibleLayers,
+            layers: updatedLayers,
+          })
+        }
+      }
+
+      // Update tracked feature counts
+      setLayerFeatureCounts(newFeatureCounts)
     } catch (e) {
       console.error("Error processing layers:", e)
       setLayersGeoJson([])
     }
-  }, [layersData, selectedLayers])
+  }, [layersData, selectedLayers, projectId, getMapState, storeSetVisibleLayers])
 
   // Process parcels data
   useEffect(() => {
