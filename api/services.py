@@ -1258,6 +1258,11 @@ def process_settlement_layer(
             area_col = "Unusable Area - Settlements (ha)"
             settlements_overlap_gdf[area_col] = settlements_overlap_gdf.area / 10_000
 
+            # Delete existing features
+            db.query(LayerFeatureModel).filter(
+                LayerFeatureModel.layer_id == settlements_layer.id
+            ).delete()
+
             update_layer_status(
                 db,
                 settlements_layer,
@@ -1274,6 +1279,11 @@ def process_settlement_layer(
             )
             results.append(settlements_info)
         else:
+            # Delete existing features even when no new settlements found
+            db.query(LayerFeatureModel).filter(
+                LayerFeatureModel.layer_id == settlements_layer.id
+            ).delete()
+
             settlements_layer.status = "successful"
             settlements_layer.details = (
                 "No settlements found (no building clusters meeting criteria)"
@@ -1309,6 +1319,11 @@ def process_settlement_layer(
             area_col = "Unavailable Area - Isolated Buildings (ha)"
             isolated_overlap_gdf[area_col] = isolated_overlap_gdf.area / 10_000
 
+            # Delete existing features
+            db.query(LayerFeatureModel).filter(
+                LayerFeatureModel.layer_id == isolated_layer.id
+            ).delete()
+
             update_layer_status(
                 db,
                 isolated_layer,
@@ -1325,6 +1340,11 @@ def process_settlement_layer(
             )
             results.append(isolated_info)
         else:
+            # Delete existing features even when no new isolated buildings found
+            db.query(LayerFeatureModel).filter(
+                LayerFeatureModel.layer_id == isolated_layer.id
+            ).delete()
+
             isolated_layer.status = "successful"
             isolated_layer.details = "No isolated buildings found"
             isolated_layer.feature_count = 0
