@@ -809,6 +809,13 @@ function WorkflowContent() {
 
                                         {!settlementLayerStatus || (settlementLayerStatus.settlements?.status === "failed" && settlementLayerStatus.isolated?.status === "failed") ? (
                                             <>
+                                                {/* Show alert if failed */}
+                                                {(settlementLayerStatus?.settlements?.status === "failed" || settlementLayerStatus?.isolated?.status === "failed") && (
+                                                    <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded flex items-center gap-2">
+                                                        <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                                                        <span className="text-sm text-red-700">Failed to generate settlement layers. Please try again.</span>
+                                                    </div>
+                                                )}
                                                 {/* Parameters */}
                                                 <div className="space-y-3 mb-4">
                                                     <div>
@@ -860,7 +867,7 @@ function WorkflowContent() {
                                                     disabled={isProcessing || activeProcessingLayer === "Settlements"}
                                                     className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-semibold rounded-lg transition-colors"
                                                 >
-                                                    Run Layer
+                                                    {(settlementLayerStatus?.settlements?.status === "failed" || settlementLayerStatus?.isolated?.status === "failed") ? "Retry" : "Run Layer"}
                                                 </button>
                                             </>
                                         ) : settlementLayerStatus.processing ? (
@@ -935,12 +942,19 @@ function WorkflowContent() {
 
                                         {!croplandLayerStatus || croplandLayerStatus?.status === "failed" ? (
                                             <>
+                                                {/* Show alert if failed */}
+                                                {croplandLayerStatus?.status === "failed" && (
+                                                    <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded flex items-center gap-2">
+                                                        <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                                                        <span className="text-sm text-red-700">Failed to generate cropland layer. Please try again.</span>
+                                                    </div>
+                                                )}
                                                 <button
                                                     onClick={handleGenerateCroplandLayer}
                                                     disabled={isProcessing || activeProcessingLayer === "Cropland"}
                                                     className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-semibold rounded-lg transition-colors"
                                                 >
-                                                    Run Layer
+                                                    {croplandLayerStatus?.status === "failed" ? "Retry" : "Run Layer"}
                                                 </button>
                                             </>
                                         ) : croplandLayerStatus?.status === "in_progress" ? (
@@ -990,12 +1004,19 @@ function WorkflowContent() {
 
                                         {!waterLayerStatus || waterLayerStatus?.status === "failed" ? (
                                             <>
+                                                {/* Show alert if failed */}
+                                                {waterLayerStatus?.status === "failed" && (
+                                                    <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded flex items-center gap-2">
+                                                        <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                                                        <span className="text-sm text-red-700">Failed to generate water layer. Please try again.</span>
+                                                    </div>
+                                                )}
                                                 <button
                                                     onClick={handleGenerateWaterLayer}
                                                     disabled={isProcessing || activeProcessingLayer === "Water"}
                                                     className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-semibold rounded-lg transition-colors"
                                                 >
-                                                    Run Layer
+                                                    {waterLayerStatus?.status === "failed" ? "Retry" : "Run Layer"}
                                                 </button>
                                             </>
                                         ) : waterLayerStatus?.status === "in_progress" ? (
