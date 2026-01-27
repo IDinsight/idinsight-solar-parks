@@ -64,7 +64,7 @@ function WorkflowContent() {
     // Step 2: Constraint layers state
     const [constraintLayersGeoJSON, setConstraintLayersGeoJSON] = useState<Record<string, any> | null>(null)
     const [allProjectLayers, setAllProjectLayers] = useState<any[]>([])
-    const [activeProcessingLayer, setActiveProcessingLayer] = useState<string | null>(null)
+    const [activeProcessingLayers, setActiveProcessingLayers] = useState<string[]>([])
 
     // Settlement layer configuration
     const [settlementLayerParams, setSettlementLayerParams] = useState({
@@ -189,18 +189,31 @@ function WorkflowContent() {
     }, [currentProject?.id, currentPage])
 
     /**
+     * Debug: Track activeProcessingLayers changes
+     */
+    useEffect(() => {
+        console.log('[DEBUG] activeProcessingLayers changed to:', activeProcessingLayers)
+    }, [activeProcessingLayers])
+
+    /**
      * Poll for layer processing status updates every 5 seconds
      * Stops polling when processing is complete and refreshes all data
      */
     useEffect(() => {
-        if (!currentProject?.id || !activeProcessingLayer) return
+        if (!currentProject?.id || activeProcessingLayers.length === 0) return
+
+        console.log('[POLLING] Starting poll for layers:', activeProcessingLayers)
 
         const pollInterval = setInterval(async () => {
             try {
+                console.log('[POLLING] Checking status for:', activeProcessingLayers)
                 const layers = await api.listProjectLayers(currentProject.id)
                 setAllProjectLayers(layers)
 
-                if (activeProcessingLayer === "Settlements") {
+                let layersToRemove: string[] = []
+                let shouldRefreshData = false
+
+                if (activeProcessingLayers.includes("Settlements")) {
                     const settlementsLayer = layers.find((l: any) => l.name === "Settlements")
                     const isolatedBuildingsLayer = layers.find((l: any) => l.name === "Isolated Buildings")
 
@@ -213,48 +226,38 @@ function WorkflowContent() {
                     // Stop polling when both layers are complete
                     const isProcessingComplete = settlementsLayer?.status !== "in_progress" && isolatedBuildingsLayer?.status !== "in_progress"
                     if (isProcessingComplete) {
-                        setActiveProcessingLayer(null)
-
-                        // Refresh all data after processing completes
-                        const layersGeoJSON = await api.getProjectLayersGeoJSON(currentProject.id)
-                        setConstraintLayersGeoJSON(layersGeoJSON)
-
-                        const project = await api.getProject(currentProject.id)
-                        updateProject(project)
+                        layersToRemove.push("Settlements")
+                        shouldRefreshData = true
                     }
                 }
 
-                if (activeProcessingLayer === "Cropland") {
+                if (activeProcessingLayers.includes("Cropland")) {
                     const croplandLayer = layers.find((l: any) => l.name === "Cropland")
+
+                    console.log('[CROPLAND] Found layer:', croplandLayer)
+                    console.log('[CROPLAND] Status:', croplandLayer?.status)
 
                     setCroplandLayerStatus(croplandLayer)
 
                     if (croplandLayer?.status !== "in_progress") {
-                        setActiveProcessingLayer(null)
-                        // Refresh all data
-                        const layersGeoJSON = await api.getProjectLayersGeoJSON(currentProject.id)
-                        setConstraintLayersGeoJSON(layersGeoJSON)
-                        const project = await api.getProject(currentProject.id)
-                        updateProject(project)
+                        console.log('[CROPLAND] Processing complete! Removing from active layers.')
+                        layersToRemove.push("Cropland")
+                        shouldRefreshData = true
                     }
                 }
 
-                if (activeProcessingLayer === "Water") {
+                if (activeProcessingLayers.includes("Water")) {
                     const waterLayer = layers.find((l: any) => l.name === "Water")
 
                     setWaterLayerStatus(waterLayer)
 
                     if (waterLayer?.status !== "in_progress") {
-                        setActiveProcessingLayer(null)
-                        // Refresh all data
-                        const layersGeoJSON = await api.getProjectLayersGeoJSON(currentProject.id)
-                        setConstraintLayersGeoJSON(layersGeoJSON)
-                        const project = await api.getProject(currentProject.id)
-                        updateProject(project)
+                        layersToRemove.push("Water")
+                        shouldRefreshData = true
                     }
                 }
 
-                if (activeProcessingLayer === "Slopes") {
+                if (activeProcessingLayers.includes("Slopes")) {
                     const northSlopesLayer = layers.find((l: any) => l.name === "Slopes - North Facing")
                     const otherSlopesLayer = layers.find((l: any) => l.name === "Slopes - Other Facing")
 
@@ -266,13 +269,22 @@ function WorkflowContent() {
                     const otherDone = !otherSlopesLayer || otherSlopesLayer?.status !== "in_progress"
 
                     if (northDone && otherDone) {
-                        setActiveProcessingLayer(null)
-                        // Refresh all data
-                        const layersGeoJSON = await api.getProjectLayersGeoJSON(currentProject.id)
-                        setConstraintLayersGeoJSON(layersGeoJSON)
-                        const project = await api.getProject(currentProject.id)
-                        updateProject(project)
+                        layersToRemove.push("Slopes")
+                        shouldRefreshData = true
                     }
+                }
+
+                // Remove completed layers from active processing
+                if (layersToRemove.length > 0) {
+                    setActiveProcessingLayers(prev => prev.filter(layer => !layersToRemove.includes(layer)))
+                }
+
+                // Refresh data if any layer completed
+                if (shouldRefreshData) {
+                    const layersGeoJSON = await api.getProjectLayersGeoJSON(currentProject.id)
+                    setConstraintLayersGeoJSON(layersGeoJSON)
+                    const project = await api.getProject(currentProject.id)
+                    updateProject(project)
                 }
             } catch (error) {
                 console.error("Error polling layer status:", error)
@@ -280,7 +292,7 @@ function WorkflowContent() {
         }, 5000) // Poll every 5 seconds
 
         return () => clearInterval(pollInterval)
-    }, [currentProject?.id, activeProcessingLayer, updateProject])
+    }, [currentProject?.id, activeProcessingLayers, updateProject])
 
 
     /**
@@ -416,7 +428,7 @@ function WorkflowContent() {
     const handleGenerateSettlementLayers = async () => {
         if (!currentProject) return
 
-        setActiveProcessingLayer("Settlements")
+        setActiveProcessingLayers(prev => [...prev, "Settlements"])
         setError(null)
 
         // Set initial processing status for immediate UI feedback
@@ -432,7 +444,7 @@ function WorkflowContent() {
         } catch (error: any) {
             setError(error.response?.data?.detail || 'Failed to generate settlement layers')
             console.error("Error generating settlement layers:", error)
-            setActiveProcessingLayer(null)
+            setActiveProcessingLayers(prev => prev.filter(l => l !== "Settlements"))
             setSettlementLayerStatus(null)
         }
     }
@@ -478,7 +490,8 @@ function WorkflowContent() {
     const handleGenerateCroplandLayer = async () => {
         if (!currentProject) return
 
-        setActiveProcessingLayer("Cropland")
+        console.log('[CROPLAND] Starting generation, adding "Cropland" to activeProcessingLayers')
+        setActiveProcessingLayers(prev => [...prev, "Cropland"])
         setError(null)
 
         setCroplandLayerStatus({
@@ -488,11 +501,13 @@ function WorkflowContent() {
 
         try {
             await api.generateCroplandLayer(currentProject.id)
+            console.log('[CROPLAND] API call successful, polling should now start')
             // Polling effect will automatically track progress
         } catch (error: any) {
+            console.error('[CROPLAND] API error:', error)
             setError(error.response?.data?.detail || 'Failed to generate cropland layer')
             console.error("Error generating cropland layer:", error)
-            setActiveProcessingLayer(null)
+            setActiveProcessingLayers(prev => prev.filter(l => l !== "Cropland"))
             setCroplandLayerStatus(null)
         }
     }
@@ -534,7 +549,7 @@ function WorkflowContent() {
     const handleGenerateWaterLayer = async () => {
         if (!currentProject) return
 
-        setActiveProcessingLayer("Water")
+        setActiveProcessingLayers(prev => [...prev, "Water"])
         setError(null)
 
         setWaterLayerStatus({
@@ -548,7 +563,7 @@ function WorkflowContent() {
         } catch (error: any) {
             setError(error.response?.data?.detail || 'Failed to generate water layer')
             console.error("Error generating water layer:", error)
-            setActiveProcessingLayer(null)
+            setActiveProcessingLayers(prev => prev.filter(l => l !== "Water"))
             setWaterLayerStatus(null)
         }
     }
@@ -590,7 +605,7 @@ function WorkflowContent() {
     const handleGenerateSlopesLayer = async () => {
         if (!currentProject) return
 
-        setActiveProcessingLayer("Slopes")
+        setActiveProcessingLayers(prev => [...prev, "Slopes"])
         setError(null)
 
         setNorthSlopesLayerStatus({ status: "in_progress", details: "Queued for processing..." })
@@ -602,7 +617,7 @@ function WorkflowContent() {
         } catch (error: any) {
             setError(error.response?.data?.detail || 'Failed to generate slopes layer')
             console.error("Error generating slopes layer:", error)
-            setActiveProcessingLayer(null)
+            setActiveProcessingLayers(prev => prev.filter(l => l !== "Slopes"))
             setNorthSlopesLayerStatus(null)
             setOtherSlopesLayerStatus(null)
         }
@@ -905,7 +920,7 @@ function WorkflowContent() {
                                         setConstraintLayersGeoJSON(null)
                                         setAllProjectLayers([])
                                         setSettlementLayerStatus(null)
-                                        setActiveProcessingLayer(null)
+                                        setActiveProcessingLayers([])
                                         setIsClusteringComplete(false)
                                         setClusteringResult(null)
                                         setClusteringParams(null)
@@ -1012,7 +1027,7 @@ function WorkflowContent() {
 
                                                 <button
                                                     onClick={handleGenerateSettlementLayers}
-                                                    disabled={isProcessing || activeProcessingLayer === "Settlements"}
+                                                    disabled={isProcessing || activeProcessingLayers.includes("Settlements")}
                                                     className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-semibold rounded-lg transition-colors"
                                                 >
                                                     {(settlementLayerStatus?.settlements?.status === "failed" || settlementLayerStatus?.isolated?.status === "failed") ? "Retry" : "Add Layer"}
@@ -1103,7 +1118,7 @@ function WorkflowContent() {
                                                 )}
                                                 <button
                                                     onClick={handleGenerateCroplandLayer}
-                                                    disabled={isProcessing || activeProcessingLayer === "Cropland"}
+                                                    disabled={isProcessing || activeProcessingLayers.includes("Cropland")}
                                                     className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-semibold rounded-lg transition-colors"
                                                 >
                                                     {croplandLayerStatus?.status === "failed" ? "Retry" : "Add Layer"}
@@ -1167,7 +1182,7 @@ function WorkflowContent() {
                                                 )}
                                                 <button
                                                     onClick={handleGenerateWaterLayer}
-                                                    disabled={isProcessing || activeProcessingLayer === "Water"}
+                                                    disabled={isProcessing || activeProcessingLayers.includes("Water")}
                                                     className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-semibold rounded-lg transition-colors"
                                                 >
                                                     {waterLayerStatus?.status === "failed" ? "Retry" : "Add Layer"}
@@ -1285,7 +1300,7 @@ function WorkflowContent() {
 
                                                 <button
                                                     onClick={handleGenerateSlopesLayer}
-                                                    disabled={isProcessing || activeProcessingLayer === "Slopes" || (!slopesLayerParams.include_north_slopes && !slopesLayerParams.include_other_slopes)}
+                                                    disabled={isProcessing || activeProcessingLayers.includes("Slopes") || (!slopesLayerParams.include_north_slopes && !slopesLayerParams.include_other_slopes)}
                                                     className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-semibold rounded-lg transition-colors"
                                                 >
                                                     {(northSlopesLayerStatus?.status === "failed" || otherSlopesLayerStatus?.status === "failed") ? "Retry" : "Add Layer"}
