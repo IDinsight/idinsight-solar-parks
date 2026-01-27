@@ -98,7 +98,6 @@ function DashboardContent() {
                         <div className="flex items-center gap-4">
                             <div className="text-right">
                                 <p className="text-sm font-medium text-slate-900">{user?.username}</p>
-                                <p className="text-xs text-slate-500">Logged in</p>
                             </div>
                             <button
                                 onClick={handleLogout}

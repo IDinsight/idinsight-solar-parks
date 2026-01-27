@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/lib/stores/auth'
 
@@ -11,16 +11,19 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
     const router = useRouter()
     const { isAuthenticated, checkAuth } = useAuthStore()
+    const [loading, setLoading] = useState(true)
 
     useEffect(() => {
-        checkAuth().then(() => {
-            if (!isAuthenticated) {
-                router.push('/login')
-            }
-        })
-    }, [isAuthenticated, checkAuth, router])
+        checkAuth().finally(() => setLoading(false))
+    }, [checkAuth])
 
-    if (!isAuthenticated) {
+    useEffect(() => {
+        if (!loading && !isAuthenticated) {
+            router.push('/login')
+        }
+    }, [loading, isAuthenticated, router])
+
+    if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-slate-50">
                 <div className="text-center">
@@ -30,6 +33,8 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
             </div>
         )
     }
+
+    if (!isAuthenticated) return null
 
     return <>{children}</>
 }
