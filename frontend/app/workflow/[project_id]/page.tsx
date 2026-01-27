@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter, useParams, useSearchParams } from "next/navigation"
 import { ProtectedRoute } from "@/components/protected-route"
 import { useProjectStore } from "@/lib/stores/project"
+import { useMapStore } from "@/lib/stores/map"
 import UploadSection from "@/components/upload-section"
 import ClusteringSection from "@/components/clustering-section"
 import MapContainer, { LAYER_COLORS } from "@/components/map-container"
@@ -44,6 +45,7 @@ function WorkflowContent() {
     const searchParams = useSearchParams()
     const projectId = params.project_id as string
     const { currentProject, setCurrentProject, updateProject } = useProjectStore()
+    const { clearProjectMap } = useMapStore()
 
     // Workflow state - initialize from URL if available
     const [currentPage, setCurrentPage] = useState(() => {
@@ -908,6 +910,15 @@ function WorkflowContent() {
                                         setClusteringResult(null)
                                         setClusteringParams(null)
                                         setParcelGeoJSON(null)
+
+                                        // Clear layer completion states
+                                        setCroplandLayerStatus(null)
+                                        setWaterLayerStatus(null)
+                                        setNorthSlopesLayerStatus(null)
+                                        setOtherSlopesLayerStatus(null)
+
+                                        // Reset map state (center, zoom, layer visibility)
+                                        clearProjectMap(projectId)
                                     }}
                                     isProcessing={isProcessing}
                                 />
