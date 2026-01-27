@@ -27,6 +27,7 @@ DONE:
 
 TO DO:
 
+- add stringy filter
 - add per-layer areas to excel output
 - khasra tooltip before layers etc shows N/A - should show original area.
 - BUG: FIX DISTANCE MATRIX ON NEW PROJECT etc. First attempt is always wrong. Better after clearing the first distance matrix but still DBScan seems to be stochastic??
