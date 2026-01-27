@@ -96,7 +96,7 @@ class KhasraStats(BaseModel):
 
 class LayerType(str, Enum):
     """Available layer types"""
-    BUILDINGS = "buildings"
+    ISOLATED_BUILDINGS = "isolated_buildings"
     SETTLEMENTS = "settlements"
     WATER = "water"
     CROPLAND = "cropland"

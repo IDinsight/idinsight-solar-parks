@@ -84,11 +84,13 @@ class FileStorage:
     ) -> str:
         """Save a NumPy array to file"""
         save_dir = self._get_project_dir(project_id)
-        
+
         if not filename.endswith(".npy"):
             filename = f"{filename}.npy"
-        
+
         file_path = save_dir / filename
+        # Create parent directories if they don't exist
+        file_path.parent.mkdir(parents=True, exist_ok=True)
         np.save(file_path, arr)
         return str(file_path)
     

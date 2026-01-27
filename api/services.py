@@ -980,7 +980,7 @@ def process_settlement_layer(
     if create_only and existing_settlements and existing_isolated:
         return (
             LayerInfo(
-                layer_type=LayerType.BUILTIN.value,
+                layer_type=LayerType.SETTLEMENTS.value,
                 name=existing_settlements.name,
                 description="Settlement clusters from buildings",
                 is_unusable=existing_settlements.is_unusable,
@@ -991,7 +991,7 @@ def process_settlement_layer(
                 feature_count=existing_settlements.feature_count,
             ),
             LayerInfo(
-                layer_type=LayerType.BUILTIN.value,
+                layer_type=LayerType.ISOLATED_BUILDINGS.value,
                 name=existing_isolated.name,
                 description="Buildings not part of settlements",
                 is_unusable=existing_isolated.is_unusable,
@@ -1016,7 +1016,7 @@ def process_settlement_layer(
         settlements_layer = LayerModel(
             project_id=project_id,
             name="Settlements",
-            layer_type=LayerType.BUILTIN.value,
+            layer_type=LayerType.SETTLEMENTS.value,
             is_unusable=True,
             status="in_progress",
             details="Queued for processing..."
@@ -1042,7 +1042,7 @@ def process_settlement_layer(
         isolated_layer = LayerModel(
             project_id=project_id,
             name="Isolated Buildings",
-            layer_type=LayerType.BUILTIN.value,
+            layer_type=LayerType.ISOLATED_BUILDINGS.value,
             is_unusable=False,
             status="in_progress",
             details="Queued for processing..."
@@ -1060,7 +1060,7 @@ def process_settlement_layer(
     if create_only:
         return (
             LayerInfo(
-                layer_type=LayerType.BUILTIN.value,
+                layer_type=LayerType.SETTLEMENTS.value,
                 name="Settlements",
                 description="Settlement clusters from buildings",
                 is_unusable=True,
@@ -1069,7 +1069,7 @@ def process_settlement_layer(
                 details="Queued for processing",
             ),
             LayerInfo(
-                layer_type=LayerType.BUILTIN.value,
+                layer_type=LayerType.ISOLATED_BUILDINGS.value,
                 name="Isolated Buildings",
                 description="Buildings not part of settlements",
                 is_unusable=False,
@@ -1303,7 +1303,7 @@ def process_settlement_layer(
 
             results.append(
                 LayerInfo(
-                    layer_type=LayerType.BUILTIN.value,
+                    layer_type=LayerType.SETTLEMENTS.value,
                     name="Settlements",
                     description="No settlements found",
                     is_unusable=True,
@@ -1362,7 +1362,7 @@ def process_settlement_layer(
 
             results.append(
                 LayerInfo(
-                    layer_type=LayerType.BUILTIN.value,
+                    layer_type=LayerType.ISOLATED_BUILDINGS.value,
                     name="Isolated Buildings",
                     description="No isolated buildings found",
                     is_unusable=False,
@@ -1847,7 +1847,7 @@ def process_slopes_layer(
     north_min_angle: float = 7.0,
     other_min_angle: float = 10.0,
     create_only: bool = False,
-) -> LayerInfo:
+) -> List[LayerInfo]:
     """
     Process slopes layer from NASA ALOS PALSAR DEM data.
 
@@ -1885,7 +1885,7 @@ def process_slopes_layer(
     if create_only:
         if existing_layer:
             return LayerInfo(
-                layer_type=LayerType.BUILTIN.value,
+                layer_type=LayerType.SLOPE_NORTH.value,
                 name=existing_layer.name,
                 description="Steep slopes unsuitable for solar",
                 is_unusable=existing_layer.is_unusable,
@@ -1915,7 +1915,7 @@ def process_slopes_layer(
             db.commit()
 
             return LayerInfo(
-                layer_type=LayerType.BUILTIN.value,
+                layer_type=LayerType.SLOPE_NORTH.value,
                 name="Slopes",
                 description="Steep slopes unsuitable for solar",
                 is_unusable=True,
@@ -1944,7 +1944,7 @@ def process_slopes_layer(
         slopes_layer = LayerModel(
             project_id=project_id,
             name="Slopes",
-            layer_type=LayerType.BUILTIN.value,
+            layer_type=LayerType.SLOPE_NORTH.value,
             is_unusable=True,
             status="in_progress",
             details="Loading khasras data",
@@ -2004,11 +2004,79 @@ def process_slopes_layer(
         if not results:
             raise ValueError("No DEM tiles found for the project area")
 
+        # Use greedy algorithm to select minimum number of DEMs that cover maximum area
+        # This approach from the notebook ensures we only download necessary tiles
+        logger.info(f"Initial search found {len(results)} DEM tiles")
+
+        from shapely.geometry import shape as shapely_shape
+
+        # Create GeoDataFrame of DEM tiles
+        dem_tiles = []
+        for result in results:
+            try:
+                tile_geom_dict = result.geometry
+                if tile_geom_dict:
+                    tile_poly = shapely_shape(tile_geom_dict)
+                    dem_tiles.append({
+                        'result': result,
+                        'geometry': tile_poly,
+                        'sceneName': result.properties.get('sceneName', 'unknown')
+                    })
+            except Exception as e:
+                logger.warning(f"Could not parse tile geometry: {e}")
+
+        if not dem_tiles:
+            raise ValueError("Could not parse any DEM tile geometries")
+
+        dem_tiles_gdf = gpd.GeoDataFrame(dem_tiles, crs="EPSG:4326")
+        # Reproject to projected CRS for accurate area calculations
+        dem_tiles_gdf = dem_tiles_gdf.to_crs(f"EPSG:{settings.INDIA_PROJECTED_CRS}")
+        khasras_projected = gdf.copy()  # Already in projected CRS
+
+        # Greedy selection: pick DEM that covers most area, repeat until all covered
+        selected_dems = []
+        remaining_khasras = khasras_projected.copy()
+        remaining_dems = dem_tiles_gdf.copy()
+
+        while len(remaining_khasras) > 0 and len(remaining_dems) > 0:
+            # Calculate coverage area for each remaining DEM
+            remaining_dems['coverage_area'] = remaining_dems.geometry.apply(
+                lambda dem_geom: remaining_khasras.intersection(dem_geom).area.sum()
+            )
+
+            # Find DEM with maximum coverage
+            best_idx = remaining_dems['coverage_area'].idxmax()
+            best_dem = remaining_dems.loc[best_idx]
+
+            # Stop if no new coverage is added
+            if best_dem['coverage_area'] == 0:
+                break
+
+            # Add to selected DEMs
+            selected_dems.append(best_dem['result'])
+            coverage_ha = best_dem['coverage_area'] / 10_000
+            logger.info(f"Selected DEM {len(selected_dems)}: {best_dem['sceneName']} (covers {coverage_ha:.2f} ha)")
+
+            # Remove covered khasras and this DEM
+            remaining_khasras = remaining_khasras[
+                ~remaining_khasras.intersects(best_dem.geometry)
+            ]
+            remaining_dems = remaining_dems.drop(best_idx)
+
+        if selected_dems:
+            results = selected_dems
+            uncovered_area_ha = remaining_khasras.area.sum() / 10_000 if len(remaining_khasras) > 0 else 0
+            logger.info(f"Greedy algorithm selected {len(results)} DEM tiles (reduced from {len(dem_tiles)})")
+            if uncovered_area_ha > 0:
+                logger.warning(f"Remaining uncovered area: {uncovered_area_ha:.2f} ha")
+        else:
+            logger.warning(f"Greedy selection failed, using all {len(results)} tiles")
+
         update_layer_status(
             db,
             slopes_layer,
             "in_progress",
-            f"Found {len(results)} DEM tiles, downloading...",
+            f"Selected {len(results)} DEM tiles, downloading...",
         )
 
         # Authenticate with NASA Earthdata
@@ -2052,23 +2120,98 @@ def process_slopes_layer(
             dem_subdir = dem_dir / dem_name
             dem_subdir.mkdir(parents=True, exist_ok=True)
 
-            # Download if not already downloaded
+            # Check if we already have the standardized .tif file
             dem_tif_path = dem_subdir / f"{dem_name}.tif"
-            if not dem_tif_path.exists():
-                result.download(path=str(dem_subdir), session=session)
-                # ASF downloads as .zip, need to extract
+            if dem_tif_path.exists():
+                logger.info(f"DEM .tif already downloaded: {dem_tif_path.name}")
+            else:
+                # Need to download and process
+                logger.info(f"Downloading new DEM: {dem_name}")
                 import zipfile as zf
-                zip_path = dem_subdir / f"{dem_name}.zip"
-                if zip_path.exists():
+                import shutil
+
+                # Check for existing zip files and validate them
+                existing_zips = list(dem_subdir.glob("*.zip"))
+
+                # Remove any corrupted/invalid zip files
+                for existing_zip in existing_zips:
+                    try:
+                        with zf.ZipFile(existing_zip, 'r') as test_zip:
+                            # Try to read the file list to validate
+                            test_zip.namelist()
+                        logger.info(f"Existing valid zip found: {existing_zip.name}")
+                    except (zf.BadZipFile, EOFError, OSError) as e:
+                        logger.warning(f"Found corrupted zip file {existing_zip.name}, deleting: {e}")
+                        existing_zip.unlink()
+
+                # Download the file (ASF will skip if valid file exists)
+                result.download(path=str(dem_subdir), session=session)
+
+                # Find the downloaded .zip file
+                zip_files = list(dem_subdir.glob("*.zip"))
+
+                if not zip_files:
+                    raise ValueError(f"No zip file found after download in {dem_subdir}")
+
+                zip_path = zip_files[0]
+                logger.info(f"Processing zip: {zip_path.name}")
+
+                # Validate and extract
+                logger.info(f"Extracting {zip_path.name}...")
+                try:
                     with zf.ZipFile(zip_path, 'r') as zip_ref:
+                        # Log contents for debugging
+                        file_list = zip_ref.namelist()
+                        logger.info(f"Zip contains {len(file_list)} files")
+                        logger.debug(f"First few files: {file_list[:5]}")
                         zip_ref.extractall(dem_subdir)
-                    # Find the .tif file (usually has _dem suffix)
-                    tif_files = list(dem_subdir.glob("*.tif"))
-                    if tif_files:
-                        # Rename to standard name
-                        tif_files[0].rename(dem_tif_path)
+                except (zf.BadZipFile, EOFError) as e:
+                    # Delete corrupted file and raise error
+                    logger.error(f"Corrupted zip file detected: {e}")
+                    zip_path.unlink()
+                    raise ValueError(f"Downloaded zip file is corrupted: {zip_path.name}. Please try again.")
+
+                # Find the DEM .tif file
+                # ALOS structure: zip contains a folder, inside is {folder_name}.dem.tif
+                # Look for files with '.dem.tif' extension first
+                tif_files = list(dem_subdir.glob("**/*.dem.tif"))
+                if not tif_files:
+                    # Fallback: look for any .tif file
+                    tif_files = list(dem_subdir.glob("**/*.tif"))
+
+                if tif_files:
+                    found_tif = tif_files[0]
+                    logger.info(f"Found DEM file: {found_tif.relative_to(dem_subdir)}")
+
+                    # Copy the file to standard location
+                    if found_tif != dem_tif_path:
+                        shutil.copy2(found_tif, dem_tif_path)
+                        logger.info(f"Copied to standard location: {dem_tif_path.name}")
+
+                    # Clean up: delete zip file and extracted folder
+                    zip_path.unlink()
+                    logger.info(f"Deleted zip file: {zip_path.name}")
+
+                    # Delete extracted folder (if it's different from dem_subdir)
+                    extracted_folder = found_tif.parent
+                    if extracted_folder != dem_subdir and extracted_folder.is_relative_to(dem_subdir):
+                        shutil.rmtree(extracted_folder)
+                        logger.info(f"Deleted extracted folder: {extracted_folder.name}")
+                else:
+                    # List what we did find for debugging
+                    all_files = list(dem_subdir.glob("**/*"))
+                    logger.error(f"No .tif files found. Files in directory: {[f.name for f in all_files[:10]]}")
+                    raise ValueError(f"No .tif file found in extracted zip for {dem_name}")
+
+            # Verify the TIF exists before adding to list
+            if not dem_tif_path.exists():
+                raise ValueError(f"Failed to prepare DEM file: {dem_tif_path}")
 
             dem_files.append((dem_subdir, dem_name))
+
+        # Verify we have DEM files to process
+        if not dem_files:
+            raise ValueError("Failed to download and extract any DEM files successfully")
 
         # Process each DEM file to extract slopes
         update_layer_status(
@@ -2076,6 +2219,7 @@ def process_slopes_layer(
         )
 
         all_slope_gdfs = []
+        dem_processing_errors = []
 
         for dem_subdir, dem_name in dem_files:
             update_layer_status(
@@ -2087,7 +2231,9 @@ def process_slopes_layer(
 
             dem_tif_path = dem_subdir / f"{dem_name}.tif"
             if not dem_tif_path.exists():
-                logger.warning(f"DEM file not found: {dem_tif_path}")
+                error_msg = f"DEM file not found: {dem_tif_path}"
+                logger.error(error_msg)
+                dem_processing_errors.append(error_msg)
                 continue
 
             # Process this DEM to extract slopes
@@ -2110,25 +2256,34 @@ def process_slopes_layer(
                     if len(slope_gdf) > 0:
                         all_slope_gdfs.append(slope_gdf)
                 except Exception as e:
-                    logger.warning(f"Error processing {dem_name} ({slope_type}): {e}")
+                    error_msg = f"Error processing {dem_name} ({slope_type}): {e}"
+                    logger.error(error_msg)
+                    dem_processing_errors.append(error_msg)
                     continue
 
+        # If we had errors processing DEMs, raise an error
+        if dem_processing_errors and not all_slope_gdfs:
+            raise ValueError(
+                f"Failed to process any DEM files successfully. Errors: {'; '.join(dem_processing_errors[:3])}"
+            )
+
         if not all_slope_gdfs:
+            message = f"Processed {len(dem_files)} DEM tiles but no steep slopes found matching criteria"
             update_layer_status(
-                db, slopes_layer, "successful", "No steep slopes found in project area"
+                db, slopes_layer, "successful", message
             )
             slopes_layer.feature_count = 0
             slopes_layer.total_area_ha = 0.0
             db.commit()
 
             return LayerInfo(
-                layer_type=LayerType.BUILTIN.value,
+                layer_type=LayerType.SLOPE_NORTH.value,
                 name="Slopes",
                 description="Steep slopes unsuitable for solar",
                 is_unusable=True,
                 parameters=slopes_layer.parameters,
                 status="successful",
-                details="No steep slopes found",
+                details=message,
                 area_ha=0,
                 feature_count=0,
             )
@@ -2138,12 +2293,36 @@ def process_slopes_layer(
             db, slopes_layer, "in_progress", "Combining slope geometries"
         )
         slopes_gdf = pd.concat(all_slope_gdfs, ignore_index=True)
+        logger.info(f"Combined {len(slopes_gdf)} slope polygons from all DEMs")
 
         # Overlay with khasras
         update_layer_status(
             db, slopes_layer, "in_progress", "Overlaying slopes with khasras"
         )
         slopes_overlay_gdf = gpd.overlay(slopes_gdf, gdf, how="intersection")
+        logger.info(f"After overlay with khasras: {len(slopes_overlay_gdf)} features")
+
+        if slopes_overlay_gdf.empty:
+            message = f"Found {len(slopes_gdf)} slope areas but none overlap with khasras"
+            update_layer_status(
+                db, slopes_layer, "successful", message
+            )
+            slopes_layer.feature_count = 0
+            slopes_layer.total_area_ha = 0.0
+            db.commit()
+
+            return LayerInfo(
+                layer_type=LayerType.SLOPE_NORTH.value,
+                name="Slopes",
+                description="Steep slopes unsuitable for solar",
+                is_unusable=True,
+                parameters=slopes_layer.parameters,
+                status="successful",
+                details=message,
+                area_ha=0,
+                feature_count=0,
+            )
+
         slopes_overlay_gdf = slopes_overlay_gdf.dissolve(
             by="Khasra ID (Unique)"
         ).reset_index()
@@ -2151,6 +2330,7 @@ def process_slopes_layer(
         # Calculate areas
         area_col = "Unusable Area - Slopes (ha)"
         slopes_overlay_gdf[area_col] = slopes_overlay_gdf.geometry.area / 10_000
+        logger.info(f"After dissolve: {len(slopes_overlay_gdf)} khasras with slopes, total area: {slopes_overlay_gdf[area_col].sum():.2f} ha")
 
         # Delete existing features
         db.query(LayerFeatureModel).filter(
@@ -2256,28 +2436,41 @@ def _extract_steep_slopes_from_dem(
     aspect[aspect < 0] = 0
     slope[slope < 0] = 0
 
+    # Log statistics for debugging
+    logger.info(f"DEM {dem_filename} - Slope stats: min={slope.min():.2f}°, max={slope.max():.2f}°, mean={slope.mean():.2f}°")
+    logger.info(f"DEM {dem_filename} - Aspect stats: min={aspect.min():.2f}°, max={aspect.max():.2f}°, mean={aspect.mean():.2f}°")
+
     # Apply slope/aspect filters based on type
     if slope_type == "north":
         # North-facing slopes: NE to NW (45-135°) with angle > min_angle
         slope_mask = np.where(
             (aspect >= 45) & (aspect < 135) & (slope > min_angle), True, False
         )
+        logger.info(f"DEM {dem_filename} - North slopes > {min_angle}°: {slope_mask.sum()} pixels ({100*slope_mask.sum()/slope_mask.size:.2f}%)")
     elif slope_type == "other":
         # Other-facing slopes: remaining directions with angle > min_angle
         slope_mask = np.where(
             ((aspect < 45) | (aspect >= 135)) & (slope > min_angle), True, False
         )
+        logger.info(f"DEM {dem_filename} - Other slopes > {min_angle}°: {slope_mask.sum()} pixels ({100*slope_mask.sum()/slope_mask.size:.2f}%)")
 
     # Extract vector shapes from raster mask
+    # Convert boolean mask to uint8 for rasterio shapes
+    slope_mask_uint8 = slope_mask.astype(np.uint8)
+
     vector_shapes = [
         {"geometry": shape(geom)}
-        for geom, class_value in shapes(slope, mask=slope_mask, transform=transform)
+        for geom, class_value in shapes(slope_mask_uint8, mask=slope_mask, transform=transform)
+        if class_value == 1  # Only get the slope areas (value=1), not background (value=0)
     ]
+
+    logger.info(f"DEM {dem_filename} - Extracted {len(vector_shapes)} slope polygons ({slope_type} type)")
 
     if not vector_shapes:
         return gpd.GeoDataFrame(columns=["geometry"], crs=f"EPSG:{output_crs}")
 
-    slope_shapes_gdf = gpd.GeoDataFrame(vector_shapes)
+    # Create GeoDataFrame with explicit geometry column
+    slope_shapes_gdf = gpd.GeoDataFrame(vector_shapes, geometry='geometry')
 
     # Set CRS and transform to output CRS
     if input_crs:
@@ -2617,7 +2810,7 @@ def cluster_khasras(
         )
         logger.info("Built new distance matrix")
         distance_matrix_path = file_storage.save_numpy_array(
-            distance_matrix, project_id, "distance_matrix.npy"
+            distance_matrix, project_id, "clustering/distance_matrix.npy"
         )
         project.distance_matrix_path = distance_matrix_path
 
