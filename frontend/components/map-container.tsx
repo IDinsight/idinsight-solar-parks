@@ -34,7 +34,7 @@ export const LAYER_COLORS: Record<string, string> = {
 // Create the entire map as a single dynamic component to avoid SSR issues
 const LeafletMap = dynamic(
   () => import("react-leaflet").then((mod) => {
-    const { MapContainer, TileLayer, GeoJSON, useMap } = mod
+    const { MapContainer, TileLayer, GeoJSON, useMap, LayersControl } = mod
     const L = require("leaflet")
 
     // Helper component to handle map resize and fit bounds
@@ -379,11 +379,22 @@ const LeafletMap = dynamic(
             key="main-map" // Stable key to prevent recreation
           >
             <MapController geoJsonData={geoJsonData} layersGeoJson={layersGeoJson} />
-            <TileLayer
-              attribution='&copy; <a href="https://www.esri.com">Esri</a>, Maxar, Earthstar Geographics'
-              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-              maxZoom={19}
-            />
+            <LayersControl position="bottomright">
+              <LayersControl.BaseLayer checked name="Satellite">
+                <TileLayer
+                  attribution='&copy; <a href="https://www.esri.com">Esri</a>, Maxar, Earthstar Geographics'
+                  url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                  maxZoom={19}
+                />
+              </LayersControl.BaseLayer>
+              <LayersControl.BaseLayer name="Street Map">
+                <TileLayer
+                  attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  maxZoom={19}
+                />
+              </LayersControl.BaseLayer>
+            </LayersControl>
             {/* Render constraint layers first (bottom) */}
             {layersGeoJson.map((layer) => (
               layer.data && layer.data.features.length > 0 && visibleLayers.layers[layer.name] !== false && (
