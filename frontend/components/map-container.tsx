@@ -17,13 +17,12 @@ interface MapProps {
 
 // Define colors for different layer types
 export const LAYER_COLORS: Record<string, string> = {
-  'Isolated Buildings': '#8b8743d1',
+  'Isolated Buildings': '#97498ed1',
   'Settlements': '#b500008b',
-  'Crops': '#827100ae',
-  'Water': '#31e4ffc9',
+  'Cropland': '#988400ae',
+  'Water': '#00d9ffc4',
   'Slopes': '#9c9c9cbf',
   'Other': '#fcffffd3',
-  'khasras': '#00ff4ca0',
 }
 
 // Create the entire map as a single dynamic component to avoid SSR issues
