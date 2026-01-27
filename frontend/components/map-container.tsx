@@ -29,8 +29,26 @@ export const LAYER_COLORS: Record<string, string> = {
   'Settlements': '#cf0000',
   'Cropland': '#9c8c24',
   'Water': '#00d9ff',
-  'Slopes': '#b9b9b9',
-  'Other': '#fcfffff7',
+  'Slopes - North Facing': '#191919',  // Grey
+  'Slopes - Other Facing': '#cfcfcf',  // Light grey/white-ish
+  'Other': '#ffffff',
+}
+
+// Define layer rendering order (bottom to top)
+// Lower index = rendered first (bottom), higher index = rendered last (top)
+const LAYER_ORDER: Record<string, number> = {
+  'Slopes - Other Facing': 1,
+  'Slopes - North Facing': 2,
+  'Water': 3,
+  'Cropland': 4,
+  'Settlements': 5,
+  'Isolated Buildings': 6,
+  // Khasras and parcels are rendered separately after all constraint layers
+}
+
+// Get sort order for a layer (unknown layers go to position 100)
+function getLayerOrder(layerName: string): number {
+  return LAYER_ORDER[layerName] ?? 100
 }
 
 // Create the entire map as a single dynamic component to avoid SSR issues
@@ -649,6 +667,9 @@ export default function MapComponent({ projectId, data, selectedLayers, center, 
           newLayerNames.add(layerName)
         }
       })
+
+      // Sort layers by rendering order (bottom to top)
+      processedLayers.sort((a, b) => getLayerOrder(a.name) - getLayerOrder(b.name))
 
       setLayersGeoJson(processedLayers)
 

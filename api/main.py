@@ -836,10 +836,10 @@ async def generate_slopes_layer_endpoint(
             detail="Khasras must be uploaded before generating slopes layer",
         )
 
-    # Create placeholder layer record
+    # Create placeholder layer records
     temp_db = SessionLocal()
     try:
-        layer_info = process_slopes_layer(
+        layer_infos = process_slopes_layer(
             db=temp_db,
             project_id=project_id,
             include_north_slopes=request.include_north_slopes,
@@ -853,7 +853,7 @@ async def generate_slopes_layer_endpoint(
         temp_db.close()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Error initializing slopes layer: {str(e)}",
+            detail=f"Error initializing slopes layers: {str(e)}",
         )
 
     # Schedule background processing
@@ -866,10 +866,11 @@ async def generate_slopes_layer_endpoint(
         other_min_angle=request.other_min_angle,
     )
 
+    layer_names = ", ".join([layer.name for layer in layer_infos]) if layer_infos else "slopes"
     return LayerUploadResponse(
         project_id=project_id,
-        message="Slopes layer processing started. Poll /projects/{project_id}/layers for status updates.",
-        layers_added=[layer_info],
+        message=f"Slopes processing started ({layer_names}). Poll /projects/{{project_id}}/layers for status updates.",
+        layers_added=layer_infos,
     )
 
 

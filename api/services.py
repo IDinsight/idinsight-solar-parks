@@ -1875,93 +1875,37 @@ def process_slopes_layer(
     if not project:
         raise ValueError(f"Project {project_id} not found")
 
-    # Check if layer exists
-    existing_layer = (
-        db.query(LayerModel)
-        .filter(LayerModel.project_id == project_id, LayerModel.name == "Slopes")
-        .first()
-    )
-
     if create_only:
-        if existing_layer:
-            return LayerInfo(
-                layer_type=LayerType.SLOPE_NORTH.value,
-                name=existing_layer.name,
-                description="Steep slopes unsuitable for solar",
-                is_unusable=existing_layer.is_unusable,
-                parameters=existing_layer.parameters or {},
-                status=existing_layer.status,
-                details=existing_layer.details,
-                area_ha=existing_layer.total_area_ha,
-                feature_count=existing_layer.feature_count,
-            )
-        else:
-            # Create placeholder layer
-            slopes_layer = LayerModel(
-                project_id=project_id,
-                name="Slopes",
-                layer_type=LayerType.BUILTIN.value,
-                is_unusable=True,
-                status="in_progress",
-                details="Queued for processing...",
-                parameters={
-                    "include_north_slopes": include_north_slopes,
-                    "include_other_slopes": include_other_slopes,
-                    "north_min_angle": north_min_angle,
-                    "other_min_angle": other_min_angle,
-                },
-            )
-            db.add(slopes_layer)
-            db.commit()
+        # Return placeholder LayerInfo objects for the layers that will be created
+        result_layers = []
 
-            return LayerInfo(
+        if include_north_slopes:
+            result_layers.append(LayerInfo(
                 layer_type=LayerType.SLOPE_NORTH.value,
-                name="Slopes",
-                description="Steep slopes unsuitable for solar",
+                name="Slopes - North Facing",
+                description="North-facing steep slopes (NE to NW, 45-135°)",
                 is_unusable=True,
-                parameters={
-                    "include_north_slopes": include_north_slopes,
-                    "include_other_slopes": include_other_slopes,
-                    "north_min_angle": north_min_angle,
-                    "other_min_angle": other_min_angle,
-                },
+                parameters={"min_angle": north_min_angle},
                 status="in_progress",
                 details="Queued for processing",
-            )
+            ))
 
-    # Create or update layer record
-    if existing_layer:
-        slopes_layer = existing_layer
-        slopes_layer.status = "in_progress"
-        slopes_layer.details = "Loading khasras data"
-        slopes_layer.parameters = {
-            "include_north_slopes": include_north_slopes,
-            "include_other_slopes": include_other_slopes,
-            "north_min_angle": north_min_angle,
-            "other_min_angle": other_min_angle,
-        }
-    else:
-        slopes_layer = LayerModel(
-            project_id=project_id,
-            name="Slopes",
-            layer_type=LayerType.SLOPE_NORTH.value,
-            is_unusable=True,
-            status="in_progress",
-            details="Loading khasras data",
-            parameters={
-                "include_north_slopes": include_north_slopes,
-                "include_other_slopes": include_other_slopes,
-                "north_min_angle": north_min_angle,
-                "other_min_angle": other_min_angle,
-            },
-        )
-        db.add(slopes_layer)
+        if include_other_slopes:
+            result_layers.append(LayerInfo(
+                layer_type=LayerType.SLOPE_OTHER.value,
+                name="Slopes - Other Facing",
+                description="Other-facing steep slopes (S/E/W, <45° or >135°)",
+                is_unusable=True,
+                parameters={"min_angle": other_min_angle},
+                status="in_progress",
+                details="Queued for processing",
+            ))
 
-    db.commit()
+        return result_layers
 
+    # Load khasras and process slopes
     try:
         # Load khasras
-        update_layer_status(db, slopes_layer, "in_progress", "Loading khasras data")
         gdf = get_khasras_gdf(db, project_id, projected=False)
         if gdf is None:
             raise ValueError("Khasras must be uploaded first")
@@ -1984,9 +1928,7 @@ def process_slopes_layer(
         wkt_string = bbox_poly.wkt
 
         # Search for DEM data using ASF
-        update_layer_status(
-            db, slopes_layer, "in_progress", "Searching for NASA ALOS DEM tiles"
-        )
+        logger.info("Searching for NASA ALOS DEM tiles")
 
         try:
             import asf_search as asf
@@ -2072,20 +2014,10 @@ def process_slopes_layer(
         else:
             logger.warning(f"Greedy selection failed, using all {len(results)} tiles")
 
-        update_layer_status(
-            db,
-            slopes_layer,
-            "in_progress",
-            f"Selected {len(results)} DEM tiles, downloading...",
-        )
+        logger.info(f"Selected {len(results)} DEM tiles, downloading...")
 
         # Authenticate with NASA Earthdata
-        update_layer_status(
-            db,
-            slopes_layer,
-            "in_progress",
-            "Authenticating with NASA Earthdata",
-        )
+        logger.info("Authenticating with NASA Earthdata")
 
         if not settings.EARTHDATA_USERNAME or not settings.EARTHDATA_PASSWORD:
             raise ValueError(
@@ -2108,12 +2040,7 @@ def process_slopes_layer(
         # Download DEM files
         dem_files = []
         for idx, result in enumerate(results):
-            update_layer_status(
-                db,
-                slopes_layer,
-                "in_progress",
-                f"Downloading DEM tile {idx+1}/{len(results)}",
-            )
+            logger.info(f"Downloading DEM tile {idx+1}/{len(results)}")
 
             # Create subdirectory for this DEM
             dem_name = result.properties['sceneName'].replace('.zip', '')
@@ -2213,21 +2140,15 @@ def process_slopes_layer(
         if not dem_files:
             raise ValueError("Failed to download and extract any DEM files successfully")
 
-        # Process each DEM file to extract slopes
-        update_layer_status(
-            db, slopes_layer, "in_progress", "Processing DEM files to calculate slopes"
-        )
+        # Process each DEM file to extract slopes - keep north and other separate
+        logger.info("Processing DEM files to calculate slopes")
 
-        all_slope_gdfs = []
+        north_slope_gdfs = []
+        other_slope_gdfs = []
         dem_processing_errors = []
 
         for dem_subdir, dem_name in dem_files:
-            update_layer_status(
-                db,
-                slopes_layer,
-                "in_progress",
-                f"Processing {dem_name}",
-            )
+            logger.info(f"Processing {dem_name}")
 
             dem_tif_path = dem_subdir / f"{dem_name}.tif"
             if not dem_tif_path.exists():
@@ -2236,132 +2157,215 @@ def process_slopes_layer(
                 dem_processing_errors.append(error_msg)
                 continue
 
-            # Process this DEM to extract slopes
-            slope_types_to_process = []
+            # Process north-facing slopes
             if include_north_slopes:
-                slope_types_to_process.append(("north", north_min_angle))
-            if include_other_slopes:
-                slope_types_to_process.append(("other", other_min_angle))
-
-            for slope_type, min_angle in slope_types_to_process:
                 try:
                     slope_gdf = _extract_steep_slopes_from_dem(
                         dem_filepath=dem_tif_path,
                         dem_subdir=dem_subdir,
                         dem_filename=dem_name,
-                        slope_type=slope_type,
-                        min_angle=min_angle,
+                        slope_type="north",
+                        min_angle=north_min_angle,
                         output_crs=settings.INDIA_PROJECTED_CRS,
                     )
                     if len(slope_gdf) > 0:
-                        all_slope_gdfs.append(slope_gdf)
+                        north_slope_gdfs.append(slope_gdf)
                 except Exception as e:
-                    error_msg = f"Error processing {dem_name} ({slope_type}): {e}"
+                    error_msg = f"Error processing {dem_name} (north slopes): {e}"
                     logger.error(error_msg)
                     dem_processing_errors.append(error_msg)
-                    continue
 
-        # If we had errors processing DEMs, raise an error
-        if dem_processing_errors and not all_slope_gdfs:
+            # Process other-facing slopes
+            if include_other_slopes:
+                try:
+                    slope_gdf = _extract_steep_slopes_from_dem(
+                        dem_filepath=dem_tif_path,
+                        dem_subdir=dem_subdir,
+                        dem_filename=dem_name,
+                        slope_type="other",
+                        min_angle=other_min_angle,
+                        output_crs=settings.INDIA_PROJECTED_CRS,
+                    )
+                    if len(slope_gdf) > 0:
+                        other_slope_gdfs.append(slope_gdf)
+                except Exception as e:
+                    error_msg = f"Error processing {dem_name} (other slopes): {e}"
+                    logger.error(error_msg)
+                    dem_processing_errors.append(error_msg)
+
+        # If we had errors processing DEMs and got no results, raise an error
+        if dem_processing_errors and not north_slope_gdfs and not other_slope_gdfs:
             raise ValueError(
                 f"Failed to process any DEM files successfully. Errors: {'; '.join(dem_processing_errors[:3])}"
             )
 
-        if not all_slope_gdfs:
+        # Check if we have any slopes at all
+        if not north_slope_gdfs and not other_slope_gdfs:
             message = f"Processed {len(dem_files)} DEM tiles but no steep slopes found matching criteria"
-            update_layer_status(
-                db, slopes_layer, "successful", message
-            )
-            slopes_layer.feature_count = 0
-            slopes_layer.total_area_ha = 0.0
+            logger.info(message)
             db.commit()
+            return []
 
-            return LayerInfo(
-                layer_type=LayerType.SLOPE_NORTH.value,
-                name="Slopes",
-                description="Steep slopes unsuitable for solar",
-                is_unusable=True,
-                parameters=slopes_layer.parameters,
-                status="successful",
-                details=message,
-                area_ha=0,
-                feature_count=0,
+        # Process each slope type as a separate layer
+        result_layers = []
+
+        # Process north-facing slopes
+        if north_slope_gdfs:
+            # Check for existing north slopes layer or create new
+            north_layer = (
+                db.query(LayerModel)
+                .filter(
+                    LayerModel.project_id == project_id,
+                    LayerModel.name == "Slopes - North Facing"
+                )
+                .first()
             )
 
-        # Combine all slope geometries
-        update_layer_status(
-            db, slopes_layer, "in_progress", "Combining slope geometries"
-        )
-        slopes_gdf = pd.concat(all_slope_gdfs, ignore_index=True)
-        logger.info(f"Combined {len(slopes_gdf)} slope polygons from all DEMs")
+            if not north_layer:
+                north_layer = LayerModel(
+                    project_id=project_id,
+                    name="Slopes - North Facing",
+                    layer_type=LayerType.SLOPE_NORTH.value,
+                    is_unusable=True,
+                    status="in_progress",
+                    details="Processing north-facing slopes",
+                    parameters={"min_angle": north_min_angle},
+                )
+                db.add(north_layer)
+                db.flush()
 
-        # Overlay with khasras
-        update_layer_status(
-            db, slopes_layer, "in_progress", "Overlaying slopes with khasras"
-        )
-        slopes_overlay_gdf = gpd.overlay(slopes_gdf, gdf, how="intersection")
-        logger.info(f"After overlay with khasras: {len(slopes_overlay_gdf)} features")
+            update_layer_status(db, north_layer, "in_progress", "Combining north slope geometries")
+            north_slopes_gdf = pd.concat(north_slope_gdfs, ignore_index=True)
+            logger.info(f"Combined {len(north_slopes_gdf)} north slope polygons")
 
-        if slopes_overlay_gdf.empty:
-            message = f"Found {len(slopes_gdf)} slope areas but none overlap with khasras"
-            update_layer_status(
-                db, slopes_layer, "successful", message
+            # Overlay with khasras
+            north_overlay_gdf = gpd.overlay(north_slopes_gdf, gdf, how="intersection")
+            logger.info(f"North slopes after overlay: {len(north_overlay_gdf)} features")
+
+            if not north_overlay_gdf.empty:
+                north_overlay_gdf = north_overlay_gdf.dissolve(by="Khasra ID (Unique)").reset_index()
+                area_col = "Unusable Area - North Slopes (ha)"
+                north_overlay_gdf[area_col] = north_overlay_gdf.geometry.area / 10_000
+
+                # Delete existing features
+                db.query(LayerFeatureModel).filter(
+                    LayerFeatureModel.layer_id == north_layer.id
+                ).delete()
+
+                # Save to database
+                layer_info = _save_builtin_layer_with_status(
+                    db=db,
+                    layer=north_layer,
+                    layer_gdf=north_overlay_gdf,
+                    area_col=area_col,
+                )
+                north_layer.status = "successful"
+                north_layer.details = f"Processed {len(north_overlay_gdf)} khasras with north slopes"
+                result_layers.append(layer_info)
+            else:
+                north_layer.status = "successful"
+                north_layer.details = "No north slopes overlap with khasras"
+                north_layer.feature_count = 0
+                north_layer.total_area_ha = 0.0
+
+        # Process other-facing slopes
+        if other_slope_gdfs:
+            # Check for existing other slopes layer or create new
+            other_layer = (
+                db.query(LayerModel)
+                .filter(
+                    LayerModel.project_id == project_id,
+                    LayerModel.name == "Slopes - Other Facing"
+                )
+                .first()
             )
-            slopes_layer.feature_count = 0
-            slopes_layer.total_area_ha = 0.0
-            db.commit()
 
-            return LayerInfo(
-                layer_type=LayerType.SLOPE_NORTH.value,
-                name="Slopes",
-                description="Steep slopes unsuitable for solar",
-                is_unusable=True,
-                parameters=slopes_layer.parameters,
-                status="successful",
-                details=message,
-                area_ha=0,
-                feature_count=0,
+            if not other_layer:
+                other_layer = LayerModel(
+                    project_id=project_id,
+                    name="Slopes - Other Facing",
+                    layer_type=LayerType.SLOPE_OTHER.value,
+                    is_unusable=True,
+                    status="in_progress",
+                    details="Processing other-facing slopes",
+                    parameters={"min_angle": other_min_angle},
+                )
+                db.add(other_layer)
+                db.flush()
+
+            update_layer_status(db, other_layer, "in_progress", "Combining other slope geometries")
+            other_slopes_gdf = pd.concat(other_slope_gdfs, ignore_index=True)
+            logger.info(f"Combined {len(other_slopes_gdf)} other slope polygons")
+
+            # Overlay with khasras
+            other_overlay_gdf = gpd.overlay(other_slopes_gdf, gdf, how="intersection")
+            logger.info(f"Other slopes after overlay: {len(other_overlay_gdf)} features")
+
+            if not other_overlay_gdf.empty:
+                other_overlay_gdf = other_overlay_gdf.dissolve(by="Khasra ID (Unique)").reset_index()
+                area_col = "Unusable Area - Other Slopes (ha)"
+                other_overlay_gdf[area_col] = other_overlay_gdf.geometry.area / 10_000
+
+                # Delete existing features
+                db.query(LayerFeatureModel).filter(
+                    LayerFeatureModel.layer_id == other_layer.id
+                ).delete()
+
+                # Save to database
+                layer_info = _save_builtin_layer_with_status(
+                    db=db,
+                    layer=other_layer,
+                    layer_gdf=other_overlay_gdf,
+                    area_col=area_col,
+                )
+                other_layer.status = "successful"
+                other_layer.details = f"Processed {len(other_overlay_gdf)} khasras with other slopes"
+                result_layers.append(layer_info)
+            else:
+                other_layer.status = "successful"
+                other_layer.details = "No other slopes overlap with khasras"
+                other_layer.feature_count = 0
+                other_layer.total_area_ha = 0.0
+
+        # Delete the old combined "Slopes" layer if it exists
+        old_slopes_layer = (
+            db.query(LayerModel)
+            .filter(
+                LayerModel.project_id == project_id,
+                LayerModel.name == "Slopes"
             )
-
-        slopes_overlay_gdf = slopes_overlay_gdf.dissolve(
-            by="Khasra ID (Unique)"
-        ).reset_index()
-
-        # Calculate areas
-        area_col = "Unusable Area - Slopes (ha)"
-        slopes_overlay_gdf[area_col] = slopes_overlay_gdf.geometry.area / 10_000
-        logger.info(f"After dissolve: {len(slopes_overlay_gdf)} khasras with slopes, total area: {slopes_overlay_gdf[area_col].sum():.2f} ha")
-
-        # Delete existing features
-        db.query(LayerFeatureModel).filter(
-            LayerFeatureModel.layer_id == slopes_layer.id
-        ).delete()
-
-        # Save to database
-        update_layer_status(
-            db, slopes_layer, "in_progress", "Saving slopes features to database"
+            .first()
         )
-
-        layer_info = _save_builtin_layer_with_status(
-            db=db,
-            layer=slopes_layer,
-            layer_gdf=slopes_overlay_gdf,
-            area_col=area_col,
-        )
-
-        # Update layer status
-        slopes_layer.status = "successful"
-        slopes_layer.details = "Slope layer processed successfully"
+        if old_slopes_layer:
+            db.delete(old_slopes_layer)
 
         # Update project timestamp
         project.updated_at = datetime.utcnow()
         db.commit()
 
-        return layer_info
+        return result_layers
 
     except Exception as e:
-        slopes_layer.status = "failed"
-        slopes_layer.details = f"Error: {str(e)}"
+        # Error handling: If layers were created, mark them as failed
+        db.rollback()
+
+        # Try to update any layers that were created
+        north_layer = db.query(LayerModel).filter(
+            LayerModel.project_id == project_id,
+            LayerModel.name == "Slopes - North Facing"
+        ).first()
+        if north_layer:
+            north_layer.status = "failed"
+            north_layer.details = f"Error: {str(e)}"
+
+        other_layer = db.query(LayerModel).filter(
+            LayerModel.project_id == project_id,
+            LayerModel.name == "Slopes - Other Facing"
+        ).first()
+        if other_layer:
+            other_layer.status = "failed"
+            other_layer.details = f"Error: {str(e)}"
+
         db.commit()
         raise
 
@@ -3171,12 +3175,15 @@ def export_to_kml(
     kml = simplekml.Kml()
     
     # Define colors for different layer types (KML uses AABBGGRR format)
+    # Alpha channel: b3 = 70% opacity (179/255)
     layer_colors = {
-        "water": "ffe6d8ad",  # Light blue
-        "settlements": "ff00008b",  # Dark red
-        "isolated buildings": "ff00ffff",  # Yellow
-        "cropland": "ff20a5da",  # Goldenrod
-        "slope": "ff808080",  # Grey
+        "water": "b3e6d8ad",  # Light blue at 70% opacity
+        "settlements": "b300008b",  # Dark red at 70% opacity
+        "isolated buildings": "b300ffff",  # Yellow at 70% opacity
+        "cropland": "b320a5da",  # Goldenrod at 70% opacity
+        "slopes - north facing": "b3808080",  # Grey at 70% opacity
+        "slopes - other facing": "b3d0d0d0",  # Light grey/white-ish at 70% opacity
+        "slope": "b3808080",  # Grey (legacy fallback) at 70% opacity
     }
     
     # Process each GeoDataFrame
@@ -3202,7 +3209,7 @@ def export_to_kml(
                     if geom.geom_type == "Polygon":
                         pol = folder.newpolygon(name=parcel_name)
                         pol.outerboundaryis = list(geom.exterior.coords)
-                        pol.style.linestyle.color = "ffffffff"  # White boundary
+                        pol.style.linestyle.color = "b3ffffff"  # White boundary at 70% opacity
                         pol.style.linestyle.width = 3
                         pol.style.polystyle.fill = 0  # No fill
                         # Enable label visibility
@@ -3213,7 +3220,7 @@ def export_to_kml(
                         for poly_idx, poly in enumerate(geom.geoms):
                             pol = folder.newpolygon(name=f"{parcel_name}_{poly_idx}")
                             pol.outerboundaryis = list(poly.exterior.coords)
-                            pol.style.linestyle.color = "ffffffff"
+                            pol.style.linestyle.color = "b3ffffff"  # White boundary at 70% opacity
                             pol.style.linestyle.width = 3
                             pol.style.polystyle.fill = 0
                             # Enable label visibility
@@ -3240,7 +3247,7 @@ def export_to_kml(
         elif "layer" in name.lower():
             # Constraint layers with color coding
             layer_type = name.lower().replace("layer_", "")
-            color = layer_colors.get(layer_type, "ff888888")  # Default gray
+            color = layer_colors.get(layer_type, "b3888888")  # Default gray at 70% opacity
             
             for idx, row in gdf.iterrows():
                 geom = row.geometry
@@ -3284,17 +3291,17 @@ def export_to_kml(
                     if geom.geom_type == "Polygon":
                         pol = folder.newpolygon(name=khasra_name)
                         pol.outerboundaryis = list(geom.exterior.coords)
-                        pol.style.polystyle.color = "7f00ff00"  # Semi-transparent green
+                        pol.style.polystyle.color = "b300ff00"  # Green at 70% opacity
                         pol.style.polystyle.fill = 1
-                        pol.style.linestyle.color = "ff00ff00"
+                        pol.style.linestyle.color = "b300ff00"  # Green outline at 70% opacity
                         pol.style.linestyle.width = 1
                     elif geom.geom_type == "MultiPolygon":
                         for poly_idx, poly in enumerate(geom.geoms):
                             pol = folder.newpolygon(name=f"{khasra_name}_{poly_idx}")
                             pol.outerboundaryis = list(poly.exterior.coords)
-                            pol.style.polystyle.color = "7f00ff00"
+                            pol.style.polystyle.color = "b300ff00"  # Green at 70% opacity
                             pol.style.polystyle.fill = 1
-                            pol.style.linestyle.color = "ff00ff00"
+                            pol.style.linestyle.color = "b300ff00"  # Green outline at 70% opacity
                             pol.style.linestyle.width = 1
                     else:
                         continue

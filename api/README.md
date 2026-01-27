@@ -21,11 +21,9 @@ DONE:
 - BUG: Fix stats showing on hover on the map
 - BUG: refresh login issue
 - make maps take up whole right side and not refresh with every page change
-- add slopes WIP
 
 TO DO:
 
-- test and fix slopes
 - khasra tooltip before layers etc shows N/A - should show original area.
 - BUG: FIX DISTANCE MATRIX ON NEW PROJECT etc. First attempt is always wrong. Better after clearing the first distance matrix but still DBScan seems to be stochastic??
 - add per-layer areas to excel output
@@ -413,7 +411,9 @@ data/
 
 - **Settlements**: Clustered building areas
 - **Water Bodies**: Rivers, lakes, ponds
-- **Steep Slopes**: Areas with unsuitable terrain
+- **Steep Slopes**: Areas with unsuitable terrain, split into two types:
+  - **North Facing Slopes**: Slopes facing NE to NW (45-135° aspect) with angle >7° (grey on map)
+  - **Other Facing Slopes**: Slopes facing other directions (<45° or >135° aspect) with angle >10° (light grey on map)
 
 ### Unavailable Layers (usable but not currently available)
 

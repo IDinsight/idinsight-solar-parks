@@ -81,7 +81,8 @@ function WorkflowContent() {
         north_min_angle: 7.0,
         other_min_angle: 10.0,
     })
-    const [slopesLayerStatus, setSlopesLayerStatus] = useState<any>(null)
+    const [northSlopesLayerStatus, setNorthSlopesLayerStatus] = useState<any>(null)
+    const [otherSlopesLayerStatus, setOtherSlopesLayerStatus] = useState<any>(null)
 
     // Step 3: Clustering state
     const [isClusteringComplete, setIsClusteringComplete] = useState(false)
@@ -166,9 +167,13 @@ function WorkflowContent() {
                     }
 
                     // Update slopes layer status
-                    const slopesLayer = layers.find((l: any) => l.name === "Slopes")
-                    if (slopesLayer) {
-                        setSlopesLayerStatus(slopesLayer)
+                    const northSlopesLayer = layers.find((l: any) => l.name === "Slopes - North Facing")
+                    if (northSlopesLayer) {
+                        setNorthSlopesLayerStatus(northSlopesLayer)
+                    }
+                    const otherSlopesLayer = layers.find((l: any) => l.name === "Slopes - Other Facing")
+                    if (otherSlopesLayer) {
+                        setOtherSlopesLayerStatus(otherSlopesLayer)
                     }
 
                     const layersGeoJSON = await api.getProjectLayersGeoJSON(currentProject.id)
@@ -248,11 +253,17 @@ function WorkflowContent() {
                 }
 
                 if (activeProcessingLayer === "Slopes") {
-                    const slopesLayer = layers.find((l: any) => l.name === "Slopes")
+                    const northSlopesLayer = layers.find((l: any) => l.name === "Slopes - North Facing")
+                    const otherSlopesLayer = layers.find((l: any) => l.name === "Slopes - Other Facing")
 
-                    setSlopesLayerStatus(slopesLayer)
+                    setNorthSlopesLayerStatus(northSlopesLayer)
+                    setOtherSlopesLayerStatus(otherSlopesLayer)
 
-                    if (slopesLayer?.status !== "in_progress") {
+                    // Check if both slope layers are done processing
+                    const northDone = !northSlopesLayer || northSlopesLayer?.status !== "in_progress"
+                    const otherDone = !otherSlopesLayer || otherSlopesLayer?.status !== "in_progress"
+
+                    if (northDone && otherDone) {
                         setActiveProcessingLayer(null)
                         // Refresh all data
                         const layersGeoJSON = await api.getProjectLayersGeoJSON(currentProject.id)
@@ -580,7 +591,8 @@ function WorkflowContent() {
         setActiveProcessingLayer("Slopes")
         setError(null)
 
-        setSlopesLayerStatus({ status: "in_progress", details: "Queued for processing..." })
+        setNorthSlopesLayerStatus({ status: "in_progress", details: "Queued for processing..." })
+        setOtherSlopesLayerStatus({ status: "in_progress", details: "Queued for processing..." })
 
         try {
             await api.generateSlopesLayer(currentProject.id, slopesLayerParams)
@@ -589,12 +601,13 @@ function WorkflowContent() {
             setError(error.response?.data?.detail || 'Failed to generate slopes layer')
             console.error("Error generating slopes layer:", error)
             setActiveProcessingLayer(null)
-            setSlopesLayerStatus(null)
+            setNorthSlopesLayerStatus(null)
+            setOtherSlopesLayerStatus(null)
         }
     }
 
     /**
-     * Delete slopes layer
+     * Delete slopes layers
      */
     const handleDeleteSlopesLayer = async () => {
         if (!currentProject) return
@@ -603,9 +616,16 @@ function WorkflowContent() {
         setError(null)
 
         try {
-            await api.deleteLayer(currentProject.id, "Slopes")
+            // Delete both slope layers if they exist
+            if (northSlopesLayerStatus) {
+                await api.deleteLayer(currentProject.id, "Slopes - North Facing")
+            }
+            if (otherSlopesLayerStatus) {
+                await api.deleteLayer(currentProject.id, "Slopes - Other Facing")
+            }
 
-            setSlopesLayerStatus(null)
+            setNorthSlopesLayerStatus(null)
+            setOtherSlopesLayerStatus(null)
             setShowDeleteSlopesModal(false)
 
             const updatedLayersGeoJSON = await api.getProjectLayersGeoJSON(currentProject.id)
@@ -614,8 +634,8 @@ function WorkflowContent() {
             const updatedProject = await api.getProject(currentProject.id)
             updateProject(updatedProject)
         } catch (error: any) {
-            setError(error.response?.data?.detail || 'Failed to delete slopes layer')
-            console.error("Error deleting slopes layer:", error)
+            setError(error.response?.data?.detail || 'Failed to delete slopes layers')
+            console.error("Error deleting slopes layers:", error)
         } finally {
             setIsDeletingLayer(false)
         }
@@ -1174,7 +1194,8 @@ function WorkflowContent() {
                                     <div className="border border-slate-200 rounded-lg p-4">
                                         <div className="flex items-start justify-between mb-2">
                                             <h4 className="font-semibold text-slate-900">Slopes</h4>
-                                            {slopesLayerStatus && slopesLayerStatus?.status !== "failed" && slopesLayerStatus?.status !== "in_progress" && (
+                                            {((northSlopesLayerStatus && northSlopesLayerStatus?.status !== "failed" && northSlopesLayerStatus?.status !== "in_progress") ||
+                                              (otherSlopesLayerStatus && otherSlopesLayerStatus?.status !== "failed" && otherSlopesLayerStatus?.status !== "in_progress")) && (
                                                 <button
                                                     onClick={() => setShowDeleteSlopesModal(true)}
                                                     disabled={isDeletingLayer}
@@ -1189,10 +1210,12 @@ function WorkflowContent() {
                                             Automatically detect steep slopes from NASA ALOS DEM data
                                         </p>
 
-                                        {!slopesLayerStatus || slopesLayerStatus?.status === "failed" ? (
+                                        {(!northSlopesLayerStatus && !otherSlopesLayerStatus) ||
+                                         northSlopesLayerStatus?.status === "failed" ||
+                                         otherSlopesLayerStatus?.status === "failed" ? (
                                             <>
                                                 {/* Show alert if failed */}
-                                                {slopesLayerStatus?.status === "failed" && (
+                                                {(northSlopesLayerStatus?.status === "failed" || otherSlopesLayerStatus?.status === "failed") && (
                                                     <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded flex items-center gap-2">
                                                         <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
                                                         <span className="text-sm text-red-700">Failed to generate slopes layer. Please try again.</span>
@@ -1254,33 +1277,48 @@ function WorkflowContent() {
                                                     disabled={isProcessing || activeProcessingLayer === "Slopes" || (!slopesLayerParams.include_north_slopes && !slopesLayerParams.include_other_slopes)}
                                                     className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-semibold rounded-lg transition-colors"
                                                 >
-                                                    {slopesLayerStatus?.status === "failed" ? "Retry" : "Add Layer"}
+                                                    {(northSlopesLayerStatus?.status === "failed" || otherSlopesLayerStatus?.status === "failed") ? "Retry" : "Add Layer"}
                                                 </button>
                                             </>
-                                        ) : slopesLayerStatus?.status === "in_progress" ? (
+                                        ) : (northSlopesLayerStatus?.status === "in_progress" || otherSlopesLayerStatus?.status === "in_progress") ? (
                                             <div className="space-y-3">
                                                 <div className="flex items-center gap-2">
                                                     <div className="w-4 h-4 rounded-full border-2 border-blue-600 border-t-transparent animate-spin flex-shrink-0" />
                                                     <span className="text-sm font-medium text-blue-700">Processing</span>
                                                 </div>
                                                 <p className="text-xs text-slate-600 ml-6">
-                                                    {slopesLayerStatus?.details || "Processing"}
+                                                    {northSlopesLayerStatus?.details || otherSlopesLayerStatus?.details || "Processing"}
                                                     <AnimatedEllipsis />
                                                 </p>
                                             </div>
                                         ) : (
                                             <div className="space-y-2">
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: LAYER_COLORS['Slopes'] || '#9333ea' }}>
-                                                            <span className="text-white text-xs">✓</span>
+                                                {northSlopesLayerStatus && (
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: LAYER_COLORS['Slopes - North Facing'] }}>
+                                                                <span className="text-white text-xs">✓</span>
+                                                            </div>
+                                                            <span className="text-sm font-medium" style={{ color: LAYER_COLORS['Slopes - North Facing'] }}>North Facing</span>
                                                         </div>
-                                                        <span className="text-sm font-medium" style={{ color: LAYER_COLORS['Slopes'] || '#9333ea' }}>Slopes</span>
+                                                        <span className="text-xs text-slate-600">
+                                                            {northSlopesLayerStatus?.area_ha?.toFixed(2)} ha
+                                                        </span>
                                                     </div>
-                                                    <span className="text-xs text-slate-600">
-                                                        {slopesLayerStatus?.area_ha?.toFixed(2)} ha
-                                                    </span>
-                                                </div>
+                                                )}
+                                                {otherSlopesLayerStatus && (
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: LAYER_COLORS['Slopes - Other Facing'] }}>
+                                                                <span className="text-white text-xs">✓</span>
+                                                            </div>
+                                                            <span className="text-sm font-medium" style={{ color: LAYER_COLORS['Slopes - Other Facing'] }}>Other Facing</span>
+                                                        </div>
+                                                        <span className="text-xs text-slate-600">
+                                                            {otherSlopesLayerStatus?.area_ha?.toFixed(2)} ha
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -1620,11 +1658,11 @@ function WorkflowContent() {
                     <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl relative z-[1001]">
                         <div className="flex items-center gap-3 mb-4">
                             <AlertTriangle className="w-6 h-6 text-red-600" />
-                            <h3 className="text-lg font-semibold text-slate-900">Delete Slopes Layer?</h3>
+                            <h3 className="text-lg font-semibold text-slate-900">Delete Slopes Layers?</h3>
                         </div>
                         <div className="mb-6">
                             <p className="text-slate-700 mb-3">
-                                This will permanently delete the Slopes layer.
+                                This will permanently delete all slopes layers (north-facing and other-facing).
                             </p>
                             <p className="text-red-600 font-medium text-sm">This action cannot be undone.</p>
                         </div>
@@ -1641,7 +1679,7 @@ function WorkflowContent() {
                                 disabled={isDeletingLayer}
                                 className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
                             >
-                                {isDeletingLayer ? "Deleting..." : "Delete Layer"}
+                                {isDeletingLayer ? "Deleting..." : "Delete Layers"}
                             </button>
                         </div>
                     </div>
