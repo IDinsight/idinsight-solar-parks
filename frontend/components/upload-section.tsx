@@ -406,10 +406,10 @@ export default function UploadSection({ onFileUpload, onKhasraDeleted, isProcess
               <h3 className="text-lg font-semibold text-blue-900 mb-4">Khasras Already Uploaded</h3>
               <div className="text-sm text-blue-800 space-y-2">
                 <p>
-                  <span className="font-medium">Shape Count:</span> {existingKhasras.count}
+                  <span className="font-medium">Shape count:</span> {existingKhasras.count}
                 </p>
                 <p>
-                  <span className="font-medium">Total Area:</span> {existingKhasras.total_area_ha?.toFixed(2)} hectares
+                  <span className="font-medium">Total area:</span> {existingKhasras.total_area_ha?.toFixed(2)} hectares
                 </p>
                 {existingKhasras.uploaded_at && (
                   <p>
