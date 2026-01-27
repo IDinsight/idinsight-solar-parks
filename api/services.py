@@ -612,26 +612,28 @@ def process_custom_layer_upload(
     if not project:
         raise ValueError(f"Project {project_id} not found")
 
-    # Get existing layer record (created by endpoint)
-    layer = (
+    # Delete any existing layer with the same name to start fresh
+    existing_layer = (
         db.query(LayerModel)
         .filter(LayerModel.project_id == project_id, LayerModel.name == layer_name)
         .first()
     )
-
-    if not layer:
-        # Create layer record if it doesn't exist (backwards compatibility)
-        layer = LayerModel(
-            project_id=project_id,
-            name=layer_name,
-            layer_type=LayerType.CUSTOM.value,
-            is_unusable=is_unusable,
-            status="in_progress",
-            details="Initializing layer processing...",
-            parameters={},
-        )
-        db.add(layer)
+    if existing_layer:
+        db.delete(existing_layer)
         db.commit()
+
+    # Create fresh layer record
+    layer = LayerModel(
+        project_id=project_id,
+        name=layer_name,
+        layer_type=LayerType.CUSTOM.value,
+        is_unusable=is_unusable,
+        status="in_progress",
+        details="Initializing layer processing...",
+        parameters={},
+    )
+    db.add(layer)
+    db.commit()
 
     try:
         update_layer_status(db, layer, "in_progress", "Loading khasras data")
@@ -961,110 +963,89 @@ def process_settlement_layer(
     if not project:
         raise ValueError(f"Project {project_id} not found")
 
-    # Check if layers already exist
-    existing_settlements = (
-        db.query(LayerModel)
-        .filter(LayerModel.project_id == project_id, LayerModel.name == "Settlements")
-        .first()
-    )
-
-    existing_isolated = (
-        db.query(LayerModel)
-        .filter(
-            LayerModel.project_id == project_id, LayerModel.name == "Isolated Buildings"
-        )
-        .first()
-    )
-
-    # If create_only and layers exist, return existing info
-    if create_only and existing_settlements and existing_isolated:
-        return (
-            LayerInfo(
-                layer_type=LayerType.SETTLEMENTS.value,
-                name=existing_settlements.name,
-                description="Settlement clusters from buildings",
-                is_unusable=existing_settlements.is_unusable,
-                parameters=existing_settlements.parameters or {},
-                status=existing_settlements.status,
-                details=existing_settlements.details,
-                area_ha=existing_settlements.total_area_ha,
-                feature_count=existing_settlements.feature_count,
-            ),
-            LayerInfo(
-                layer_type=LayerType.ISOLATED_BUILDINGS.value,
-                name=existing_isolated.name,
-                description="Buildings not part of settlements",
-                is_unusable=existing_isolated.is_unusable,
-                parameters=existing_isolated.parameters or {},
-                status=existing_isolated.status,
-                details=existing_isolated.details,
-                area_ha=existing_isolated.total_area_ha,
-                feature_count=existing_isolated.feature_count,
-            ),
-        )
-
-    # Use existing layers if found, otherwise create new ones
-    if existing_settlements:
-        settlements_layer = existing_settlements
-        settlements_layer.status = "in_progress"
-        settlements_layer.details = (
-            "Queued for processing..."
-            if create_only
-            else "Initializing settlement detection..."
-        )
-    else:
-        settlements_layer = LayerModel(
-            project_id=project_id,
-            name="Settlements",
-            layer_type=LayerType.SETTLEMENTS.value,
-            is_unusable=True,
-            status="in_progress",
-            details="Queued for processing..."
-            if create_only
-            else "Initializing settlement detection",
-            parameters={
-                "building_buffer": building_buffer,
-                "settlement_eps": settlement_eps,
-                "min_buildings": min_buildings,
-            },
-        )
-        db.add(settlements_layer)
-
-    if existing_isolated:
-        isolated_layer = existing_isolated
-        isolated_layer.status = "in_progress"
-        isolated_layer.details = (
-            "Queued for processing..."
-            if create_only
-            else "Waiting for settlement detection"
-        )
-    else:
-        isolated_layer = LayerModel(
-            project_id=project_id,
-            name="Isolated Buildings",
-            layer_type=LayerType.ISOLATED_BUILDINGS.value,
-            is_unusable=False,
-            status="in_progress",
-            details="Queued for processing..."
-            if create_only
-            else "Waiting for settlement detection",
-            parameters={
-                "building_buffer": building_buffer,
-            },
-        )
-        db.add(isolated_layer)
-
-    db.commit()
-
-    # If create_only, return placeholder LayerInfo objects
     if create_only:
+        # Create placeholder layer records for async processing
+        # Check if layers already exist to avoid duplicates
+        existing_settlements = (
+            db.query(LayerModel)
+            .filter(LayerModel.project_id == project_id, LayerModel.name == "Settlements")
+            .first()
+        )
+        existing_isolated = (
+            db.query(LayerModel)
+            .filter(
+                LayerModel.project_id == project_id, LayerModel.name == "Isolated Buildings"
+            )
+            .first()
+        )
+
+        if existing_settlements and existing_isolated:
+            # Return existing placeholders
+            return (
+                LayerInfo(
+                    layer_type=LayerType.SETTLEMENTS.value,
+                    name=existing_settlements.name,
+                    description="Settlement clusters from buildings",
+                    is_unusable=existing_settlements.is_unusable,
+                    parameters=existing_settlements.parameters or {},
+                    status=existing_settlements.status,
+                    details=existing_settlements.details,
+                    area_ha=existing_settlements.total_area_ha,
+                    feature_count=existing_settlements.feature_count,
+                ),
+                LayerInfo(
+                    layer_type=LayerType.ISOLATED_BUILDINGS.value,
+                    name=existing_isolated.name,
+                    description="Buildings not part of settlements",
+                    is_unusable=existing_isolated.is_unusable,
+                    parameters=existing_isolated.parameters or {},
+                    status=existing_isolated.status,
+                    details=existing_isolated.details,
+                    area_ha=existing_isolated.total_area_ha,
+                    feature_count=existing_isolated.feature_count,
+                ),
+            )
+
+        # Create new placeholder layers
+        if not existing_settlements:
+            settlements_layer = LayerModel(
+                project_id=project_id,
+                name="Settlements",
+                layer_type=LayerType.SETTLEMENTS.value,
+                is_unusable=True,
+                status="in_progress",
+                details="Queued for processing...",
+                parameters={
+                    "building_buffer": building_buffer,
+                    "settlement_eps": settlement_eps,
+                    "min_buildings": min_buildings,
+                },
+            )
+            db.add(settlements_layer)
+
+        if not existing_isolated:
+            isolated_layer = LayerModel(
+                project_id=project_id,
+                name="Isolated Buildings",
+                layer_type=LayerType.ISOLATED_BUILDINGS.value,
+                is_unusable=False,
+                status="in_progress",
+                details="Queued for processing...",
+                parameters={
+                    "building_buffer": building_buffer,
+                },
+            )
+            db.add(isolated_layer)
+
+        db.commit()
+
         return (
             LayerInfo(
                 layer_type=LayerType.SETTLEMENTS.value,
                 name="Settlements",
                 description="Settlement clusters from buildings",
                 is_unusable=True,
-                parameters=settlements_layer.parameters,
+                parameters={"building_buffer": building_buffer, "settlement_eps": settlement_eps, "min_buildings": min_buildings},
                 status="in_progress",
                 details="Queued for processing",
             ),
@@ -1073,11 +1054,63 @@ def process_settlement_layer(
                 name="Isolated Buildings",
                 description="Buildings not part of settlements",
                 is_unusable=False,
-                parameters=isolated_layer.parameters,
+                parameters={"building_buffer": building_buffer},
                 status="in_progress",
                 details="Queued for processing",
             ),
         )
+
+    # Actual processing (create_only=False): Delete old layers and start fresh
+    existing_settlements = (
+        db.query(LayerModel)
+        .filter(LayerModel.project_id == project_id, LayerModel.name == "Settlements")
+        .first()
+    )
+    if existing_settlements:
+        db.delete(existing_settlements)
+
+    existing_isolated = (
+        db.query(LayerModel)
+        .filter(
+            LayerModel.project_id == project_id, LayerModel.name == "Isolated Buildings"
+        )
+        .first()
+    )
+    if existing_isolated:
+        db.delete(existing_isolated)
+
+    db.commit()
+
+    # Create fresh layer records
+    settlements_layer = LayerModel(
+        project_id=project_id,
+        name="Settlements",
+        layer_type=LayerType.SETTLEMENTS.value,
+        is_unusable=True,
+        status="in_progress",
+        details="Initializing settlement detection",
+        parameters={
+            "building_buffer": building_buffer,
+            "settlement_eps": settlement_eps,
+            "min_buildings": min_buildings,
+        },
+    )
+    db.add(settlements_layer)
+
+    isolated_layer = LayerModel(
+        project_id=project_id,
+        name="Isolated Buildings",
+        layer_type=LayerType.ISOLATED_BUILDINGS.value,
+        is_unusable=False,
+        status="in_progress",
+        details="Waiting for settlement detection",
+        parameters={
+            "building_buffer": building_buffer,
+        },
+    )
+    db.add(isolated_layer)
+
+    db.commit()
 
     try:
         update_layer_status(
@@ -1267,11 +1300,6 @@ def process_settlement_layer(
             area_col = "Unusable Area - Settlements (ha)"
             settlements_overlap_gdf[area_col] = settlements_overlap_gdf.area / 10_000
 
-            # Delete existing features
-            db.query(LayerFeatureModel).filter(
-                LayerFeatureModel.layer_id == settlements_layer.id
-            ).delete()
-
             update_layer_status(
                 db,
                 settlements_layer,
@@ -1288,11 +1316,6 @@ def process_settlement_layer(
             )
             results.append(settlements_info)
         else:
-            # Delete existing features even when no new settlements found
-            db.query(LayerFeatureModel).filter(
-                LayerFeatureModel.layer_id == settlements_layer.id
-            ).delete()
-
             settlements_layer.status = "successful"
             settlements_layer.details = (
                 "No settlements found (no building clusters meeting criteria)"
@@ -1328,11 +1351,6 @@ def process_settlement_layer(
             area_col = "Unavailable Area - Isolated Buildings (ha)"
             isolated_overlap_gdf[area_col] = isolated_overlap_gdf.area / 10_000
 
-            # Delete existing features
-            db.query(LayerFeatureModel).filter(
-                LayerFeatureModel.layer_id == isolated_layer.id
-            ).delete()
-
             update_layer_status(
                 db,
                 isolated_layer,
@@ -1349,11 +1367,6 @@ def process_settlement_layer(
             )
             results.append(isolated_info)
         else:
-            # Delete existing features even when no new isolated buildings found
-            db.query(LayerFeatureModel).filter(
-                LayerFeatureModel.layer_id == isolated_layer.id
-            ).delete()
-
             isolated_layer.status = "successful"
             isolated_layer.details = "No isolated buildings found"
             isolated_layer.feature_count = 0
@@ -1421,14 +1434,14 @@ def process_cropland_layer(
     if not project:
         raise ValueError(f"Project {project_id} not found")
 
-    # Check if layer exists
-    existing_layer = (
-        db.query(LayerModel)
-        .filter(LayerModel.project_id == project_id, LayerModel.name == "Cropland")
-        .first()
-    )
-
     if create_only:
+        # Create placeholder layer record for async processing
+        existing_layer = (
+            db.query(LayerModel)
+            .filter(LayerModel.project_id == project_id, LayerModel.name == "Cropland")
+            .first()
+        )
+
         if existing_layer:
             return LayerInfo(
                 layer_type=LayerType.CROPLAND.value,
@@ -1441,47 +1454,52 @@ def process_cropland_layer(
                 area_ha=existing_layer.total_area_ha,
                 feature_count=existing_layer.feature_count,
             )
-        else:
-            # Create placeholder layer
-            cropland_layer = LayerModel(
-                project_id=project_id,
-                name="Cropland",
-                layer_type=LayerType.CROPLAND.value,
-                is_unusable=True,
-                status="in_progress",
-                details="Queued for processing...",
-                parameters={},
-            )
-            db.add(cropland_layer)
-            db.commit()
 
-            return LayerInfo(
-                layer_type=LayerType.CROPLAND.value,
-                name="Cropland",
-                description="Agricultural cropland areas",
-                is_unusable=True,
-                parameters={},
-                status="in_progress",
-                details="Queued for processing",
-            )
-
-    # Create or update layer record
-    if existing_layer:
-        cropland_layer = existing_layer
-        cropland_layer.status = "in_progress"
-        cropland_layer.details = "Loading khasras data"
-    else:
+        # Create new placeholder layer
         cropland_layer = LayerModel(
             project_id=project_id,
             name="Cropland",
             layer_type=LayerType.CROPLAND.value,
             is_unusable=True,
             status="in_progress",
-            details="Loading khasras data",
+            details="Queued for processing...",
             parameters={},
         )
         db.add(cropland_layer)
+        db.commit()
 
+        return LayerInfo(
+            layer_type=LayerType.CROPLAND.value,
+            name="Cropland",
+            description="Agricultural cropland areas",
+            is_unusable=True,
+            parameters={},
+            status="in_progress",
+            details="Queued for processing",
+        )
+
+    # Actual processing (create_only=False): Delete old layer and start fresh
+    existing_layer = (
+        db.query(LayerModel)
+        .filter(LayerModel.project_id == project_id, LayerModel.name == "Cropland")
+        .first()
+    )
+    if existing_layer:
+        db.delete(existing_layer)
+
+    db.commit()
+
+    # Create fresh layer record
+    cropland_layer = LayerModel(
+        project_id=project_id,
+        name="Cropland",
+        layer_type=LayerType.CROPLAND.value,
+        is_unusable=True,
+        status="in_progress",
+        details="Loading khasras data",
+        parameters={},
+    )
+    db.add(cropland_layer)
     db.commit()
 
     try:
@@ -1580,11 +1598,6 @@ def process_cropland_layer(
         area_col = "Unavailable Area - Cropland (ha)"
         cropland_overlay_gdf[area_col] = cropland_overlay_gdf.geometry.area / 10_000
 
-        # Delete existing features
-        db.query(LayerFeatureModel).filter(
-            LayerFeatureModel.layer_id == cropland_layer.id
-        ).delete()
-
         # Save to database using helper function
         update_layer_status(
             db,
@@ -1650,14 +1663,14 @@ def process_water_layer(
     if not project:
         raise ValueError(f"Project {project_id} not found")
 
-    # Check if layer exists
-    existing_layer = (
-        db.query(LayerModel)
-        .filter(LayerModel.project_id == project_id, LayerModel.name == "Water")
-        .first()
-    )
-
     if create_only:
+        # Create placeholder layer record for async processing
+        existing_layer = (
+            db.query(LayerModel)
+            .filter(LayerModel.project_id == project_id, LayerModel.name == "Water")
+            .first()
+        )
+
         if existing_layer:
             return LayerInfo(
                 layer_type=LayerType.WATER.value,
@@ -1670,47 +1683,52 @@ def process_water_layer(
                 area_ha=existing_layer.total_area_ha,
                 feature_count=existing_layer.feature_count,
             )
-        else:
-            # Create placeholder layer
-            water_layer = LayerModel(
-                project_id=project_id,
-                name="Water",
-                layer_type=LayerType.WATER.value,
-                is_unusable=True,
-                status="in_progress",
-                details="Queued for processing...",
-                parameters={},
-            )
-            db.add(water_layer)
-            db.commit()
 
-            return LayerInfo(
-                layer_type=LayerType.WATER.value,
-                name="Water",
-                description="Open surface water bodies",
-                is_unusable=True,
-                parameters={},
-                status="in_progress",
-                details="Queued for processing",
-            )
-
-    # Create or update layer record
-    if existing_layer:
-        water_layer = existing_layer
-        water_layer.status = "in_progress"
-        water_layer.details = "Loading khasras data"
-    else:
+        # Create new placeholder layer
         water_layer = LayerModel(
             project_id=project_id,
             name="Water",
             layer_type=LayerType.WATER.value,
             is_unusable=True,
             status="in_progress",
-            details="Loading khasras data",
+            details="Queued for processing...",
             parameters={},
         )
         db.add(water_layer)
+        db.commit()
 
+        return LayerInfo(
+            layer_type=LayerType.WATER.value,
+            name="Water",
+            description="Open surface water bodies",
+            is_unusable=True,
+            parameters={},
+            status="in_progress",
+            details="Queued for processing",
+        )
+
+    # Actual processing (create_only=False): Delete old layer and start fresh
+    existing_layer = (
+        db.query(LayerModel)
+        .filter(LayerModel.project_id == project_id, LayerModel.name == "Water")
+        .first()
+    )
+    if existing_layer:
+        db.delete(existing_layer)
+
+    db.commit()
+
+    # Create fresh layer record
+    water_layer = LayerModel(
+        project_id=project_id,
+        name="Water",
+        layer_type=LayerType.WATER.value,
+        is_unusable=True,
+        status="in_progress",
+        details="Loading khasras data",
+        parameters={},
+    )
+    db.add(water_layer)
     db.commit()
 
     try:
@@ -1801,11 +1819,6 @@ def process_water_layer(
         # Calculate areas
         area_col = "Unusable Area - Water (ha)"
         water_overlay_gdf[area_col] = water_overlay_gdf.geometry.area / 10_000
-
-        # Delete existing features
-        db.query(LayerFeatureModel).filter(
-            LayerFeatureModel.layer_id == water_layer.id
-        ).delete()
 
         # Save to database using helper function
         update_layer_status(
@@ -2329,11 +2342,6 @@ def process_slopes_layer(
                 area_col = "Unusable Area - North Slopes (ha)"
                 north_overlay_gdf[area_col] = north_overlay_gdf.geometry.area / 10_000
 
-                # Delete existing features
-                db.query(LayerFeatureModel).filter(
-                    LayerFeatureModel.layer_id == north_layer.id
-                ).delete()
-
                 # Save to database
                 layer_info = _save_builtin_layer_with_status(
                     db=db,
@@ -2364,11 +2372,6 @@ def process_slopes_layer(
                 other_overlay_gdf = other_overlay_gdf.dissolve(by="Khasra ID (Unique)").reset_index()
                 area_col = "Unusable Area - Other Slopes (ha)"
                 other_overlay_gdf[area_col] = other_overlay_gdf.geometry.area / 10_000
-
-                # Delete existing features
-                db.query(LayerFeatureModel).filter(
-                    LayerFeatureModel.layer_id == other_layer.id
-                ).delete()
 
                 # Save to database
                 layer_info = _save_builtin_layer_with_status(
