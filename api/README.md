@@ -16,16 +16,17 @@ DONE:
 - Export a coloured in KML, I dare you. DONE!
 - Added full screen map page
 - Fixed: distance_matrix issue after deleting khasras persists...
+- clarify colour scheme of map items throughout
+- add crops and water
+- BUG: Fix stats showing on hover on the map
+- BUG: refresh login issue
+- make maps take up whole right side and not refresh with every page change
 
 TO DO:
 
-- clarify colour scheme of map items throughout
 - BUG: FIX DISTANCE MATRIX ON NEW PROJECT etc. First attempt is always wrong. Better after clearing the first distance matrix but still DBScan seems to be stochastic??
-- add the other layers
-- BUG: Fix stats showing on hover on the map
-- BUG: refresh login issue
+- add slopes
 
-- make maps take up whole right side and not refresh with every page change
 - use alembic for migrations
 - also save usable khasra shape
 
