@@ -2,6 +2,7 @@
  * Project store using Zustand
  */
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 import type { Project } from '@/lib/api/types'
 
 interface ProjectState {
@@ -14,29 +15,37 @@ interface ProjectState {
     removeProject: (projectId: string) => void
 }
 
-export const useProjectStore = create<ProjectState>((set) => ({
-    currentProject: null,
-    projects: [],
+export const useProjectStore = create<ProjectState>()(
+    persist(
+        (set) => ({
+            currentProject: null,
+            projects: [],
 
-    setCurrentProject: (project) => set({ currentProject: project }),
+            setCurrentProject: (project) => set({ currentProject: project }),
 
-    setProjects: (projects) => set({ projects }),
+            setProjects: (projects) => set({ projects }),
 
-    addProject: (project) =>
-        set((state) => ({
-            projects: [project, ...state.projects],
-        })),
+            addProject: (project) =>
+                set((state) => ({
+                    projects: [project, ...state.projects],
+                })),
 
-    updateProject: (project) =>
-        set((state) => ({
-            projects: state.projects.map((p) => (p.id === project.id ? project : p)),
-            currentProject:
-                state.currentProject?.id === project.id ? project : state.currentProject,
-        })),
+            updateProject: (project) =>
+                set((state) => ({
+                    projects: state.projects.map((p) => (p.id === project.id ? project : p)),
+                    currentProject:
+                        state.currentProject?.id === project.id ? project : state.currentProject,
+                })),
 
-    removeProject: (projectId) =>
-        set((state) => ({
-            projects: state.projects.filter((p) => p.id !== projectId),
-            currentProject: state.currentProject?.id === projectId ? null : state.currentProject,
-        })),
-}))
+            removeProject: (projectId) =>
+                set((state) => ({
+                    projects: state.projects.filter((p) => p.id !== projectId),
+                    currentProject: state.currentProject?.id === projectId ? null : state.currentProject,
+                })),
+        }),
+        {
+            name: 'project-storage',
+            partialize: (state) => ({ currentProject: state.currentProject }),
+        }
+    )
+)
