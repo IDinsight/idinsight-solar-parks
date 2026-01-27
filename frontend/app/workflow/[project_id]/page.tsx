@@ -9,7 +9,7 @@ import ClusteringSection from "@/components/clustering-section"
 import MapContainer, { LAYER_COLORS } from "@/components/map-container"
 import * as api from "@/lib/api/services"
 import { ExportFormat } from "@/lib/api/types"
-import { ChevronLeft, ChevronRight, ArrowLeft, AlertCircle, Map, Copy, ExternalLink, Check, Link, FileSpreadsheet, Trash2 } from "lucide-react"
+import { ChevronLeft, ChevronRight, ArrowLeft, AlertCircle, Map, Globe, ExternalLink, Link, FileSpreadsheet, Trash2, AlertTriangle } from "lucide-react"
 
 
 function AnimatedEllipsis() {
@@ -86,6 +86,12 @@ function WorkflowContent() {
 
     // Map link state
     const [mapLinkCopied, setMapLinkCopied] = useState(false)
+
+    // Delete modal states
+    const [showDeleteSettlementModal, setShowDeleteSettlementModal] = useState(false)
+    const [showDeleteCroplandModal, setShowDeleteCroplandModal] = useState(false)
+    const [showDeleteWaterModal, setShowDeleteWaterModal] = useState(false)
+    const [isDeletingLayer, setIsDeletingLayer] = useState(false)
 
     /**
      * Update current page and persist to URL
@@ -374,13 +380,7 @@ function WorkflowContent() {
     const handleDeleteSettlementLayers = async () => {
         if (!currentProject) return
 
-        const confirmed = confirm(
-            "Are you sure you want to delete the Settlement layers? " +
-            "This will remove both Settlements and Isolated Buildings layers."
-        )
-        if (!confirmed) return
-
-        setIsProcessing(true)
+        setIsDeletingLayer(true)
         setError(null)
 
         try {
@@ -389,6 +389,7 @@ function WorkflowContent() {
             await api.deleteLayer(currentProject.id, "Isolated Buildings")
 
             setSettlementLayerStatus(null)
+            setShowDeleteSettlementModal(false)
 
             // Refresh all layers and GeoJSON data
             const updatedLayers = await api.listProjectLayers(currentProject.id)
@@ -403,7 +404,7 @@ function WorkflowContent() {
             setError(error.response?.data?.detail || 'Failed to delete layers')
             console.error("Error deleting settlement layers:", error)
         } finally {
-            setIsProcessing(false)
+            setIsDeletingLayer(false)
         }
     }
 
@@ -438,15 +439,13 @@ function WorkflowContent() {
     const handleDeleteCroplandLayer = async () => {
         if (!currentProject) return
 
-        const confirmed = confirm("Are you sure you want to delete the Cropland layer?")
-        if (!confirmed) return
-
-        setIsProcessing(true)
+        setIsDeletingLayer(true)
         setError(null)
 
         try {
             await api.deleteLayer(currentProject.id, "Cropland")
             setCroplandLayerStatus(null)
+            setShowDeleteCroplandModal(false)
 
             // Refresh all layers and GeoJSON data
             const updatedLayers = await api.listProjectLayers(currentProject.id)
@@ -461,7 +460,7 @@ function WorkflowContent() {
             setError(error.response?.data?.detail || 'Failed to delete cropland layer')
             console.error("Error deleting cropland layer:", error)
         } finally {
-            setIsProcessing(false)
+            setIsDeletingLayer(false)
         }
     }
 
@@ -496,15 +495,13 @@ function WorkflowContent() {
     const handleDeleteWaterLayer = async () => {
         if (!currentProject) return
 
-        const confirmed = confirm("Are you sure you want to delete the Water layer?")
-        if (!confirmed) return
-
-        setIsProcessing(true)
+        setIsDeletingLayer(true)
         setError(null)
 
         try {
             await api.deleteLayer(currentProject.id, "Water")
             setWaterLayerStatus(null)
+            setShowDeleteWaterModal(false)
 
             // Refresh all layers and GeoJSON data
             const updatedLayers = await api.listProjectLayers(currentProject.id)
@@ -519,7 +516,7 @@ function WorkflowContent() {
             setError(error.response?.data?.detail || 'Failed to delete water layer')
             console.error("Error deleting water layer:", error)
         } finally {
-            setIsProcessing(false)
+            setIsDeletingLayer(false)
         }
     }
 
@@ -737,7 +734,7 @@ function WorkflowContent() {
                     {[
                         { number: 1, label: "Upload Khasras" },
                         { number: 2, label: "Add Layers" },
-                        { number: 3, label: "Clustering" },
+                        { number: 3, label: "Cluster" },
                         { number: 4, label: "Export" },
                     ].map((step) => {
                         const canNavigateToStep =
@@ -813,8 +810,8 @@ function WorkflowContent() {
                                             <h4 className="font-semibold text-slate-900">Settlements & Buildings</h4>
                                             {settlementLayerStatus && !(settlementLayerStatus.settlements?.status === "failed" && settlementLayerStatus.isolated?.status === "failed") && !settlementLayerStatus.processing && (
                                                 <button
-                                                    onClick={handleDeleteSettlementLayers}
-                                                    disabled={isProcessing}
+                                                    onClick={() => setShowDeleteSettlementModal(true)}
+                                                    disabled={isDeletingLayer}
                                                     className="p-1 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
                                                     title="Delete Layer"
                                                 >
@@ -950,8 +947,8 @@ function WorkflowContent() {
                                             <h4 className="font-semibold text-slate-900">Cropland</h4>
                                             {croplandLayerStatus && croplandLayerStatus?.status !== "failed" && croplandLayerStatus?.status !== "in_progress" && (
                                                 <button
-                                                    onClick={handleDeleteCroplandLayer}
-                                                    disabled={isProcessing}
+                                                    onClick={() => setShowDeleteCroplandModal(true)}
+                                                    disabled={isDeletingLayer}
                                                     className="p-1 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
                                                     title="Delete Layer"
                                                 >
@@ -1014,8 +1011,8 @@ function WorkflowContent() {
                                             <h4 className="font-semibold text-slate-900">Water</h4>
                                             {waterLayerStatus && waterLayerStatus?.status !== "failed" && waterLayerStatus?.status !== "in_progress" && (
                                                 <button
-                                                    onClick={handleDeleteWaterLayer}
-                                                    disabled={isProcessing}
+                                                    onClick={() => setShowDeleteWaterModal(true)}
+                                                    disabled={isDeletingLayer}
                                                     className="p-1 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
                                                     title="Delete Layer"
                                                 >
@@ -1172,11 +1169,11 @@ function WorkflowContent() {
                                     {/* Download Section */}
                                     <div>
                                         <div className="space-y-4">
-                                            {/* Floating Map Controls */}
+                                            {/* Fullscreen Online Map */}
                                             <div className="w-full p-6 border-2 border-slate-200 rounded-lg rounded-lg px-4 py-4">
 
                                                 <div className="flex items-start gap-4">
-                                                    <Map className="w-8 h-8 text-blue-600 flex-shrink-0" />
+                                                    <Globe className="w-8 h-8 text-blue-600 flex-shrink-0" />
                                                     <div>
                                                         <h4 className="text-base font-semibold text-slate-900">Online Map</h4>
                                                         <p className="text-xs text-slate-600 mt-1">Full screen version of the online map</p>
@@ -1297,6 +1294,108 @@ function WorkflowContent() {
                     )}
                 </div>
             </div>
+
+            {/* Delete Settlement Layers Modal */}
+            {showDeleteSettlementModal && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[1000]">
+                    <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl relative z-[1001]">
+                        <div className="flex items-center gap-3 mb-4">
+                            <AlertTriangle className="w-6 h-6 text-red-600" />
+                            <h3 className="text-lg font-semibold text-slate-900">Delete Settlement Layers?</h3>
+                        </div>
+                        <div className="mb-6">
+                            <p className="text-slate-700 mb-3">
+                                This will permanently delete both the Settlements and Isolated Buildings layers.
+                            </p>
+                            <p className="text-red-600 font-medium text-sm">This action cannot be undone.</p>
+                        </div>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowDeleteSettlementModal(false)}
+                                disabled={isDeletingLayer}
+                                className="flex-1 px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-900 font-medium rounded-lg transition-colors disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDeleteSettlementLayers}
+                                disabled={isDeletingLayer}
+                                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+                            >
+                                {isDeletingLayer ? "Deleting..." : "Delete Layers"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Cropland Layer Modal */}
+            {showDeleteCroplandModal && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[1000]">
+                    <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl relative z-[1001]">
+                        <div className="flex items-center gap-3 mb-4">
+                            <AlertTriangle className="w-6 h-6 text-red-600" />
+                            <h3 className="text-lg font-semibold text-slate-900">Delete Cropland Layer?</h3>
+                        </div>
+                        <div className="mb-6">
+                            <p className="text-slate-700 mb-3">
+                                This will permanently delete the Cropland layer.
+                            </p>
+                            <p className="text-red-600 font-medium text-sm">This action cannot be undone.</p>
+                        </div>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowDeleteCroplandModal(false)}
+                                disabled={isDeletingLayer}
+                                className="flex-1 px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-900 font-medium rounded-lg transition-colors disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDeleteCroplandLayer}
+                                disabled={isDeletingLayer}
+                                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+                            >
+                                {isDeletingLayer ? "Deleting..." : "Delete Layer"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Water Layer Modal */}
+            {showDeleteWaterModal && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[1000]">
+                    <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl relative z-[1001]">
+                        <div className="flex items-center gap-3 mb-4">
+                            <AlertTriangle className="w-6 h-6 text-red-600" />
+                            <h3 className="text-lg font-semibold text-slate-900">Delete Water Layer?</h3>
+                        </div>
+                        <div className="mb-6">
+                            <p className="text-slate-700 mb-3">
+                                This will permanently delete the Water layer.
+                            </p>
+                            <p className="text-red-600 font-medium text-sm">This action cannot be undone.</p>
+                        </div>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowDeleteWaterModal(false)}
+                                disabled={isDeletingLayer}
+                                className="flex-1 px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-900 font-medium rounded-lg transition-colors disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDeleteWaterLayer}
+                                disabled={isDeletingLayer}
+                                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+                            >
+                                {isDeletingLayer ? "Deleting..." : "Delete Layer"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </main>
     )
 }

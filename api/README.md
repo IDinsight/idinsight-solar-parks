@@ -26,6 +26,7 @@ TO DO:
 
 - BUG: FIX DISTANCE MATRIX ON NEW PROJECT etc. First attempt is always wrong. Better after clearing the first distance matrix but still DBScan seems to be stochastic??
 - add slopes
+- add per-layer areas to excel output
 
 - use alembic for migrations
 - also save usable khasra shape
