@@ -131,26 +131,6 @@ export default function FullScreenMapPage() {
                         )}
                     </div>
                 </div>
-
-                {/* Legend */}
-                <div className="flex items-center gap-4 text-xs">
-                    <div className="flex items-center gap-1.5">
-                        <div className="w-3 h-3 border-2 border-slate-700 bg-slate-100" />
-                        <span className="text-slate-600">Khasras</span>
-                    </div>
-                    {parcelsData && (
-                        <div className="flex items-center gap-1.5">
-                            <div className="w-3 h-3 border-2 border-white bg-transparent" />
-                            <span className="text-slate-600">Parcels</span>
-                        </div>
-                    )}
-                    {Object.keys(layersData).length > 0 && (
-                        <div className="flex items-center gap-1.5">
-                            <div className="w-3 h-3 bg-orange-500 opacity-40" />
-                            <span className="text-slate-600">Constraint Layers</span>
-                        </div>
-                    )}
-                </div>
             </div>
 
             {/* Full Screen Map */}
