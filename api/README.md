@@ -29,6 +29,7 @@ TO DO:
 
 - add stringy filter
 - BUG: FIX DISTANCE MATRIX ON NEW PROJECT etc. First attempt is always wrong. Better after clearing the first distance matrix but still DBScan seems to be stochastic??
+- check that area calculations are being done correctly in the correct order etc
 
 - use alembic for migrations
 - also save usable khasra shape

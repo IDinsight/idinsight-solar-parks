@@ -2774,6 +2774,94 @@ def calculate_usable_areas(db: Session, project_id: str) -> gpd.GeoDataFrame:
     return available_gdf
 
 
+def recalculate_areas_and_parcels(db: Session, project_id: str):
+    """Helper function to recalculate areas and update parcels after layer changes"""
+    try:
+        # Recalculate usable areas
+        logger.info(f"Recalculating areas for project {project_id} after layer change")
+        calculate_usable_areas(db, project_id)
+
+        # Check if parcels exist for this project
+        parcels_exist = db.query(ParcelModel).filter(ParcelModel.project_id == project_id).count() > 0
+
+        if parcels_exist:
+            logger.info(f"Recalculating parcel areas for project {project_id}")
+            # Get the latest clustering run
+            clustering_run = (
+                db.query(ClusteringRunModel)
+                .filter(ClusteringRunModel.project_id == project_id)
+                .order_by(ClusteringRunModel.created_at.desc())
+                .first()
+            )
+
+            if clustering_run:
+                # Re-aggregate khasra stats to parcel level
+                khasras_gdf = get_khasras_with_stats_gdf(db, project_id)
+                if khasras_gdf is not None and not khasras_gdf.empty:
+                    # Group by parcel_id and aggregate
+                    parcel_updates = {}
+                    for parcel_id in khasras_gdf['Parcel ID'].unique():
+                        if pd.isna(parcel_id) or "UNCLUSTERED" in str(parcel_id):
+                            continue
+
+                        parcel_khasras = khasras_gdf[khasras_gdf['Parcel ID'] == parcel_id]
+
+                        # Aggregate area columns
+                        original_area = parcel_khasras['Original Area (ha)'].sum()
+                        usable_area = parcel_khasras['Usable Area (ha)'].sum()
+                        unusable_area = parcel_khasras['Unusable Area (ha)'].sum()
+                        usable_available_area = parcel_khasras['Usable and Available Area (ha)'].sum()
+
+                        # Aggregate layer-specific areas
+                        layer_areas_dict = {}
+                        for col in parcel_khasras.columns:
+                            if col.endswith('(ha)') and col not in [
+                                'Original Area (ha)', 'Usable Area (ha)',
+                                'Unusable Area (ha)', 'Usable and Available Area (ha)'
+                            ]:
+                                layer_areas_dict[col] = round(float(parcel_khasras[col].sum()), 2)
+
+                        parcel_updates[parcel_id] = {
+                            'original_area_ha': round(original_area, 2),
+                            'usable_area_ha': round(usable_area, 2),
+                            'unusable_area_ha': round(unusable_area, 2),
+                            'usable_available_area_ha': round(usable_available_area, 2),
+                            'layer_areas': layer_areas_dict if layer_areas_dict else None,
+                        }
+
+                    # Update parcel records
+                    for parcel_id, updates in parcel_updates.items():
+                        parcel = (
+                            db.query(ParcelModel)
+                            .filter(
+                                ParcelModel.project_id == project_id,
+                                ParcelModel.parcel_id == parcel_id
+                            )
+                            .first()
+                        )
+                        if parcel:
+                            parcel.original_area_ha = updates['original_area_ha']
+                            parcel.usable_area_ha = updates['usable_area_ha']
+                            parcel.unusable_area_ha = updates['unusable_area_ha']
+                            parcel.usable_available_area_ha = updates['usable_available_area_ha']
+                            parcel.layer_areas = updates['layer_areas']
+
+                            # Mark as modified for JSONB field
+                            from sqlalchemy.orm import attributes
+                            if updates['layer_areas']:
+                                attributes.flag_modified(parcel, "layer_areas")
+
+                    db.commit()
+                    logger.info(f"Updated {len(parcel_updates)} parcels with new area calculations")
+
+        logger.info(f"Successfully recalculated areas for project {project_id}")
+
+    except Exception as e:
+        logger.error(f"Error recalculating areas for project {project_id}: {str(e)}")
+        # Don't raise - we want layer operations to succeed even if recalculation fails
+        db.rollback()
+
+
 # ============ Clustering ============
 
 
@@ -3555,6 +3643,8 @@ def process_settlement_layer_background(
             min_buildings=min_buildings,
             create_only=False,
         )
+        # Automatically recalculate areas after layer is added
+        recalculate_areas_and_parcels(db, project_id)
     except Exception as e:
         print(f"Error in background settlement layer processing: {e}")
         # The function already marks layers as failed in the database
@@ -3573,6 +3663,8 @@ def process_cropland_layer_background(project_id: str):
             project_id=project_id,
             create_only=False,
         )
+        # Automatically recalculate areas after layer is added
+        recalculate_areas_and_parcels(db, project_id)
     except Exception as e:
         print(f"Error in background cropland layer processing: {e}")
         # The function already marks layer as failed in the database
@@ -3591,6 +3683,8 @@ def process_water_layer_background(project_id: str):
             project_id=project_id,
             create_only=False,
         )
+        # Automatically recalculate areas after layer is added
+        recalculate_areas_and_parcels(db, project_id)
     except Exception as e:
         print(f"Error in background water layer processing: {e}")
         # The function already marks layer as failed in the database
@@ -3619,6 +3713,8 @@ def process_slopes_layer_background(
             other_min_angle=other_min_angle,
             create_only=False,
         )
+        # Automatically recalculate areas after layer is added
+        recalculate_areas_and_parcels(db, project_id)
     except Exception as e:
         print(f"Error in background slopes layer processing: {e}")
         # The function already marks layer as failed in the database
@@ -3646,6 +3742,8 @@ def process_custom_layer_background(
             layer_name=layer_name,
             is_unusable=is_unusable,
         )
+        # Automatically recalculate areas after layer is added
+        recalculate_areas_and_parcels(db, project_id)
     except Exception as e:
         print(f"Error in background custom layer processing: {e}")
         # The function already marks layer as failed in the database

@@ -959,11 +959,19 @@ async def delete_layer_endpoint(
 
     # Delete layer features first (cascade should handle this, but being explicit)
     db.execute(sql_delete(LayerFeatureModel).where(LayerFeatureModel.layer_id == layer.id))
-    
+
     # Delete the layer
     db.delete(layer)
     db.commit()
-    
+
+    # Automatically recalculate areas after layer deletion
+    try:
+        from services import recalculate_areas_and_parcels
+        recalculate_areas_and_parcels(db, project_id)
+    except Exception as e:
+        # Log but don't fail the deletion if recalculation fails
+        print(f"Warning: Failed to recalculate areas after layer deletion: {e}")
+
     return None
 
 
