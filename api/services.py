@@ -416,6 +416,10 @@ def get_khasras_with_stats_gdf(
             row["Unusable Area (%)"] = 0
             row["Usable and Available Area (%)"] = 0
 
+        # Add layer-specific areas
+        if k.layer_areas:
+            row.update(k.layer_areas)
+
         if k.properties:
             row.update(k.properties)
         data.append(row)
@@ -448,6 +452,7 @@ def get_khasras(db: Session, project_id: str) -> Dict[str, Any]:
         KhasraModel.unusable_area_ha,
         KhasraModel.usable_available_area_ha,
         KhasraModel.parcel_id,
+        KhasraModel.layer_areas,
         KhasraModel.properties,
     ).filter(KhasraModel.project_id == project_id)
 
@@ -464,6 +469,7 @@ def get_khasras(db: Session, project_id: str) -> Dict[str, Any]:
         unusable_area_ha,
         usable_available_area_ha,
         parcel_id,
+        layer_areas,
         props,
     ) in khasras_data:
         geometry = json.loads(geojson_str) if geojson_str else None
@@ -479,7 +485,7 @@ def get_khasras(db: Session, project_id: str) -> Dict[str, Any]:
             "parcel_id": parcel_id,
             **(props or {}),
         }
-        
+
         # Calculate percentages if original_area_ha is available
         if original_area_ha and original_area_ha > 0:
             if usable_area_ha is not None:
@@ -488,6 +494,23 @@ def get_khasras(db: Session, project_id: str) -> Dict[str, Any]:
                 properties["unusable_area_percent"] = round((unusable_area_ha / original_area_ha) * 100, 2)
             if usable_available_area_ha is not None:
                 properties["usable_available_area_percent"] = round((usable_available_area_ha / original_area_ha) * 100, 2)
+
+        # Add layer-specific areas if available
+        if layer_areas:
+            properties.update(layer_areas)
+
+        # Build a human-readable description for tooltips
+        description_parts = []
+        if original_area_ha:
+            description_parts.append(f"Area: {round(original_area_ha, 2)} ha")
+        if usable_area_ha is not None and original_area_ha:
+            usable_pct = round((usable_area_ha / original_area_ha) * 100, 1)
+            description_parts.append(f"Usable: {round(usable_area_ha, 2)} ha ({usable_pct}%)")
+        if unusable_area_ha is not None and original_area_ha:
+            unusable_pct = round((unusable_area_ha / original_area_ha) * 100, 1)
+            description_parts.append(f"Unusable: {round(unusable_area_ha, 2)} ha ({unusable_pct}%)")
+
+        properties["description"] = " | ".join(description_parts) if description_parts else "No area calculated yet"
 
         features.append(
             {
@@ -2558,6 +2581,7 @@ def _save_builtin_layer_with_status(
     # Update layer metadata
     layer.feature_count = len(layer_gdf)
     layer.total_area_ha = round(layer_gdf[area_col].sum(), 2)
+    layer.parameters = {"area_col": area_col}
     db.flush()
 
     # Store per-khasra layer features in database
@@ -2689,6 +2713,7 @@ def calculate_usable_areas(db: Session, project_id: str) -> gpd.GeoDataFrame:
     )
 
     # Add layer-specific area columns from layer_features
+    layer_area_columns = []
     for layer in layers:
         if layer.parameters:
             area_col = layer.parameters.get("area_col")
@@ -2711,6 +2736,7 @@ def calculate_usable_areas(db: Session, project_id: str) -> gpd.GeoDataFrame:
                 available_gdf[area_col] = available_gdf["Khasra ID (Unique)"].map(
                     lambda x: khasra_areas.get(x, 0)
                 )
+                layer_area_columns.append(area_col)
 
     # Update khasra records in database with calculated areas
     for _, row in available_gdf.iterrows():
@@ -2731,6 +2757,16 @@ def calculate_usable_areas(db: Session, project_id: str) -> gpd.GeoDataFrame:
                 khasra.usable_available_area_ha = round(
                     row.get("Usable and Available Area (ha)", 0), 4
                 )
+
+                # Store per-layer areas in JSONB field
+                if layer_area_columns:
+                    layer_areas_dict = {}
+                    for col in layer_area_columns:
+                        value = row.get(col, 0)
+                        if pd.notna(value):
+                            layer_areas_dict[col] = round(float(value), 4)
+                    if layer_areas_dict:
+                        khasra.layer_areas = layer_areas_dict
 
     project.updated_at = datetime.utcnow()
     db.commit()
@@ -2948,9 +2984,30 @@ def cluster_khasras(
     db.add(clustering_run)
     db.flush()  # Get the clustering_run.id
 
+    # Identify layer-specific area columns for parcels
+    standard_parcel_columns = {
+        cluster_id_col, "Khasra Count", "Khasra ID (Unique)", "Original Area (ha)",
+        "Usable Area (ha)", "Unusable Area (ha)", "Usable and Available Area (ha)",
+        "Usable but Unavailable Area (ha)", "Unusable Area (%)", "Usable Area (%)",
+        "Usable and Available Area (%)", "Usable but Unavailable Area (%)",
+        "Building Count", "geometry"
+    }
+    layer_columns_in_parcels = [
+        col for col in parcel_gdf_4326.columns
+        if col not in standard_parcel_columns and pd.api.types.is_numeric_dtype(parcel_gdf_4326[col])
+    ]
+
     # Store parcels in database
     for _, row in parcel_gdf_4326.iterrows():
         geom = ensure_multipolygon(row.geometry)
+
+        # Extract layer-specific areas
+        layer_areas_dict = {}
+        for col in layer_columns_in_parcels:
+            value = row.get(col)
+            if pd.notna(value):
+                layer_areas_dict[col] = round(float(value), 2)
+
         parcel = ParcelModel(
             clustering_run_id=clustering_run.id,
             project_id=project_id,
@@ -2967,6 +3024,7 @@ def cluster_khasras(
             building_count=int(row.get("Building Count", 0))
             if "Building Count" in row
             else 0,
+            layer_areas=layer_areas_dict if layer_areas_dict else None,
         )
         db.add(parcel)
 

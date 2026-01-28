@@ -28,8 +28,6 @@ DONE:
 TO DO:
 
 - add stringy filter
-- add per-layer areas to excel output
-- khasra tooltip before layers etc shows N/A - should show original area.
 - BUG: FIX DISTANCE MATRIX ON NEW PROJECT etc. First attempt is always wrong. Better after clearing the first distance matrix but still DBScan seems to be stochastic??
 
 - use alembic for migrations
@@ -125,6 +123,17 @@ Environment variables (set in `.env` file):
 | `POSTGRES_PORT` | 5432 | PostgreSQL port |
 | `POSTGRES_DB` | solar_parks | PostgreSQL database name |
 | `DATA_DIR` | ./data | Directory for cache files (distance matrices) |
+
+## Database Migration (If Upgrading)
+
+If you have an existing database and are upgrading to a version that includes per-layer area tracking, run the migration script:
+
+```bash
+cd api
+python add_layer_areas_column.py
+```
+
+This adds the `layer_areas` JSONB column to the `khasras` table.
 
 ## Running the Server
 

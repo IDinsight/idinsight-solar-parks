@@ -104,7 +104,10 @@ class KhasraModel(Base):
     
     # Clustering
     parcel_id = Column(String(100), nullable=True)
-    
+
+    # Layer-specific areas
+    layer_areas = Column(JSONB, nullable=True)
+
     # Additional properties as JSON
     properties = Column(JSONB, nullable=True)
     
