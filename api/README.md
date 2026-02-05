@@ -24,6 +24,8 @@ DONE:
 - make maps take up whole right side and not refresh with every page change
 - bug fixes
 - try for sagar
+- try for Damoh
+- BUG: FIX DISTANCE MATRIX ON NEW PROJECT etc. First attempt is always RIGHT. Reruns are always wrong. Fix saving and loading of matrix / khasras.
 
 TO DO:
 
@@ -32,7 +34,7 @@ TO DO:
 - update parcel stats to distinguish usable and available area
 - Fix map and stats auto-updates (hover is still N/A before refresh, slopes didn't auto update)
 - add stringy filter (new "Clean Khasras" page?)
-- BUG: FIX DISTANCE MATRIX ON NEW PROJECT etc. First attempt is always wrong. Better after clearing the first distance matrix but still DBScan seems to be stochastic??
+
 - rework ID naming
 
 - use alembic for migrations

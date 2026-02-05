@@ -291,6 +291,21 @@ def process_khasra_upload(
     # First, delete any existing khasras for this project
     db.query(KhasraModel).filter(KhasraModel.project_id == project_id).delete()
 
+    # Invalidate distance matrix since khasras are being replaced
+    if project.distance_matrix_path:
+        try:
+            file_storage.delete_file(project.distance_matrix_path)
+            # Also delete metadata
+            metadata_path = project.distance_matrix_path.replace(
+                "distance_matrix.npy",
+                "distance_matrix_metadata.json"
+            )
+            file_storage.delete_file(metadata_path)
+        except Exception as e:
+            logger.warning(f"Failed to delete distance matrix files: {e}")
+
+        project.distance_matrix_path = None
+
     for idx, row in gdf_4326.iterrows():
         geom = ensure_multipolygon(row.geometry)
         if geom is None:
@@ -350,8 +365,13 @@ def get_khasras_gdf(
         project_id: Project ID
         projected: If True, return GDF in India projected CRS (EPSG:24378) for area calculations
     """
-    # Query khasras from database
-    khasras = db.query(KhasraModel).filter(KhasraModel.project_id == project_id).all()
+    # Query khasras from database with consistent ordering
+    khasras = (
+        db.query(KhasraModel)
+        .filter(KhasraModel.project_id == project_id)
+        .order_by(KhasraModel.khasra_id_unique)
+        .all()
+    )
 
     if not khasras:
         return None
@@ -385,7 +405,12 @@ def get_khasras_with_stats_gdf(
     db: Session, project_id: str
 ) -> Optional[gpd.GeoDataFrame]:
     """Load khasras GeoDataFrame with all calculated stats from database"""
-    khasras = db.query(KhasraModel).filter(KhasraModel.project_id == project_id).all()
+    khasras = (
+        db.query(KhasraModel)
+        .filter(KhasraModel.project_id == project_id)
+        .order_by(KhasraModel.khasra_id_unique)
+        .all()
+    )
 
     if not khasras:
         return None
@@ -2988,6 +3013,58 @@ def build_optimised_distance_matrix(
     return distance_matrix
 
 
+def _create_distance_matrix_metadata(khasra_ids: List[str]) -> Dict[str, Any]:
+    """Create metadata for distance matrix validation"""
+    import hashlib
+    from datetime import datetime
+
+    ids_string = ",".join(khasra_ids)
+    checksum = hashlib.sha256(ids_string.encode()).hexdigest()
+
+    return {
+        "khasra_ids": khasra_ids,
+        "count": len(khasra_ids),
+        "created_at": datetime.utcnow().isoformat(),
+        "checksum": checksum,
+    }
+
+
+def _validate_distance_matrix_metadata(
+    metadata: Dict[str, Any],
+    current_khasra_ids: List[str]
+) -> bool:
+    """Validate that saved distance matrix matches current khasras
+
+    Returns True if valid, False if matrix should be rebuilt
+    """
+    import hashlib
+
+    # Check count
+    if metadata.get("count") != len(current_khasra_ids):
+        logger.info(
+            f"Distance matrix invalid: count mismatch "
+            f"(saved: {metadata.get('count')}, current: {len(current_khasra_ids)})"
+        )
+        return False
+
+    # Quick checksum validation
+    ids_string = ",".join(current_khasra_ids)
+    current_checksum = hashlib.sha256(ids_string.encode()).hexdigest()
+
+    if metadata.get("checksum") != current_checksum:
+        logger.info("Distance matrix invalid: checksum mismatch")
+        return False
+
+    # Full ID comparison (safety check)
+    saved_ids = metadata.get("khasra_ids", [])
+    if saved_ids != current_khasra_ids:
+        logger.info("Distance matrix invalid: khasra IDs don't match")
+        return False
+
+    logger.info("Distance matrix validation passed")
+    return True
+
+
 def format_cluster_labels(
     gdf: gpd.GeoDataFrame,
     cluster_id_col: str,
@@ -3054,24 +3131,62 @@ def cluster_khasras(
 
     # Build or load distance matrix
     found_distance_matrix = False
+
+    # Get ordered khasra IDs for validation
+    current_khasra_ids = original_gdf_with_stats["Khasra ID (Unique)"].tolist()
+
     if project.distance_matrix_path:
+        # Try to load existing matrix
         distance_matrix = file_storage.load_numpy_array(project.distance_matrix_path)
-        if distance_matrix is not None and distance_matrix.shape[0] == len(
-            original_gdf_with_stats
-        ):
-            logger.info("Loaded existing distance matrix from storage")
-            found_distance_matrix = True
+
+        # Try to load metadata
+        metadata_path = project.distance_matrix_path.replace(
+            "distance_matrix.npy",
+            "distance_matrix_metadata.json"
+        )
+        metadata = file_storage.load_json(metadata_path)
+
+        # Validate matrix and metadata
+        if distance_matrix is not None and metadata is not None:
+            if _validate_distance_matrix_metadata(metadata, current_khasra_ids):
+                logger.info("Loaded existing distance matrix from storage")
+                found_distance_matrix = True
+            else:
+                logger.info("Distance matrix validation failed, rebuilding")
+                file_storage.delete_file(project.distance_matrix_path)
+                if metadata_path:
+                    file_storage.delete_file(metadata_path)
+                project.distance_matrix_path = None
+        elif distance_matrix is not None:
+            # Backward compatibility: matrix exists but no metadata
+            if distance_matrix.shape[0] == len(original_gdf_with_stats):
+                logger.info("Loaded existing distance matrix (no metadata validation)")
+                found_distance_matrix = True
+            else:
+                logger.info("Distance matrix shape mismatch, rebuilding")
+                file_storage.delete_file(project.distance_matrix_path)
+                project.distance_matrix_path = None
 
     if not found_distance_matrix:
+        # Build new matrix
         distance_matrix = build_optimised_distance_matrix(
             gdf=original_gdf_with_stats,
             max_distance_considered=settings.MAX_DISTANCE_CONSIDERED,
             n_jobs=-1,
         )
         logger.info("Built new distance matrix")
+
+        # Save matrix
         distance_matrix_path = file_storage.save_numpy_array(
             distance_matrix, project_id, "clustering/distance_matrix.npy"
         )
+
+        # Save metadata
+        metadata = _create_distance_matrix_metadata(current_khasra_ids)
+        file_storage.save_json(
+            metadata, project_id, "clustering/distance_matrix_metadata.json"
+        )
+
         project.distance_matrix_path = distance_matrix_path
 
     # Perform clustering
