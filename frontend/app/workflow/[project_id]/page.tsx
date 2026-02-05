@@ -814,8 +814,39 @@ function WorkflowContent() {
         settlementLayerStatus?.settlements?.status === "successful" &&
         settlementLayerStatus?.isolated?.status === "successful"
     )
-    const canProceedToClustering = isKhasraUploadComplete && areSettlementLayersComplete
-    const canProceedToExport = isKhasraUploadComplete && areSettlementLayersComplete && isClusteringComplete
+
+    // Check if ALL requested layers have completed successfully
+    const areAllRequestedLayersComplete = () => {
+        // Settlement layers are always checked
+        if (!areSettlementLayersComplete) {
+            return false
+        }
+
+        // Check cropland layer if it was requested
+        if (croplandLayerStatus && croplandLayerStatus.status !== "successful") {
+            return false
+        }
+
+        // Check water layer if it was requested
+        if (waterLayerStatus && waterLayerStatus.status !== "successful") {
+            return false
+        }
+
+        // Check north slopes layer if it was requested
+        if (northSlopesLayerStatus && northSlopesLayerStatus.status !== "successful") {
+            return false
+        }
+
+        // Check other slopes layer if it was requested
+        if (otherSlopesLayerStatus && otherSlopesLayerStatus.status !== "successful") {
+            return false
+        }
+
+        return true
+    }
+
+    const canProceedToClustering = isKhasraUploadComplete && areAllRequestedLayersComplete()
+    const canProceedToExport = isKhasraUploadComplete && areAllRequestedLayersComplete() && isClusteringComplete
 
     return (
         <main className="min-h-screen bg-slate-50 flex flex-col">
