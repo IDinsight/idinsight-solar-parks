@@ -622,6 +622,69 @@ def update_layer_status(db: Session, layer: LayerModel, status: str, details: st
     print(f"[LAYER STATUS] Layer '{layer.name}' {status.upper()}: {details}")
 
 
+def format_success_message(feature_count: int, area_ha: float) -> str:
+    """
+    Generate standardized success message for layer processing.
+
+    Args:
+        feature_count: Number of features processed
+        area_ha: Total area in hectares
+
+    Returns:
+        Formatted success message
+    """
+    return f"Processed {feature_count} features covering {area_ha} ha"
+
+
+def format_success_no_data_message() -> str:
+    """
+    Generate standardized no-data message for layer processing.
+
+    Returns:
+        Formatted no-data message
+    """
+    return "No features found in project area"
+
+
+def format_error_message(exception: Exception, context: str = "") -> str:
+    """
+    Generate user-friendly error message with technical details.
+
+    Args:
+        exception: The exception that occurred
+        context: Optional context about what was being done when error occurred
+
+    Returns:
+        Formatted error message with user-friendly reason and technical details
+    """
+    # Categorize the exception
+    if isinstance(exception, FileNotFoundError):
+        user_reason = "Required data not available"
+    elif isinstance(exception, ValueError):
+        error_msg = str(exception).lower()
+        if "not found" in error_msg or "must be uploaded" in error_msg:
+            user_reason = "Invalid configuration or missing prerequisites"
+        elif "no data found" in error_msg or "no rooftop data" in error_msg:
+            user_reason = "Required data not available in this area"
+        elif "authenticate" in error_msg or "credentials" in error_msg:
+            user_reason = "External data source authentication failed"
+        else:
+            user_reason = "Invalid configuration or data format"
+    elif "authenticate" in str(exception).lower() or "credentials" in str(exception).lower():
+        user_reason = "External data source authentication failed"
+    elif any(keyword in str(exception).lower() for keyword in ["geometry", "invalid", "corrupt"]):
+        user_reason = "Processing failed due to data quality issues"
+    else:
+        user_reason = "An unexpected error occurred"
+
+    # Build the message
+    technical_details = str(exception)
+    if context:
+        return f"Processing failed: {user_reason}. Context: {context}. Technical details: {technical_details}"
+    else:
+        return f"Processing failed: {user_reason}. Technical details: {technical_details}"
+
+
 def process_custom_layer_upload(
     db: Session,
     file_content: bytes,
@@ -783,7 +846,7 @@ def process_custom_layer_upload(
     except Exception as e:
         # Mark layer as failed
         layer.status = "failed"
-        layer.details = f"Error: {str(e)}"
+        layer.details = format_error_message(e, "processing custom layer")
         db.commit()
         raise
 
@@ -1340,9 +1403,7 @@ def process_settlement_layer(
             results.append(settlements_info)
         else:
             settlements_layer.status = "successful"
-            settlements_layer.details = (
-                "No settlements found (no building clusters meeting criteria)"
-            )
+            settlements_layer.details = format_success_no_data_message()
             settlements_layer.feature_count = 0
             settlements_layer.total_area_ha = 0.0
             db.commit()
@@ -1357,7 +1418,7 @@ def process_settlement_layer(
                     area_ha=0.0,
                     feature_count=0,
                     status="successful",
-                    details="No settlements found (no building clusters meeting criteria)",
+                    details=format_success_no_data_message(),
                 )
             )
 
@@ -1391,7 +1452,7 @@ def process_settlement_layer(
             results.append(isolated_info)
         else:
             isolated_layer.status = "successful"
-            isolated_layer.details = "No isolated buildings found"
+            isolated_layer.details = format_success_no_data_message()
             isolated_layer.feature_count = 0
             isolated_layer.total_area_ha = 0.0
             db.commit()
@@ -1406,7 +1467,7 @@ def process_settlement_layer(
                     area_ha=0.0,
                     feature_count=0,
                     status="successful",
-                    details="No isolated buildings found",
+                    details=format_success_no_data_message(),
                 )
             )
 
@@ -1420,9 +1481,9 @@ def process_settlement_layer(
     except Exception as e:
         # Mark both layers as failed
         settlements_layer.status = "failed"
-        settlements_layer.details = f"Error: {str(e)}"
+        settlements_layer.details = format_error_message(e, "processing settlements")
         isolated_layer.status = "failed"
-        isolated_layer.details = f"Error: {str(e)}"
+        isolated_layer.details = format_error_message(e, "processing isolated buildings")
         db.commit()
         raise
 
@@ -1588,7 +1649,7 @@ def process_cropland_layer(
                 db,
                 cropland_layer,
                 "successful",
-                "No cropland found in project area",
+                format_success_no_data_message(),
             )
             cropland_layer.feature_count = 0
             cropland_layer.total_area_ha = 0.0
@@ -1601,7 +1662,7 @@ def process_cropland_layer(
                 is_unusable=True,
                 parameters={},
                 status="successful",
-                details="No cropland found",
+                details=format_success_no_data_message(),
                 area_ha=0,
                 feature_count=0,
             )
@@ -1638,8 +1699,9 @@ def process_cropland_layer(
 
         # Update layer status
         cropland_layer.status = "successful"
-        cropland_layer.details = (
-            f"Successfully processed {len(cropland_overlay_gdf)} cropland features"
+        cropland_layer.details = format_success_message(
+            cropland_layer.feature_count,
+            cropland_layer.total_area_ha
         )
         db.commit()
 
@@ -1651,7 +1713,7 @@ def process_cropland_layer(
 
     except Exception as e:
         cropland_layer.status = "failed"
-        cropland_layer.details = f"Error: {str(e)}"
+        cropland_layer.details = format_error_message(e, "processing cropland layer")
         db.commit()
         raise
 
@@ -1812,7 +1874,7 @@ def process_water_layer(
 
         if water_shapes_gdf.empty:
             update_layer_status(
-                db, water_layer, "successful", "No water bodies found in project area"
+                db, water_layer, "successful", format_success_no_data_message()
             )
             water_layer.feature_count = 0
             water_layer.total_area_ha = 0.0
@@ -1825,7 +1887,7 @@ def process_water_layer(
                 is_unusable=True,
                 parameters={},
                 status="successful",
-                details="No water bodies found",
+                details=format_success_no_data_message(),
                 area_ha=0,
                 feature_count=0,
             )
@@ -1857,8 +1919,9 @@ def process_water_layer(
 
         # Update layer status
         water_layer.status = "successful"
-        water_layer.details = (
-            f"Successfully processed {len(water_overlay_gdf)} water features"
+        water_layer.details = format_success_message(
+            water_layer.feature_count,
+            water_layer.total_area_ha
         )
         db.commit()
 
@@ -1870,7 +1933,7 @@ def process_water_layer(
 
     except Exception as e:
         water_layer.status = "failed"
-        water_layer.details = f"Error: {str(e)}"
+        water_layer.details = format_error_message(e, "processing water layer")
         db.commit()
         raise
 
@@ -2335,12 +2398,12 @@ def process_slopes_layer(
             # Mark layers as successful with no data
             if north_layer:
                 north_layer.status = "successful"
-                north_layer.details = "No north slopes found matching criteria"
+                north_layer.details = format_success_no_data_message()
                 north_layer.feature_count = 0
                 north_layer.total_area_ha = 0.0
             if other_layer:
                 other_layer.status = "successful"
-                other_layer.details = "No other slopes found matching criteria"
+                other_layer.details = format_success_no_data_message()
                 other_layer.feature_count = 0
                 other_layer.total_area_ha = 0.0
 
@@ -2373,11 +2436,14 @@ def process_slopes_layer(
                     area_col=area_col,
                 )
                 north_layer.status = "successful"
-                north_layer.details = f"Processed {len(north_overlay_gdf)} khasras with north slopes"
+                north_layer.details = format_success_message(
+                    north_layer.feature_count,
+                    north_layer.total_area_ha
+                )
                 result_layers.append(layer_info)
             else:
                 north_layer.status = "successful"
-                north_layer.details = "No north slopes overlap with khasras"
+                north_layer.details = format_success_no_data_message()
                 north_layer.feature_count = 0
                 north_layer.total_area_ha = 0.0
 
@@ -2404,11 +2470,14 @@ def process_slopes_layer(
                     area_col=area_col,
                 )
                 other_layer.status = "successful"
-                other_layer.details = f"Processed {len(other_overlay_gdf)} khasras with other slopes"
+                other_layer.details = format_success_message(
+                    other_layer.feature_count,
+                    other_layer.total_area_ha
+                )
                 result_layers.append(layer_info)
             else:
                 other_layer.status = "successful"
-                other_layer.details = "No other slopes overlap with khasras"
+                other_layer.details = format_success_no_data_message()
                 other_layer.feature_count = 0
                 other_layer.total_area_ha = 0.0
 
@@ -2442,7 +2511,7 @@ def process_slopes_layer(
         ).first()
         if north_layer:
             north_layer.status = "failed"
-            north_layer.details = f"Error: {str(e)}"
+            north_layer.details = format_error_message(e, "processing north-facing slopes")
 
         other_layer = db.query(LayerModel).filter(
             LayerModel.project_id == project_id,
@@ -2450,7 +2519,7 @@ def process_slopes_layer(
         ).first()
         if other_layer:
             other_layer.status = "failed"
-            other_layer.details = f"Error: {str(e)}"
+            other_layer.details = format_error_message(e, "processing other-facing slopes")
 
         db.commit()
         raise
@@ -2623,7 +2692,7 @@ def _save_builtin_layer_with_status(
 
     # Mark as successful
     layer.status = "successful"
-    layer.details = f"Layer processed successfully. {layer.feature_count} features, {layer.total_area_ha} ha total area."
+    layer.details = format_success_message(layer.feature_count, layer.total_area_ha)
     db.commit()
 
     return LayerInfo(

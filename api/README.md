@@ -27,9 +27,13 @@ DONE:
 
 TO DO:
 
-- add stringy filter
-- BUG: FIX DISTANCE MATRIX ON NEW PROJECT etc. First attempt is always wrong. Better after clearing the first distance matrix but still DBScan seems to be stochastic??
 - check that area calculations are being done correctly in the correct order etc
+- fix building_count on excel or remove
+- update parcel stats to distinguish usable and available area
+- Fix map and stats auto-updates (hover is still N/A before refresh, slopes didn't auto update)
+- add stringy filter (new "Clean Khasras" page?)
+- BUG: FIX DISTANCE MATRIX ON NEW PROJECT etc. First attempt is always wrong. Better after clearing the first distance matrix but still DBScan seems to be stochastic??
+- rework ID naming
 
 - use alembic for migrations
 - also save usable khasra shape
