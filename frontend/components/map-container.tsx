@@ -361,15 +361,18 @@ const LeafletMap = dynamic(
             tooltipContent += `Parcel: ${props.parcel_id}<br/>`
           }
 
-          // Add tooltip on hover
+          // Bind tooltip but don't auto-open it
           layer.bindTooltip(tooltipContent, {
             permanent: false,
             direction: 'top',
-            className: 'khasra-tooltip',
-            sticky: true, // Follow mouse cursor
+            className: 'khasra-tooltip'
           })
 
-          // Explicitly handle mouseout to ensure tooltip closes
+          // Manually control tooltip opening and closing to prevent sticking
+          layer.on('mouseover', function (e: any) {
+            layer.openTooltip(e.latlng)
+          })
+
           layer.on('mouseout', function () {
             layer.closeTooltip()
           })
@@ -416,17 +419,21 @@ const LeafletMap = dynamic(
           const usablePercent = originalAreaHa > 0 ? (usableAreaHa / originalAreaHa) * 100 : 0
           const usableAvailablePercent = originalAreaHa > 0 ? (usableAvailableAreaHa / originalAreaHa) * 100 : 0
 
-          // Add tooltip on hover
+          // Bind tooltip but don't auto-open it
           layer.bindTooltip(
             `<strong>${parcelId}</strong><br/>` +
             `Khasras: ${khasraCount}<br/>` +
             `Original Area: ${originalAreaHa.toFixed(1)} ha<br/>` +
             `Usable Area: ${usableAreaHa.toFixed(1)} ha (${usablePercent.toFixed(1)}%)<br/>` +
             `Usable + Available: ${usableAvailableAreaHa.toFixed(1)} ha (${usableAvailablePercent.toFixed(1)}%)`,
-            { permanent: false, direction: 'top', sticky: true }
+            { permanent: false, direction: 'top' }
           )
 
-          // Explicitly handle mouseout to ensure tooltip closes
+          // Manually control tooltip opening and closing to prevent sticking
+          layer.on('mouseover', function (e: any) {
+            layer.openTooltip(e.latlng)
+          })
+
           layer.on('mouseout', function () {
             layer.closeTooltip()
           })
