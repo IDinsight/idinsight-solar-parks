@@ -31,16 +31,13 @@ DONE:
 - Fix loading behaviour while we wait for lots of shapes!
 - Fix map and stats auto-updates (hover is still N/A before refresh, slopes didn't auto update)
 - fix building_count on excel or remove
+- check that area calculations are being done correctly in the correct order etc
 
 TO DO:
 
-- check that area calculations are being done correctly in the correct order etc
 - add stringy filter (new "Clean Khasras" page?)
-
 - rework ID naming
-
 - refactor and split files. change out of service structure.
-
 - use alembic for migrations
 - also save usable khasra shape
 
