@@ -365,7 +365,13 @@ const LeafletMap = dynamic(
           layer.bindTooltip(tooltipContent, {
             permanent: false,
             direction: 'top',
-            className: 'khasra-tooltip'
+            className: 'khasra-tooltip',
+            sticky: true, // Follow mouse cursor
+          })
+
+          // Explicitly handle mouseout to ensure tooltip closes
+          layer.on('mouseout', function () {
+            layer.closeTooltip()
           })
         }
       }
@@ -417,8 +423,13 @@ const LeafletMap = dynamic(
             `Original Area: ${originalAreaHa.toFixed(1)} ha<br/>` +
             `Usable Area: ${usableAreaHa.toFixed(1)} ha (${usablePercent.toFixed(1)}%)<br/>` +
             `Usable + Available: ${usableAvailableAreaHa.toFixed(1)} ha (${usableAvailablePercent.toFixed(1)}%)`,
-            { permanent: false, direction: 'top' }
+            { permanent: false, direction: 'top', sticky: true }
           )
+
+          // Explicitly handle mouseout to ensure tooltip closes
+          layer.on('mouseout', function () {
+            layer.closeTooltip()
+          })
 
           // Add permanent label in the center of the parcel
           layer.on('add', function () {
