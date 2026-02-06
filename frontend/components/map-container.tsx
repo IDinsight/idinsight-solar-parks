@@ -396,13 +396,21 @@ const LeafletMap = dynamic(
         if (feature.properties && feature.properties.parcel_id) {
           const parcelId = feature.properties.parcel_id
           const khasraCount = feature.properties.khasra_count || 0
+          const originalAreaHa = feature.properties.original_area_ha || 0
           const usableAreaHa = feature.properties.usable_area_ha || 0
+          const usableAvailableAreaHa = feature.properties.usable_available_area_ha || 0
+
+          // Calculate percentages
+          const usablePercent = originalAreaHa > 0 ? (usableAreaHa / originalAreaHa) * 100 : 0
+          const usableAvailablePercent = originalAreaHa > 0 ? (usableAvailableAreaHa / originalAreaHa) * 100 : 0
 
           // Add tooltip on hover
           layer.bindTooltip(
             `<strong>${parcelId}</strong><br/>` +
             `Khasras: ${khasraCount}<br/>` +
-            `Usable Area: ${usableAreaHa.toFixed(1)} ha`,
+            `Original Area: ${originalAreaHa.toFixed(1)} ha<br/>` +
+            `Usable Area: ${usableAreaHa.toFixed(1)} ha (${usablePercent.toFixed(1)}%)<br/>` +
+            `Usable + Available: ${usableAvailableAreaHa.toFixed(1)} ha (${usableAvailablePercent.toFixed(1)}%)`,
             { permanent: false, direction: 'top' }
           )
 

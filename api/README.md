@@ -26,12 +26,12 @@ DONE:
 - try for sagar
 - try for Damoh
 - BUG: FIX DISTANCE MATRIX ON NEW PROJECT etc. First attempt is always RIGHT. Reruns are always wrong. Fix saving and loading of matrix / khasras.
+- update parcel stats to distinguish usable and available area
 
 TO DO:
 
 - check that area calculations are being done correctly in the correct order etc
 - fix building_count on excel or remove
-- update parcel stats to distinguish usable and available area
 - Fix map and stats auto-updates (hover is still N/A before refresh, slopes didn't auto update)
 - add stringy filter (new "Clean Khasras" page?)
 
@@ -45,7 +45,6 @@ Later:
 - First add buildings, then add settlements. Show all buildings on map always.
 - show inter-khasra distance histogram to help with threshold selection. give suggested threshold.
 - clustering based on usable shapes?
-- thin-area filtering?
 - flood risk?
 - host on AWS
 - user management with permissions
