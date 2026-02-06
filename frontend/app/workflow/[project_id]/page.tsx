@@ -96,6 +96,7 @@ function WorkflowContent() {
     // Map visualization state
     const [mapCenter, setMapCenter] = useState<[number, number]>([20, 0])
     const [mapZoom, setMapZoom] = useState(5)
+    const [khasraDataVersion, setKhasraDataVersion] = useState(0) // Increment to force map remount
 
     // Map link state
     const [mapLinkCopied, setMapLinkCopied] = useState(false)
@@ -286,6 +287,17 @@ function WorkflowContent() {
                     setConstraintLayersGeoJSON(layersGeoJSON)
                     const project = await api.getProject(currentProject.id)
                     updateProject(project)
+
+                    // Reload khasra data to get updated layer areas for tooltips
+                    try {
+                        const khasraSummary = await api.getKhasrasSummary(currentProject.id)
+                        if (khasraSummary.geojson) {
+                            setKhasraGeoJSON(khasraSummary.geojson)
+                            setKhasraDataVersion(prev => prev + 1) // Force map remount with new data
+                        }
+                    } catch (error) {
+                        console.error('Failed to reload khasra data:', error)
+                    }
                 }
             } catch (error) {
                 console.error("Error polling layer status:", error)
@@ -334,6 +346,7 @@ function WorkflowContent() {
                         const khasraSummary = await api.getKhasrasSummary(currentProject.id)
                         if (khasraSummary.geojson) {
                             setKhasraGeoJSON(khasraSummary.geojson)
+                            setKhasraDataVersion(prev => prev + 1) // Force map remount with new data
 
                             // Center map on khasra bounds if available
                             if (khasraSummary.bounds) {
@@ -403,6 +416,7 @@ function WorkflowContent() {
             setKhasraGeoJSON(geoJSONData)
             setKhasraIdColumn(uniqueIdColumn)
             setIsKhasraUploadComplete(true)
+            setKhasraDataVersion(prev => prev + 1) // Force map remount with new data
 
             // Center map on uploaded data using response bounds
             if (uploadResponse.bounds) {
@@ -481,6 +495,13 @@ function WorkflowContent() {
 
             const updatedProject = await api.getProject(currentProject.id)
             updateProject(updatedProject)
+
+            // Reload khasra data to get updated layer areas for tooltips
+            const khasraSummary = await api.getKhasrasSummary(currentProject.id)
+            if (khasraSummary.geojson) {
+                setKhasraGeoJSON(khasraSummary.geojson)
+                setKhasraDataVersion(prev => prev + 1) // Force map remount with new data
+            }
         } catch (error: any) {
             setError(error.response?.data?.detail || 'Failed to delete layers')
             console.error("Error deleting settlement layers:", error)
@@ -540,6 +561,13 @@ function WorkflowContent() {
 
             const updatedProject = await api.getProject(currentProject.id)
             updateProject(updatedProject)
+
+            // Reload khasra data to get updated layer areas for tooltips
+            const khasraSummary = await api.getKhasrasSummary(currentProject.id)
+            if (khasraSummary.geojson) {
+                setKhasraGeoJSON(khasraSummary.geojson)
+                setKhasraDataVersion(prev => prev + 1) // Force map remount with new data
+            }
         } catch (error: any) {
             setError(error.response?.data?.detail || 'Failed to delete cropland layer')
             console.error("Error deleting cropland layer:", error)
@@ -596,6 +624,13 @@ function WorkflowContent() {
 
             const updatedProject = await api.getProject(currentProject.id)
             updateProject(updatedProject)
+
+            // Reload khasra data to get updated layer areas for tooltips
+            const khasraSummary = await api.getKhasrasSummary(currentProject.id)
+            if (khasraSummary.geojson) {
+                setKhasraGeoJSON(khasraSummary.geojson)
+                setKhasraDataVersion(prev => prev + 1) // Force map remount with new data
+            }
         } catch (error: any) {
             setError(error.response?.data?.detail || 'Failed to delete water layer')
             console.error("Error deleting water layer:", error)
@@ -655,6 +690,13 @@ function WorkflowContent() {
 
             const updatedProject = await api.getProject(currentProject.id)
             updateProject(updatedProject)
+
+            // Reload khasra data to get updated layer areas for tooltips
+            const khasraSummary = await api.getKhasrasSummary(currentProject.id)
+            if (khasraSummary.geojson) {
+                setKhasraGeoJSON(khasraSummary.geojson)
+                setKhasraDataVersion(prev => prev + 1) // Force map remount with new data
+            }
         } catch (error: any) {
             setError(error.response?.data?.detail || 'Failed to delete slopes layers')
             console.error("Error deleting slopes layers:", error)
@@ -1403,6 +1445,7 @@ function WorkflowContent() {
                                     {khasraGeoJSON ? (
                                         <div className="flex-1 min-h-0">
                                             <MapContainer
+                                                key={`map-page2-${khasraDataVersion}`}
                                                 projectId={currentProject.id}
                                                 data={khasraGeoJSON}
                                                 center={mapCenter}
@@ -1447,6 +1490,7 @@ function WorkflowContent() {
                                     {khasraGeoJSON ? (
                                         <div className="flex-1 min-h-0">
                                             <MapContainer
+                                                key={`map-page3-${khasraDataVersion}`}
                                                 projectId={currentProject.id}
                                                 data={khasraGeoJSON}
                                                 center={mapCenter}
@@ -1575,6 +1619,7 @@ function WorkflowContent() {
                                     {khasraGeoJSON ? (
                                         <div className="flex-1 min-h-0">
                                             <MapContainer
+                                                key={`map-page4-${khasraDataVersion}`}
                                                 projectId={currentProject.id}
                                                 data={khasraGeoJSON}
                                                 center={mapCenter}

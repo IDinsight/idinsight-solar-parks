@@ -39,6 +39,8 @@ TO DO:
 
 - rework ID naming
 
+- refactor and split files. change out of service structure.
+
 - use alembic for migrations
 - also save usable khasra shape
 
