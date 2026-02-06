@@ -214,6 +214,8 @@ def process_khasra_upload(
             )
         elif file_extension in [".geojson", ".json"]:
             gdf = gpd.read_file(tmp_path, engine="pyogrio")
+        elif file_extension == ".parquet":
+            gdf = gpd.read_parquet(tmp_path)
         else:
             raise ValueError(f"Unsupported file format: {file_extension}")
     finally:
@@ -772,6 +774,8 @@ def process_custom_layer_upload(
                 layer_gdf = gpd.read_file(tmp_path, driver="KML", engine="pyogrio")
             elif file_extension in [".geojson", ".json"]:
                 layer_gdf = gpd.read_file(tmp_path, engine="pyogrio")
+            elif file_extension == ".parquet":
+                layer_gdf = gpd.read_parquet(tmp_path)
             else:
                 raise ValueError(f"Unsupported file format: {file_extension}")
         finally:

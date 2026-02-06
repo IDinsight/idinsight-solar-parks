@@ -355,6 +355,91 @@ async def get_khasras_endpoint(
 
 
 @app.post(
+    "/projects/{project_id}/khasras/preview",
+    tags=["Khasras"],
+    summary="Preview khasra file before upload",
+)
+async def preview_khasras_endpoint(
+    project_id: str,
+    file: UploadFile = File(..., description="File to preview"),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Preview a khasra file to extract column names and sample features.
+    Does not save any data - just returns preview information.
+    """
+    project = get_project(db, project_id)
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project {project_id} not found",
+        )
+
+    # Validate file type
+    filename = file.filename.lower()
+    if not any(filename.endswith(ext) for ext in [".kml", ".geojson", ".json", ".parquet"]):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File must be KML, GeoJSON, or Parquet format",
+        )
+
+    try:
+        # Read into GeoDataFrame
+        import tempfile
+        import geopandas as gpd
+        from pathlib import Path
+
+        # Read file content
+        file_content = await file.read()
+        file_extension = Path(file.filename).suffix.lower()
+
+        with tempfile.NamedTemporaryFile(suffix=file_extension, delete=False) as tmp_file:
+            tmp_file.write(file_content)
+            tmp_path = tmp_file.name
+
+        try:
+            if file_extension == ".kml":
+                gdf = gpd.read_file(tmp_path, driver="KML", engine="pyogrio")
+            elif file_extension in [".geojson", ".json"]:
+                gdf = gpd.read_file(tmp_path, engine="pyogrio")
+            elif file_extension == ".parquet":
+                gdf = gpd.read_parquet(tmp_path)
+            else:
+                raise ValueError(f"Unsupported file format: {file_extension}")
+        finally:
+            Path(tmp_path).unlink()
+
+        # Ensure CRS
+        if gdf.crs is None:
+            gdf = gdf.set_crs("EPSG:4326")
+        gdf = gdf.to_crs("EPSG:4326")
+
+        # Get column names (excluding geometry)
+        columns = [col for col in gdf.columns if col != "geometry"]
+
+        # Get preview features (first 100 or all if less)
+        preview_limit = min(1000, len(gdf))
+        preview_gdf = gdf.head(preview_limit)
+
+        # Convert to GeoJSON for preview
+        preview_geojson = json.loads(preview_gdf.to_json())
+
+        return {
+            "columns": columns,
+            "features": preview_geojson["features"],
+            "total_count": len(gdf),
+            "preview_count": preview_limit,
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error reading file: {str(e)}",
+        )
+
+
+@app.post(
     "/projects/{project_id}/khasras",
     response_model=KhasraUploadResponse,
     tags=["Khasras"],
@@ -390,10 +475,10 @@ async def upload_khasras_endpoint(
 
     # Validate file type
     filename = file.filename.lower()
-    if not any(filename.endswith(ext) for ext in [".kml", ".geojson", ".json"]):
+    if not any(filename.endswith(ext) for ext in [".kml", ".geojson", ".json", ".parquet"]):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File must be KML or GeoJSON format",
+            detail="File must be KML, GeoJSON, or Parquet format",
         )
 
     try:
@@ -520,10 +605,10 @@ async def upload_custom_layer_endpoint(
 
     # Validate file type
     filename = file.filename.lower()
-    if not any(filename.endswith(ext) for ext in [".kml", ".geojson", ".json"]):
+    if not any(filename.endswith(ext) for ext in [".kml", ".geojson", ".json", ".parquet"]):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File must be KML or GeoJSON format",
+            detail="File must be KML, GeoJSON, or Parquet format",
         )
 
     try:

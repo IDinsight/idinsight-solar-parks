@@ -8,6 +8,7 @@ import MapComponent from "./map-container"
 import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
 import { useProjectStore } from "@/lib/stores/project"
 import type { KhasraSummary } from "@/lib/api/types"
+import apiClient from "@/lib/api/client"
 
 interface UploadSectionProps {
   onFileUpload: (file: File, data: any, uniqueIdColumn: string) => void
@@ -73,10 +74,10 @@ export default function UploadSection({ onFileUpload, onKhasraDeleted, isProcess
     const file = e.target.files?.[0]
     if (file) {
       const fileName = file.name.toLowerCase()
-      if (fileName.endsWith(".kml") || fileName.endsWith(".geojson") || fileName.endsWith(".json")) {
+      if (fileName.endsWith(".kml") || fileName.endsWith(".geojson") || fileName.endsWith(".json") || fileName.endsWith(".parquet")) {
         parseFilePreview(file)
       } else {
-        alert("Please select a valid KML or GeoJSON file")
+        alert("Please select a valid KML, GeoJSON, or Parquet file")
       }
     }
   }
@@ -88,10 +89,10 @@ export default function UploadSection({ onFileUpload, onKhasraDeleted, isProcess
     const file = e.dataTransfer.files?.[0]
     if (file) {
       const fileName = file.name.toLowerCase()
-      if (fileName.endsWith(".kml") || fileName.endsWith(".geojson") || fileName.endsWith(".json")) {
+      if (fileName.endsWith(".kml") || fileName.endsWith(".geojson") || fileName.endsWith(".json") || fileName.endsWith(".parquet")) {
         parseFilePreview(file)
       } else {
-        alert("Please drop a valid KML or GeoJSON file")
+        alert("Please drop a valid KML, GeoJSON, or Parquet file")
       }
     }
   }
@@ -103,6 +104,69 @@ export default function UploadSection({ onFileUpload, onKhasraDeleted, isProcess
       parseKMLPreview(file)
     } else if (fileName.endsWith(".geojson") || fileName.endsWith(".json")) {
       parseGeoJSONPreview(file)
+    } else if (fileName.endsWith(".parquet")) {
+      parseParquetPreview(file)
+    }
+  }
+
+  const parseParquetPreview = async (file: File) => {
+    try {
+      if (!currentProject?.id) {
+        alert("No project selected")
+        return
+      }
+
+      // Call backend preview endpoint
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const response = await apiClient.post(
+        `/projects/${currentProject.id}/khasras/preview`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      )
+
+      const data = response.data
+
+      // Set columns from API response
+      setColumns(data.columns || [])
+
+      // Calculate map center from features
+      if (data.features && data.features.length > 0) {
+        const coords = data.features.flatMap((f: any) => {
+          if (!f.geometry) return []
+          if (f.geometry.type === "Point") return [f.geometry.coordinates]
+          if (f.geometry.type === "LineString") return f.geometry.coordinates
+          if (f.geometry.type === "Polygon") return f.geometry.coordinates[0]
+          if (f.geometry.type === "MultiPolygon") return f.geometry.coordinates[0][0]
+          return []
+        })
+
+        if (coords.length > 0) {
+          const lngs = coords.map((c: number[]) => c[0])
+          const lats = coords.map((c: number[]) => c[1])
+          const centerLng = (Math.min(...lngs) + Math.max(...lngs)) / 2
+          const centerLat = (Math.min(...lats) + Math.max(...lats)) / 2
+          setMapCenter([centerLat, centerLng])
+          setMapZoom(10)
+        }
+      }
+
+      // Set preview data
+      setPreviewData({
+        type: "FeatureCollection",
+        features: data.features || [],
+        file,
+        total_count: data.total_count,
+        preview_count: data.preview_count,
+      })
+    } catch (error) {
+      console.error("Error previewing parquet file:", error)
+      alert(`Error previewing parquet file: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
@@ -295,6 +359,18 @@ export default function UploadSection({ onFileUpload, onKhasraDeleted, isProcess
       <div className="grid grid-cols-2 gap-8 h-full">
         {/* Left side: Data Preview and Actions */}
         <div className="flex flex-col gap-6">
+          {/* Warning banner for limited preview */}
+          {previewData.total_count && previewData.preview_count && previewData.preview_count < previewData.total_count && (
+            <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm">
+                <p className="font-semibold text-amber-900 mb-1">Limited Preview</p>
+                <p className="text-amber-800">
+                  Showing {previewData.preview_count.toLocaleString()} of {previewData.total_count.toLocaleString()} rows for preview. All rows will be processed when you confirm the upload.
+                </p>
+              </div>
+            </div>
+          )}
           <div>
             <h3 className="text-lg font-semibold text-slate-900 mb-4">Data Preview</h3>
             <div className="overflow-x-auto rounded-lg border border-slate-200">
@@ -510,7 +586,7 @@ export default function UploadSection({ onFileUpload, onKhasraDeleted, isProcess
           >
             <FileUp className="w-12 h-12 text-slate-400 mx-auto mb-4" />
             <p className="text-base text-slate-600 font-medium">
-              Drag & drop your KML or GeoJSON file here
+              Drag & drop your KML, GeoJSON, or Parquet file here
             </p>
             <p className="text-sm text-slate-500 mt-2">or click to browse</p>
           </div>
@@ -518,7 +594,7 @@ export default function UploadSection({ onFileUpload, onKhasraDeleted, isProcess
           <input
             ref={fileInputRef}
             type="file"
-            accept=".kml,.geojson,.json"
+            accept=".kml,.geojson,.json,.parquet"
             onChange={handleFileChange}
             className="hidden"
             disabled={isProcessing}
