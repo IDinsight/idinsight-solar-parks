@@ -388,6 +388,7 @@ def get_khasras_gdf(
             "Khasra ID (Unique)": k.khasra_id_unique,
             "Original Area (ha)": k.original_area_ha,
             "parcel_id": k.parcel_id,
+            "Building Count": k.building_count or 0,
         }
         # Add any additional properties
         if k.properties:
@@ -429,6 +430,7 @@ def get_khasras_with_stats_gdf(
             "Unusable Area (ha)": k.unusable_area_ha or 0,
             "Usable and Available Area (ha)": k.usable_available_area_ha or 0,
             "Parcel ID": k.parcel_id,
+            "Building Count": k.building_count or 0,
         }
         # Calculate percentages
         orig = row["Original Area (ha)"]
@@ -479,6 +481,7 @@ def get_khasras(db: Session, project_id: str) -> Dict[str, Any]:
         KhasraModel.unusable_area_ha,
         KhasraModel.usable_available_area_ha,
         KhasraModel.parcel_id,
+        KhasraModel.building_count,
         KhasraModel.layer_areas,
         KhasraModel.properties,
     ).filter(KhasraModel.project_id == project_id)
@@ -496,6 +499,7 @@ def get_khasras(db: Session, project_id: str) -> Dict[str, Any]:
         unusable_area_ha,
         usable_available_area_ha,
         parcel_id,
+        building_count,
         layer_areas,
         props,
     ) in khasras_data:
@@ -510,6 +514,7 @@ def get_khasras(db: Session, project_id: str) -> Dict[str, Any]:
             "unusable_area_ha": round(unusable_area_ha, 4) if unusable_area_ha else None,
             "usable_available_area_ha": round(usable_available_area_ha, 4) if usable_available_area_ha else None,
             "parcel_id": parcel_id,
+            "building_count": building_count or 0,
             **(props or {}),
         }
 
@@ -742,7 +747,7 @@ def process_custom_layer_upload(
         layer_type=LayerType.CUSTOM.value,
         is_unusable=is_unusable,
         status="in_progress",
-        details="Initializing layer processing...",
+        details="Initializing layer processing",
         parameters={},
     )
     db.add(layer)
@@ -1129,7 +1134,7 @@ def process_settlement_layer(
                 layer_type=LayerType.SETTLEMENTS.value,
                 is_unusable=True,
                 status="in_progress",
-                details="Queued for processing...",
+                details="Queued for processing",
                 parameters={
                     "building_buffer": building_buffer,
                     "settlement_eps": settlement_eps,
@@ -1145,7 +1150,7 @@ def process_settlement_layer(
                 layer_type=LayerType.ISOLATED_BUILDINGS.value,
                 is_unusable=False,
                 status="in_progress",
-                details="Queued for processing...",
+                details="Queued for processing",
                 parameters={
                     "building_buffer": building_buffer,
                 },
@@ -1321,15 +1326,58 @@ def process_settlement_layer(
             columns=["index_right"], errors="ignore"
         )
 
-        # Keep only geometry and necessary columns
-        keep_cols = ["geometry"]
-        print(rooftops_in_khasras.columns)
-        if "khasra_id_unique" in rooftops_in_khasras.columns:
-            keep_cols.append("khasra_id_unique")
-        rooftops_in_khasras = rooftops_in_khasras[keep_cols]
+        # Find khasra ID column (spatial join may add suffixes like _left/_right)
+        khasra_id_col = None
+        for col in rooftops_in_khasras.columns:
+            if col == "Khasra ID (Unique)" or col.startswith("Khasra ID (Unique)_"):
+                khasra_id_col = col
+                break
+            elif col == "khasra_id_unique" or col.startswith("khasra_id_unique_"):
+                khasra_id_col = col
+                break
+
+        # Keep only geometry and khasra ID column
+        if khasra_id_col:
+            rooftops_in_khasras = rooftops_in_khasras[["geometry", khasra_id_col]]
+            # Rename to consistent name for easier handling
+            rooftops_in_khasras = rooftops_in_khasras.rename(columns={khasra_id_col: "khasra_id_unique"})
+            khasra_id_col = "khasra_id_unique"
+        else:
+            # If we can't find the khasra ID column, just keep geometry
+            logger.warning("Could not find khasra ID column after spatial join, building counts will not be tracked")
+            rooftops_in_khasras = rooftops_in_khasras[["geometry"]]
 
         if len(rooftops_in_khasras) == 0:
             raise ValueError("No buildings found within khasras")
+
+        # Count buildings per khasra and update database
+        if khasra_id_col:
+            update_layer_status(
+                db,
+                settlements_layer,
+                "in_progress",
+                "Counting buildings per khasra",
+            )
+
+            # First, reset all building counts to 0 for this project
+            db.query(KhasraModel).filter(
+                KhasraModel.project_id == project_id
+            ).update({KhasraModel.building_count: 0})
+            db.commit()
+
+            building_counts = rooftops_in_khasras.groupby(khasra_id_col).size()
+
+            # Update khasra building counts in database for khasras with buildings
+            for khasra_id_unique, count in building_counts.items():
+                khasra = db.query(KhasraModel).filter(
+                    KhasraModel.project_id == project_id,
+                    KhasraModel.khasra_id_unique == khasra_id_unique
+                ).first()
+                if khasra:
+                    khasra.building_count = int(count)
+
+            db.commit()
+            logger.info(f"Reset building counts and updated {len(building_counts)} khasras with buildings")
 
         update_layer_status(
             db,
@@ -1575,7 +1623,7 @@ def process_cropland_layer(
             layer_type=LayerType.CROPLAND.value,
             is_unusable=False,
             status="in_progress",
-            details="Queued for processing...",
+            details="Queued for processing",
             parameters={},
         )
         db.add(cropland_layer)
@@ -1805,7 +1853,7 @@ def process_water_layer(
             layer_type=LayerType.WATER.value,
             is_unusable=True,
             status="in_progress",
-            details="Queued for processing...",
+            details="Queued for processing",
             parameters={},
         )
         db.add(water_layer)

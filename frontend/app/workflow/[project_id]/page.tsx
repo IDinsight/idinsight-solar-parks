@@ -438,8 +438,8 @@ function WorkflowContent() {
 
         // Set initial processing status for immediate UI feedback
         setSettlementLayerStatus({
-            settlements: { status: "in_progress", details: "Queued for processing..." },
-            isolated: { status: "in_progress", details: "Queued for processing..." },
+            settlements: { status: "in_progress", details: "Queued for processing" },
+            isolated: { status: "in_progress", details: "Queued for processing" },
             processing: true
         })
 
@@ -501,7 +501,7 @@ function WorkflowContent() {
 
         setCroplandLayerStatus({
             status: "in_progress",
-            details: "Queued for processing..."
+            details: "Queued for processing"
         })
 
         try {
@@ -559,7 +559,7 @@ function WorkflowContent() {
 
         setWaterLayerStatus({
             status: "in_progress",
-            details: "Queued for processing..."
+            details: "Queued for processing"
         })
 
         try {
@@ -613,8 +613,8 @@ function WorkflowContent() {
         setActiveProcessingLayers(prev => [...prev, "Slopes"])
         setError(null)
 
-        setNorthSlopesLayerStatus({ status: "in_progress", details: "Queued for processing..." })
-        setOtherSlopesLayerStatus({ status: "in_progress", details: "Queued for processing..." })
+        setNorthSlopesLayerStatus({ status: "in_progress", details: "Queued for processing" })
+        setOtherSlopesLayerStatus({ status: "in_progress", details: "Queued for processing" })
 
         try {
             await api.generateSlopesLayer(currentProject.id, slopesLayerParams)
@@ -1270,24 +1270,24 @@ function WorkflowContent() {
                                         <div className="flex items-start justify-between mb-2">
                                             <h4 className="font-semibold text-slate-900">Slopes</h4>
                                             {((northSlopesLayerStatus && northSlopesLayerStatus?.status !== "failed" && northSlopesLayerStatus?.status !== "in_progress") ||
-                                              (otherSlopesLayerStatus && otherSlopesLayerStatus?.status !== "failed" && otherSlopesLayerStatus?.status !== "in_progress")) && (
-                                                <button
-                                                    onClick={() => setShowDeleteSlopesModal(true)}
-                                                    disabled={isDeletingLayer}
-                                                    className="p-1 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
-                                                    title="Delete Layer"
-                                                >
-                                                    <Trash2 className="w-4 h-4 text-red-600" />
-                                                </button>
-                                            )}
+                                                (otherSlopesLayerStatus && otherSlopesLayerStatus?.status !== "failed" && otherSlopesLayerStatus?.status !== "in_progress")) && (
+                                                    <button
+                                                        onClick={() => setShowDeleteSlopesModal(true)}
+                                                        disabled={isDeletingLayer}
+                                                        className="p-1 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                                                        title="Delete Layer"
+                                                    >
+                                                        <Trash2 className="w-4 h-4 text-red-600" />
+                                                    </button>
+                                                )}
                                         </div>
                                         <p className="text-xs text-slate-600 mb-4">
                                             Automatically detect steep slopes from NASA ALOS DEM data
                                         </p>
 
                                         {(!northSlopesLayerStatus && !otherSlopesLayerStatus) ||
-                                         northSlopesLayerStatus?.status === "failed" ||
-                                         otherSlopesLayerStatus?.status === "failed" ? (
+                                            northSlopesLayerStatus?.status === "failed" ||
+                                            otherSlopesLayerStatus?.status === "failed" ? (
                                             <>
                                                 {/* Show alert if failed */}
                                                 {(northSlopesLayerStatus?.status === "failed" || otherSlopesLayerStatus?.status === "failed") && (
@@ -1426,7 +1426,7 @@ function WorkflowContent() {
                             <div className="mb-6">
                                 <h2 className="text-3xl font-bold text-slate-900 mb-2">Step 3: Cluster Khasras into Parcels</h2>
                                 <p className="text-base text-slate-600">
-                                    Group adjacent khasras into contiguous parcels for solar development
+                                    Group adjacent khasras into contiguous parcels for solar development. Only parcels larger than 50 hectares will be included in the final results.
                                 </p>
                             </div>
                             <div className="flex gap-8 flex-1 min-h-0">
@@ -1600,7 +1600,7 @@ function WorkflowContent() {
                         <button
                             onClick={() => updateCurrentPage(Math.max(1, currentPage - 1))}
                             disabled={isProcessing}
-                            className="flex items-center gap-2 px-6 py-3 border border-blue-600 hover:bg-blue-100 disabled:bg-slate-400 text-blue-600 font-semibold rounded-lg transition-colors"
+                            className="flex items-center gap-2 px-6 py-3 border border-blue-600 hover:bg-blue-100 disabled:bg-slate-400 disabled:border-slate-400 disabled:text-white text-blue-600 font-semibold rounded-lg transition-colors"
                         >
                             <ChevronLeft className="w-5 h-5" />
                             Previous

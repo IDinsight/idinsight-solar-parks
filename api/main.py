@@ -623,7 +623,7 @@ async def upload_custom_layer_endpoint(
                 layer_type=LayerType.CUSTOM.value,
                 is_unusable=is_unusable,
                 status="in_progress",
-                details="Queued for processing...",
+                details="Queued for processing",
                 parameters={},
             )
             temp_db.add(layer)
@@ -636,7 +636,7 @@ async def upload_custom_layer_endpoint(
                 is_unusable=is_unusable,
                 parameters={},
                 status="in_progress",
-                details="Queued for processing...",
+                details="Queued for processing",
             )
             temp_db.close()
         except Exception as e:

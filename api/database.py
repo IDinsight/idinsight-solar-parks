@@ -101,7 +101,10 @@ class KhasraModel(Base):
     usable_area_ha = Column(Float, nullable=True)
     unusable_area_ha = Column(Float, nullable=True)
     usable_available_area_ha = Column(Float, nullable=True)
-    
+
+    # Building count
+    building_count = Column(Integer, nullable=True, default=0)
+
     # Clustering
     parcel_id = Column(String(100), nullable=True)
 
