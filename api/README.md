@@ -27,10 +27,11 @@ DONE:
 - try for Damoh
 - BUG: FIX DISTANCE MATRIX ON NEW PROJECT etc. First attempt is always RIGHT. Reruns are always wrong. Fix saving and loading of matrix / khasras.
 - update parcel stats to distinguish usable and available area
+- drop parcels with total area less than 50ha and label their khasras as unclustered
+- Fix loading behaviour while we wait for lots of shapes!
 
 TO DO:
 
-- drop parcels with total area less than 50ha and label their khasras as unclustered
 - check that area calculations are being done correctly in the correct order etc
 - fix building_count on excel or remove
 - Fix map and stats auto-updates (hover is still N/A before refresh, slopes didn't auto update)

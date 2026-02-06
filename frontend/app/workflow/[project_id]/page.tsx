@@ -54,6 +54,7 @@ function WorkflowContent() {
     })
     const [isProcessing, setIsProcessing] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [isLoadingInitialData, setIsLoadingInitialData] = useState(true)
 
     // Step 1: Khasra upload state
     const [khasraFile, setKhasraFile] = useState<File | null>(null)
@@ -321,14 +322,13 @@ function WorkflowContent() {
         }
 
         const loadInitialProjectState = async () => {
+            setIsLoadingInitialData(true)
             try {
                 const project = await api.getProject(currentProject.id)
                 updateProject(project)
 
                 // Load project state data based on completion status
                 if (project.khasra_count && project.khasra_count > 0) {
-                    setIsKhasraUploadComplete(true)
-
                     // Load khasra GeoJSON data for clustering
                     try {
                         const khasraSummary = await api.getKhasrasSummary(currentProject.id)
@@ -371,9 +371,14 @@ function WorkflowContent() {
                             console.error('Failed to load parcel GeoJSON:', error)
                         }
                     }
+
+                    // Set upload complete only AFTER all data is loaded
+                    setIsKhasraUploadComplete(true)
                 }
             } catch (error) {
                 console.error('Failed to load project:', error)
+            } finally {
+                setIsLoadingInitialData(false)
             }
         }
 
@@ -806,6 +811,19 @@ function WorkflowContent() {
 
     if (!currentProject) {
         return <div>Loading...</div>
+    }
+
+    // Show loading state while initial data is being fetched
+    if (isLoadingInitialData) {
+        return (
+            <main className="min-h-screen bg-slate-50 flex items-center justify-center">
+                <div className="text-center">
+                    <div className="inline-block animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
+                    <p className="text-slate-700 text-lg font-medium mb-2">Loading project data...</p>
+                    <p className="text-slate-500 text-sm">This may take a moment for large projects</p>
+                </div>
+            </main>
+        )
     }
 
     // Determine which pages user can navigate to based on completion status

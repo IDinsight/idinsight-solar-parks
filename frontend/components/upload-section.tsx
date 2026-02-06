@@ -27,12 +27,14 @@ export default function UploadSection({ onFileUpload, onKhasraDeleted, isProcess
   const [existingKhasras, setExistingKhasras] = useState<KhasraSummary | null>(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isLoadingKhasras, setIsLoadingKhasras] = useState(true)
   const { currentProject, updateProject } = useProjectStore()
 
   // Check for existing khasras on mount
   useEffect(() => {
     const checkExistingKhasras = async () => {
       if (currentProject?.id) {
+        setIsLoadingKhasras(true)
         try {
           const summary = await getKhasrasSummary(currentProject.id)
           if (summary.exists) {
@@ -40,6 +42,8 @@ export default function UploadSection({ onFileUpload, onKhasraDeleted, isProcess
           }
         } catch (error) {
           console.error("Error checking existing khasras:", error)
+        } finally {
+          setIsLoadingKhasras(false)
         }
       }
     }
@@ -316,6 +320,18 @@ export default function UploadSection({ onFileUpload, onKhasraDeleted, isProcess
               forceAutoFit={true}
             />
           </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Show loading state while checking for existing khasras
+  if (isLoadingKhasras) {
+    return (
+      <div className="w-full h-[500px] flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <p className="text-slate-600 font-medium">Loading khasras...</p>
         </div>
       </div>
     )
