@@ -109,6 +109,57 @@ export default function UploadSection({ onFileUpload, onKhasraDeleted, isProcess
     }
   }
 
+  // Helper function to extract unique columns from features
+  const extractColumns = (features: any[]): string[] => {
+    const allColumns = new Set<string>()
+    features.forEach((f: any) => {
+      if (f.properties) {
+        Object.keys(f.properties).forEach((col) => allColumns.add(col))
+      }
+    })
+    return Array.from(allColumns).sort()
+  }
+
+  // Helper function to calculate map center from features
+  const calculateMapCenter = (features: any[]): void => {
+    const coords = features.flatMap((f: any) => {
+      if (!f.geometry) return []
+      if (f.geometry.type === "Point") return [f.geometry.coordinates]
+      if (f.geometry.type === "LineString") return f.geometry.coordinates
+      if (f.geometry.type === "Polygon") return f.geometry.coordinates[0]
+      if (f.geometry.type === "MultiPolygon") return f.geometry.coordinates[0][0]
+      return []
+    })
+
+    if (coords.length > 0) {
+      const lngs = coords.map((c: number[]) => c[0])
+      const lats = coords.map((c: number[]) => c[1])
+      const centerLng = (Math.min(...lngs) + Math.max(...lngs)) / 2
+      const centerLat = (Math.min(...lats) + Math.max(...lats)) / 2
+      setMapCenter([centerLat, centerLng])
+      setMapZoom(10)
+    }
+  }
+
+  // Helper function to set preview data with feature limit
+  const setLimitedPreview = (allFeatures: any[], file: File, maxPreview: number = 1000): void => {
+    const totalCount = allFeatures.length
+    const previewFeatures = allFeatures.slice(0, maxPreview)
+
+    const columnList = extractColumns(previewFeatures)
+    setColumns(columnList)
+
+    calculateMapCenter(previewFeatures)
+
+    setPreviewData({
+      type: "FeatureCollection",
+      features: previewFeatures,
+      file,
+      total_count: totalCount,
+      preview_count: previewFeatures.length,
+    })
+  }
+
   const parseParquetPreview = async (file: File) => {
     try {
       if (!currentProject?.id) {
@@ -137,23 +188,7 @@ export default function UploadSection({ onFileUpload, onKhasraDeleted, isProcess
 
       // Calculate map center from features
       if (data.features && data.features.length > 0) {
-        const coords = data.features.flatMap((f: any) => {
-          if (!f.geometry) return []
-          if (f.geometry.type === "Point") return [f.geometry.coordinates]
-          if (f.geometry.type === "LineString") return f.geometry.coordinates
-          if (f.geometry.type === "Polygon") return f.geometry.coordinates[0]
-          if (f.geometry.type === "MultiPolygon") return f.geometry.coordinates[0][0]
-          return []
-        })
-
-        if (coords.length > 0) {
-          const lngs = coords.map((c: number[]) => c[0])
-          const lats = coords.map((c: number[]) => c[1])
-          const centerLng = (Math.min(...lngs) + Math.max(...lngs)) / 2
-          const centerLat = (Math.min(...lats) + Math.max(...lats)) / 2
-          setMapCenter([centerLat, centerLng])
-          setMapZoom(10)
-        }
+        calculateMapCenter(data.features)
       }
 
       // Set preview data
@@ -180,41 +215,7 @@ export default function UploadSection({ onFileUpload, onKhasraDeleted, isProcess
         return
       }
 
-      // Extract all unique column names from properties
-      const allColumns = new Set<string>()
-      geojson.features.forEach((f: any) => {
-        if (f.properties) {
-          Object.keys(f.properties).forEach((col) => allColumns.add(col))
-        }
-      })
-
-      const columnList = Array.from(allColumns).sort()
-      setColumns(columnList)
-
-      // Calculate center from features
-      const coords = geojson.features.flatMap((f: any) => {
-        if (!f.geometry) return []
-        if (f.geometry.type === "Point") return [f.geometry.coordinates]
-        if (f.geometry.type === "LineString") return f.geometry.coordinates
-        if (f.geometry.type === "Polygon") return f.geometry.coordinates[0]
-        if (f.geometry.type === "MultiPolygon") return f.geometry.coordinates[0][0]
-        return []
-      })
-
-      if (coords.length > 0) {
-        const lngs = coords.map((c: number[]) => c[0])
-        const lats = coords.map((c: number[]) => c[1])
-        const centerLng = (Math.min(...lngs) + Math.max(...lngs)) / 2
-        const centerLat = (Math.min(...lats) + Math.max(...lats)) / 2
-        setMapCenter([centerLat, centerLng])
-        setMapZoom(10)
-      }
-
-      setPreviewData({
-        type: "FeatureCollection",
-        features: geojson.features,
-        file,
-      })
+      setLimitedPreview(geojson.features, file)
     } catch (error) {
       console.error("Error parsing GeoJSON file:", error)
       alert("Error parsing GeoJSON file. Please ensure it is valid GeoJSON format.")
@@ -223,110 +224,130 @@ export default function UploadSection({ onFileUpload, onKhasraDeleted, isProcess
 
   const parseKMLPreview = async (file: File) => {
     try {
-      // Read KML file directly as text
       const kmlContent = await file.text()
+      const parser = new DOMParser()
+      const kmlDoc = parser.parseFromString(kmlContent, "application/xml")
 
-      if (kmlContent) {
-        const parser = new DOMParser()
-        const kmlDoc = parser.parseFromString(kmlContent, "application/xml")
-
-        const placemarks = Array.from(kmlDoc.querySelectorAll("Placemark"))
-        const features = placemarks
-          .map((pm: any) => {
-            const name = pm.querySelector("name")?.textContent || "Unnamed"
-            const description = pm.querySelector("description")?.textContent || ""
-
-            // Parse extended data if available
-            const extDataElements = pm.querySelectorAll("ExtendedData Data")
-            const extData: Record<string, string> = {}
-            extDataElements.forEach((el: any) => {
-              const key = el.getAttribute("name")
-              const value = el.querySelector("value")?.textContent || ""
-              if (key) extData[key] = value
-            })
-
-            const pointEl = pm.querySelector("Point")
-            const lineEl = pm.querySelector("LineString")
-            const polygonEl = pm.querySelector("Polygon")
-
-            let geometry = null
-            if (pointEl) {
-              const coords = pointEl.querySelector("coordinates")?.textContent?.trim().split(",") || []
-              geometry = {
-                type: "Point",
-                coordinates: [Number.parseFloat(coords[0] || 0), Number.parseFloat(coords[1] || 0)],
-              }
-            } else if (lineEl) {
-              const coordsText = lineEl.querySelector("coordinates")?.textContent?.trim() || ""
-              const coords = coordsText.split(/\s+/).map((c: string) => {
-                const [lng, lat] = c.split(",")
-                return [Number.parseFloat(lng), Number.parseFloat(lat)]
-              })
-              geometry = {
-                type: "LineString",
-                coordinates: coords,
-              }
-            } else if (polygonEl) {
-              const coordsText =
-                polygonEl.querySelector("outerBoundaryIs LinearRing coordinates")?.textContent?.trim() || ""
-              const coords = coordsText.split(/\s+/).map((c: string) => {
-                const [lng, lat] = c.split(",")
-                return [Number.parseFloat(lng), Number.parseFloat(lat)]
-              })
-              geometry = {
-                type: "Polygon",
-                coordinates: [coords],
-              }
-            }
-
-            return {
-              type: "Feature",
-              geometry,
-              properties: {
-                name,
-                description,
-                ...extData,
-              },
-            }
-          })
-          .filter((f) => f.geometry)
-
-        // Extract all unique column names from properties
-        const allColumns = new Set<string>()
-        features.forEach((f: any) => {
-          Object.keys(f.properties).forEach((col) => allColumns.add(col))
-        })
-
-        const columnList = Array.from(allColumns).sort()
-        setColumns(columnList)
-
-        // Calculate center from features
-        const coords = features.flatMap((f: any) => {
-          if (f.geometry.type === "Point") return [f.geometry.coordinates]
-          if (f.geometry.type === "LineString") return f.geometry.coordinates
-          if (f.geometry.type === "Polygon") return f.geometry.coordinates[0]
-          return []
-        })
-
-        if (coords.length > 0) {
-          const lngs = coords.map((c: number[]) => c[0])
-          const lats = coords.map((c: number[]) => c[1])
-          const centerLng = (Math.min(...lngs) + Math.max(...lngs)) / 2
-          const centerLat = (Math.min(...lats) + Math.max(...lats)) / 2
-          setMapCenter([centerLat, centerLng])
-          setMapZoom(10)
-        }
-
-        setPreviewData({
-          type: "FeatureCollection",
-          features,
-          file,
-        })
+      // Check for XML parsing errors
+      const parserError = kmlDoc.querySelector("parsererror")
+      if (parserError) {
+        console.error("XML parsing error:", parserError.textContent)
+        alert("Error parsing KML file: Invalid XML format. " + parserError.textContent)
+        return
       }
+
+      const placemarks = Array.from(kmlDoc.querySelectorAll("Placemark"))
+
+      if (placemarks.length === 0) {
+        console.error("No Placemarks found in KML file")
+        alert("Error: No Placemarks found in KML file. Please ensure it is a valid KML file with geometry data.")
+        return
+      }
+
+      const features = placemarks
+        .map((pm: any) => {
+          const name = pm.querySelector("name")?.textContent || "Unnamed"
+          const description = pm.querySelector("description")?.textContent || ""
+
+          // Parse extended data if available
+          const extDataElements = pm.querySelectorAll("ExtendedData Data")
+          const extData: Record<string, string> = {}
+          extDataElements.forEach((el: any) => {
+            const key = el.getAttribute("name")
+            const value = el.querySelector("value")?.textContent || ""
+            if (key) extData[key] = value
+          })
+
+          const geometry = parseKMLGeometry(pm)
+
+          return {
+            type: "Feature",
+            geometry,
+            properties: {
+              name,
+              description,
+              ...extData,
+            },
+          }
+        })
+        .filter((f) => f.geometry)
+
+      setLimitedPreview(features, file)
     } catch (error) {
       console.error("Error parsing KML file:", error)
-      alert("Error parsing KML file. Please ensure it is a valid KML file.")
+      const errorMessage = error instanceof Error ? error.message : "Unknown error"
+      alert(`Error parsing KML file: ${errorMessage}\n\nPlease check the browser console for more details.`)
     }
+  }
+
+  // Helper function to parse KML geometry from a Placemark element
+  const parseKMLGeometry = (placemark: any): any => {
+    const pointEl = placemark.querySelector("Point")
+    const lineEl = placemark.querySelector("LineString")
+    const polygonEl = placemark.querySelector("Polygon")
+
+    if (pointEl) {
+      return parseKMLPoint(pointEl)
+    } else if (lineEl) {
+      return parseKMLLineString(lineEl)
+    } else if (polygonEl) {
+      return parseKMLPolygon(polygonEl)
+    }
+    return null
+  }
+
+  // Helper function to parse KML Point
+  const parseKMLPoint = (pointEl: any): any => {
+    const coordsText = pointEl.querySelector("coordinates")?.textContent?.trim() || ""
+    const coords = coordsText.split(",").map((c: string) => c.trim())
+    // KML coordinates can have altitude (lng,lat,alt), we only need lng,lat
+    if (coords.length >= 2) {
+      return {
+        type: "Point",
+        coordinates: [Number.parseFloat(coords[0]), Number.parseFloat(coords[1])],
+      }
+    }
+    return null
+  }
+
+  // Helper function to parse KML LineString
+  const parseKMLLineString = (lineEl: any): any => {
+    const coordsText = lineEl.querySelector("coordinates")?.textContent?.trim() || ""
+    const coords = parseKMLCoordinates(coordsText)
+    if (coords.length > 0) {
+      return {
+        type: "LineString",
+        coordinates: coords,
+      }
+    }
+    return null
+  }
+
+  // Helper function to parse KML Polygon
+  const parseKMLPolygon = (polygonEl: any): any => {
+    const coordsText =
+      polygonEl.querySelector("outerBoundaryIs LinearRing coordinates")?.textContent?.trim() || ""
+    const coords = parseKMLCoordinates(coordsText)
+    if (coords.length > 0) {
+      return {
+        type: "Polygon",
+        coordinates: [coords],
+      }
+    }
+    return null
+  }
+
+  // Helper function to parse KML coordinate string
+  const parseKMLCoordinates = (coordsText: string): number[][] => {
+    return coordsText
+      .split(/[\s\n]+/)
+      .filter((c: string) => c.trim())
+      .map((c: string) => {
+        const parts = c.split(",").map((p: string) => p.trim())
+        // Take only lng,lat, ignore altitude if present
+        return [Number.parseFloat(parts[0]), Number.parseFloat(parts[1])]
+      })
+      .filter((c: number[]) => !isNaN(c[0]) && !isNaN(c[1]))
   }
 
   const handleConfirm = async () => {
@@ -458,6 +479,7 @@ export default function UploadSection({ onFileUpload, onKhasraDeleted, isProcess
         <div>
           <div className="rounded-lg overflow-hidden bg-slate-50 w-full h-[550px]">
             <MapComponent
+              projectId={currentProject?.id || ""}
               data={previewData}
               selectedLayers={["Buildings", "Settlements", "Crops", "Water", "Slopes", "Other"]}
               center={mapCenter}
@@ -517,6 +539,7 @@ export default function UploadSection({ onFileUpload, onKhasraDeleted, isProcess
             <div className="rounded-lg overflow-hidden bg-slate-50 w-full h-full relative z-0">
               {existingKhasras.geojson && (
                 <MapComponent
+                  projectId={currentProject?.id || ""}
                   data={existingKhasras.geojson}
                   selectedLayers={[]}
                   center={
