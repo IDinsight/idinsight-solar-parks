@@ -418,8 +418,8 @@ async def preview_khasras_endpoint(
         # Get column names (excluding geometry)
         columns = [col for col in gdf.columns if col != "geometry"]
 
-        # Get preview features (first 10000 or all if less)
-        preview_limit = min(10000, len(gdf))
+        # Get preview features (first 100 or all if less) - quick preview for large files
+        preview_limit = min(1000, len(gdf))
         preview_gdf = gdf.head(preview_limit)
 
         # Convert to GeoJSON for preview

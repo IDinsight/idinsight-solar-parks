@@ -9,6 +9,7 @@ import { getKhasrasSummary, deleteKhasras } from "@/lib/api/services"
 import { useProjectStore } from "@/lib/stores/project"
 import type { KhasraSummary } from "@/lib/api/types"
 import apiClient from "@/lib/api/client"
+import axios from "axios"
 
 interface UploadSectionProps {
   onFileUpload: (file: File, data: any, uniqueIdColumn: string) => void
@@ -165,7 +166,13 @@ export default function UploadSection({ onFileUpload, onKhasraDeleted, isProcess
       })
     } catch (error) {
       console.error("Error previewing file:", error)
-      alert(`Error previewing file: ${error instanceof Error ? error.message : 'Unknown error'}`)
+
+      // Better error message for timeouts
+      if (axios.isAxiosError(error) && error.code === 'ECONNABORTED') {
+        alert(`Preview timed out. This can happen with very large files. The file is valid - proceed with upload.`)
+      } else {
+        alert(`Error previewing file: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      }
     }
   }
 
@@ -206,9 +213,10 @@ export default function UploadSection({ onFileUpload, onKhasraDeleted, isProcess
             <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
               <div className="text-sm">
-                <p className="font-semibold text-amber-900 mb-1">Limited Preview</p>
+                <p className="font-semibold text-amber-900 mb-1">Quick Preview</p>
                 <p className="text-amber-800">
-                  Showing {previewData.preview_count.toLocaleString()} of {previewData.total_count.toLocaleString()} rows for preview. All rows will be processed when you confirm the upload.
+                  Showing {previewData.preview_count.toLocaleString()} of {previewData.total_count.toLocaleString()} features for quick preview.
+                  <strong> All features will be uploaded</strong> when you confirm.
                 </p>
               </div>
             </div>
@@ -445,7 +453,10 @@ export default function UploadSection({ onFileUpload, onKhasraDeleted, isProcess
             disabled={isProcessing}
           />
 
-          <p className="text-xs text-slate-500 mt-4">✓ Supports .kml, .geojson, and .parquet files</p>
+          <p className="text-xs text-slate-500 mt-4">
+            ✓ Supports .kml, .geojson, and .parquet files.
+            Large files show quick preview of first 1000 features.
+          </p>
         </>
       )}
     </div>
