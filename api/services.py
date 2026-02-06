@@ -3205,6 +3205,26 @@ def cluster_khasras(
     gdf_with_cluster_id = original_gdf_with_stats.copy()
     gdf_with_cluster_id[cluster_id_col] = labels
 
+    # Filter out parcels with total area < 50 hectares (using raw cluster IDs)
+    # Calculate total area per parcel (excluding -1 which is unclustered)
+    parcel_areas = (
+        gdf_with_cluster_id[gdf_with_cluster_id[cluster_id_col] != -1]
+        .groupby(cluster_id_col)["Usable Area (ha)"]
+        .sum()
+    )
+
+    # Identify parcels with area < 50 hectares
+    small_parcels = parcel_areas[parcel_areas < 50].index.tolist()
+
+    # Mark khasras from small parcels as unclustered
+    if small_parcels:
+        logger.info(f"Dropping {len(small_parcels)} parcels with total area < 50 hectares")
+        gdf_with_cluster_id.loc[
+            gdf_with_cluster_id[cluster_id_col].isin(small_parcels),
+            cluster_id_col
+        ] = -1
+
+    # Format cluster labels once, after filtering
     gdf_with_cluster_id = format_cluster_labels(
         gdf=gdf_with_cluster_id,
         cluster_id_col=cluster_id_col,
