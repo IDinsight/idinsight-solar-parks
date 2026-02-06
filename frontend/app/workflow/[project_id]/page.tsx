@@ -11,6 +11,7 @@ import MapContainer, { LAYER_COLORS } from "@/components/map-container"
 import * as api from "@/lib/api/services"
 import { ExportFormat } from "@/lib/api/types"
 import { ChevronLeft, ChevronRight, ArrowLeft, AlertCircle, Map, Globe, ExternalLink, Link, FileSpreadsheet, Trash2, AlertTriangle } from "lucide-react"
+import { getWorkflowPageForProject } from "@/lib/utils/project-navigation"
 
 
 function AnimatedEllipsis() {
@@ -387,6 +388,17 @@ function WorkflowContent() {
 
                     // Set upload complete only AFTER all data is loaded
                     setIsKhasraUploadComplete(true)
+                }
+
+                // Auto-navigate to the latest completed step if no page parameter in URL
+                const pageFromUrl = searchParams.get('page')
+                if (!pageFromUrl) {
+                    const targetPage = getWorkflowPageForProject(project)
+
+                    // Only navigate if not already on page 1 (avoid unnecessary navigation)
+                    if (targetPage !== 1) {
+                        updateCurrentPage(targetPage)
+                    }
                 }
             } catch (error) {
                 console.error('Failed to load project:', error)

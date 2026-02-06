@@ -6,6 +6,7 @@ import MapContainer from "@/components/map-container"
 import * as api from "@/lib/api/services"
 import type { Project } from "@/lib/api/types"
 import { ArrowLeft, Loader2 } from "lucide-react"
+import { getWorkflowPageForProject } from "@/lib/utils/project-navigation"
 
 export default function FullScreenMapPage() {
     const params = useParams()
@@ -116,21 +117,7 @@ export default function FullScreenMapPage() {
                 <div className="flex items-center gap-3">
                     <button
                         onClick={() => {
-                            // Determine the latest completed step based on project status
-                            let targetPage = 1
-
-                            // Map project status to workflow page
-                            if (project?.status === 'clustered' || project?.status === 'completed') {
-                                targetPage = 4 // Export page
-                            } else if (project?.status === 'layers_added') {
-                                targetPage = 3 // Clustering page
-                            } else if (project?.status === 'khasras_uploaded') {
-                                targetPage = 2 // Layers page
-                            } else if (project?.khasra_count && project.khasra_count > 0) {
-                                // Fallback: if khasras exist, go to layers page
-                                targetPage = 2
-                            }
-
+                            const targetPage = getWorkflowPageForProject(project)
                             router.push(`/workflow/${projectId}?page=${targetPage}`)
                         }}
                         className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
