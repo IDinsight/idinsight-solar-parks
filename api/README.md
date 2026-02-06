@@ -30,6 +30,7 @@ DONE:
 
 TO DO:
 
+- drop parcels with total area less than 50ha and label their khasras as unclustered
 - check that area calculations are being done correctly in the correct order etc
 - fix building_count on excel or remove
 - Fix map and stats auto-updates (hover is still N/A before refresh, slopes didn't auto update)

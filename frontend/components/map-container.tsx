@@ -15,6 +15,7 @@ interface MapProps {
   zoom?: number
   parcelsData?: any
   layersData?: Record<string, any>
+  forceAutoFit?: boolean  // Force auto-fit even if view state exists (e.g., for preview mode)
 }
 
 interface VisibleLayers {
@@ -66,6 +67,11 @@ const LeafletMap = dynamic(
       const map = useMap()
       const { useState } = require("react")
       const [hasAutoFitted, setHasAutoFitted] = useState(false)
+
+      // Reset hasAutoFitted when data changes to allow recentering
+      useEffect(() => {
+        setHasAutoFitted(false)
+      }, [geoJsonData])
 
       useEffect(() => {
         if (!map || !map.getContainer()) return
@@ -549,7 +555,7 @@ const LeafletMap = dynamic(
   }
 )
 
-export default function MapComponent({ projectId, data, selectedLayers, center, zoom, parcelsData, layersData }: MapProps) {
+export default function MapComponent({ projectId, data, selectedLayers, center, zoom, parcelsData, layersData, forceAutoFit }: MapProps) {
   const [geoJsonData, setGeoJsonData] = useState<FeatureCollection | null>(null)
   const [layersGeoJson, setLayersGeoJson] = useState<Array<{ data: FeatureCollection, color: string, name: string }>>([])
   const [parcelsGeoJson, setParcelsGeoJson] = useState<FeatureCollection | null>(null)
@@ -591,8 +597,8 @@ export default function MapComponent({ projectId, data, selectedLayers, center, 
   const mapCenter = mapState?.viewState.center || center || [20, 77]
   const mapZoom = mapState?.viewState.zoom || zoom || 5
 
-  // Only auto-fit if we don't have stored view state (first time viewing this project)
-  const shouldAutoFit = !mapState?.viewState.center && !mapState?.viewState.zoom
+  // Only auto-fit if we don't have stored view state (first time viewing this project) OR if forceAutoFit is true
+  const shouldAutoFit = forceAutoFit || (!mapState?.viewState.center && !mapState?.viewState.zoom)
 
   // Handle visible layer changes
   const handleSetVisibleLayers = (updater: React.SetStateAction<VisibleLayers>) => {
