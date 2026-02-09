@@ -6,6 +6,7 @@ import { useMapStore } from "@/lib/stores/map"
 
 // Import Leaflet CSS
 import "leaflet/dist/leaflet.css"
+import "react-leaflet-markercluster/styles"
 
 interface MapProps {
   projectId: string
@@ -54,9 +55,14 @@ function getLayerOrder(layerName: string): number {
 
 // Create the entire map as a single dynamic component to avoid SSR issues
 const LeafletMap = dynamic(
-  () => import("react-leaflet").then((mod) => {
-    const { MapContainer, TileLayer, GeoJSON, useMap, LayersControl } = mod
-    const L = require("leaflet")
+  () => Promise.all([
+    import("react-leaflet"),
+    import("leaflet"),
+    import("react-leaflet-markercluster")
+  ]).then(([reactLeaflet, leaflet, markerCluster]) => {
+    const { MapContainer, TileLayer, GeoJSON, useMap, LayersControl, Marker } = reactLeaflet
+    const L = leaflet.default
+    const MarkerClusterGroup = markerCluster.default
 
     // Helper component to handle map resize and fit bounds
     function MapController({ geoJsonData, layersGeoJson, shouldAutoFit }: {
@@ -288,6 +294,85 @@ const LeafletMap = dynamic(
       return null
     }
 
+    // Component to render parcel labels with clustering
+    function ParcelLabels({ parcelsGeoJson }: { parcelsGeoJson: FeatureCollection | null }) {
+      if (!parcelsGeoJson || !parcelsGeoJson.features || parcelsGeoJson.features.length === 0) {
+        return null
+      }
+
+      const markers = parcelsGeoJson.features.map((feature: any, index: number) => {
+        if (!feature.properties || !feature.properties.parcel_id) return null
+
+        // Calculate the center of the parcel using Leaflet's geojson utilities
+        const geoJsonLayer = L.geoJSON(feature)
+        const bounds = geoJsonLayer.getBounds()
+        const center = bounds.getCenter()
+
+        const parcelId = feature.properties.parcel_id
+
+        const labelIcon = L.divIcon({
+          className: 'parcel-label',
+          html: `<div style="
+            background: rgba(255, 255, 255, 0.85);
+            color: #334155;
+            padding: 3px 7px;
+            border-radius: 3px;
+            font-weight: 600;
+            font-size: 11px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            white-space: nowrap;
+            text-align: center;
+            border: 1px solid rgba(100, 116, 139, 0.3);
+            transform: translate(-50%, -50%);
+          ">${parcelId}</div>`,
+          iconSize: undefined,
+          iconAnchor: [0, 0],
+        })
+
+        return (
+          <Marker
+            key={`parcel-label-${index}-${parcelId}`}
+            position={[center.lat, center.lng]}
+            icon={labelIcon}
+            interactive={false}
+          />
+        )
+      }).filter(Boolean)
+
+      return (
+        <MarkerClusterGroup
+          maxClusterRadius={50}
+          spiderfyOnMaxZoom={true}
+          showCoverageOnHover={false}
+          zoomToBoundsOnClick={true}
+          iconCreateFunction={(cluster: any) => {
+            const count = cluster.getChildCount()
+            return L.divIcon({
+              html: `<div style="
+                background: white;
+                color: black;
+                border-radius: 4px;
+                padding: 6px 12px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: 700;
+                font-size: 12px;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+                white-space: nowrap;
+                line-height: 1;
+              ">${count} parcels</div>`,
+              className: 'custom-cluster-icon',
+              iconSize: undefined,
+              iconAnchor: [0, 0],
+            })
+          }}
+        >
+          {markers}
+        </MarkerClusterGroup>
+      )
+    }
+
     // Return the actual map component
     return function MapInner({ center, zoom, geoJsonData, layersGeoJson, parcelsGeoJson, baseLayer, visibleLayers, setVisibleLayers, legendExpanded, setLegendExpanded, onViewChange, onBaseLayerChange, shouldAutoFit }: {
       center: [number, number]
@@ -406,7 +491,7 @@ const LeafletMap = dynamic(
         dashArray: '5, 3',
       })
 
-      // Function to add labels to parcels
+      // Function to add tooltips to parcels (labels are now handled by ParcelLabels component with clustering)
       const onEachParcel = (feature: any, layer: any) => {
         if (feature.properties && feature.properties.parcel_id) {
           const parcelId = feature.properties.parcel_id
@@ -436,45 +521,6 @@ const LeafletMap = dynamic(
 
           layer.on('mouseout', function () {
             layer.closeTooltip()
-          })
-
-          // Add permanent label in the center of the parcel
-          layer.on('add', function () {
-            const bounds = layer.getBounds()
-            const center = bounds.getCenter()
-
-            const label = L.marker(center, {
-              icon: L.divIcon({
-                className: 'parcel-label',
-                html: `<div style="
-                  background: rgba(255, 255, 255, 0.85);
-                  color: #334155;
-                  padding: 3px 7px;
-                  border-radius: 3px;
-                  font-weight: 600;
-                  font-size: 11px;
-                  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-                  white-space: nowrap;
-                  text-align: center;
-                  border: 1px solid rgba(100, 116, 139, 0.3);
-                  transform: translate(-50%, -50%);
-                ">${parcelId}</div>`,
-                iconSize: undefined,
-                iconAnchor: [0, 0],
-              }),
-              interactive: false, // Make label non-interactive so it doesn't block clicks
-            })
-
-            label.addTo(layer._map)
-
-            // Store reference to remove label when layer is removed
-            layer._label = label
-          })
-
-          layer.on('remove', function () {
-            if (layer._label) {
-              layer._map.removeLayer(layer._label)
-            }
           })
         }
       }
@@ -553,6 +599,8 @@ const LeafletMap = dynamic(
                 onEachFeature={onEachParcel}
               />
             )}
+            {/* 6. Render parcel labels with clustering */}
+            {visibleLayers.parcels && <ParcelLabels parcelsGeoJson={parcelsGeoJson} />}
           </MapContainer>
           <MapLegend
             visibleLayers={visibleLayers}
