@@ -309,6 +309,7 @@ const LeafletMap = dynamic(
         const center = bounds.getCenter()
 
         const parcelId = feature.properties.parcel_id
+        const usableAvailableArea = feature.properties.usable_available_area_ha || 0
 
         const labelIcon = L.divIcon({
           className: 'parcel-label',
@@ -324,7 +325,14 @@ const LeafletMap = dynamic(
             text-align: center;
             border: 1px solid rgba(100, 116, 139, 0.3);
             transform: translate(-50%, -50%);
-          ">${parcelId}</div>`,
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            line-height: 1.3;
+          ">
+            <div>${parcelId}</div>
+            <div style="font-size: 11px;">${Math.round(usableAvailableArea).toLocaleString()} ha</div>
+          </div>`,
           iconSize: undefined,
           iconAnchor: [0, 0],
         })
@@ -347,21 +355,50 @@ const LeafletMap = dynamic(
           zoomToBoundsOnClick={true}
           iconCreateFunction={(cluster: any) => {
             const count = cluster.getChildCount()
+
+            // Calculate total usable area from all markers in this cluster
+            let totalUsableArea = 0
+            const markers = cluster.getAllChildMarkers()
+            markers.forEach((marker: any) => {
+              // Get the usable area from the marker's feature properties
+              if (marker.options && marker.options.icon && marker.options.icon.options) {
+                // Try to extract from the HTML or feature
+                const feature = parcelsGeoJson?.features.find((f: any) => {
+                  if (!f.properties || !f.geometry) return false
+                  const geoJsonLayer = L.geoJSON(f)
+                  const bounds = geoJsonLayer.getBounds()
+                  const center = bounds.getCenter()
+                  const markerPos = marker.getLatLng()
+                  return Math.abs(center.lat - markerPos.lat) < 0.0001 &&
+                         Math.abs(center.lng - markerPos.lng) < 0.0001
+                })
+                if (feature && feature.properties) {
+                  totalUsableArea += feature.properties.usable_available_area_ha || 0
+                }
+              }
+            })
+
             return L.divIcon({
               html: `<div style="
-                background: white;
+                background: rgba(255, 255, 255, 0.85);
                 color: black;
                 border-radius: 4px;
                 padding: 6px 12px;
                 display: flex;
+                flex-direction: column;
                 align-items: center;
                 justify-content: center;
                 font-weight: 700;
-                font-size: 12px;
+                font-size: 11px;
                 box-shadow: 0 2px 6px rgba(0,0,0,0.4);
                 white-space: nowrap;
-                line-height: 1;
-              ">${count} parcels</div>`,
+                line-height: 1.3;
+                text-align: center;
+                border: 1px solid black;
+              ">
+                <div>${count} parcels</div>
+                <div style="font-size: 11px;">${Math.round(totalUsableArea).toLocaleString()} ha</div>
+              </div>`,
               className: 'custom-cluster-icon',
               iconSize: undefined,
               iconAnchor: [0, 0],
@@ -415,29 +452,29 @@ const LeafletMap = dynamic(
           let tooltipContent = `<strong>Khasra: ${props.khasra_id_unique || props.khasra_id || 'N/A'}</strong><br/>`
 
           if (props.original_area_ha !== null && props.original_area_ha !== undefined) {
-            tooltipContent += `Original Area: ${props.original_area_ha.toFixed(1)} ha<br/>`
+            tooltipContent += `Original Area: ${Math.round(props.original_area_ha).toLocaleString()} ha<br/>`
           }
 
           if (props.usable_area_ha !== null && props.usable_area_ha !== undefined) {
-            tooltipContent += `Usable Area: ${props.usable_area_ha.toFixed(1)} ha`
+            tooltipContent += `Usable Area: ${Math.round(props.usable_area_ha).toLocaleString()} ha`
             if (props.usable_area_percent !== null && props.usable_area_percent !== undefined) {
-              tooltipContent += ` (${props.usable_area_percent.toFixed(1)}%)`
+              tooltipContent += ` (${Math.round(props.usable_area_percent)}%)`
             }
             tooltipContent += `<br/>`
           }
 
           if (props.usable_available_area_ha !== null && props.usable_available_area_ha !== undefined) {
-            tooltipContent += `Usable & Available: ${props.usable_available_area_ha.toFixed(1)} ha`
+            tooltipContent += `Usable & Available: ${Math.round(props.usable_available_area_ha).toLocaleString()} ha`
             if (props.usable_available_area_percent !== null && props.usable_available_area_percent !== undefined) {
-              tooltipContent += ` (${props.usable_available_area_percent.toFixed(1)}%)`
+              tooltipContent += ` (${Math.round(props.usable_available_area_percent)}%)`
             }
             tooltipContent += `<br/>`
           }
 
           if (props.unusable_area_ha !== null && props.unusable_area_ha !== undefined) {
-            tooltipContent += `Unusable Area: ${props.unusable_area_ha.toFixed(1)} ha`
+            tooltipContent += `Unusable Area: ${Math.round(props.unusable_area_ha).toLocaleString()} ha`
             if (props.unusable_area_percent !== null && props.unusable_area_percent !== undefined) {
-              tooltipContent += ` (${props.unusable_area_percent.toFixed(1)}%)`
+              tooltipContent += ` (${Math.round(props.unusable_area_percent)}%)`
             }
             tooltipContent += `<br/>`
           }
@@ -508,9 +545,9 @@ const LeafletMap = dynamic(
           layer.bindTooltip(
             `<strong>${parcelId}</strong><br/>` +
             `Khasras: ${khasraCount}<br/>` +
-            `Original Area: ${originalAreaHa.toFixed(1)} ha<br/>` +
-            `Usable Area: ${usableAreaHa.toFixed(1)} ha (${usablePercent.toFixed(1)}%)<br/>` +
-            `Usable + Available: ${usableAvailableAreaHa.toFixed(1)} ha (${usableAvailablePercent.toFixed(1)}%)`,
+            `Original Area: ${Math.round(originalAreaHa).toLocaleString()} ha<br/>` +
+            `Usable Area: ${Math.round(usableAreaHa).toLocaleString()} ha (${Math.round(usablePercent)}%)<br/>` +
+            `Usable + Available: ${Math.round(usableAvailableAreaHa).toLocaleString()} ha (${Math.round(usableAvailablePercent)}%)`,
             { permanent: false, direction: 'top' }
           )
 
