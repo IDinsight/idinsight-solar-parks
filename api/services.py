@@ -3276,7 +3276,7 @@ def cluster_khasras(
     gdf_with_cluster_id = format_cluster_labels(
         gdf=gdf_with_cluster_id,
         cluster_id_col=cluster_id_col,
-        area_col="Usable Area (ha)",
+        area_col="Usable and Available Area (ha)",
     )
 
     # Update khasra records with parcel IDs
