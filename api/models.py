@@ -174,6 +174,11 @@ class ClusteringRequest(BaseModel):
         ge=1,
         description="Minimum number of khasras to form a cluster"
     )
+    min_parcel_area_ha: float = Field(
+        default=100.0,
+        ge=0,
+        description="Minimum total usable area (hectares) for a parcel to be included"
+    )
     method: ClusteringMethod = ClusteringMethod.DBSCAN
 
 

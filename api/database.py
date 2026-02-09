@@ -175,7 +175,8 @@ class ClusteringRunModel(Base):
     distance_threshold = Column(Integer, nullable=False)
     min_samples = Column(Integer, nullable=False)
     max_distance_considered = Column(Integer, nullable=False)
-    
+    min_parcel_area_ha = Column(Float, nullable=True, default=50.0)
+
     # Results summary
     total_parcels = Column(Integer, nullable=True)
     clustered_khasras = Column(Integer, nullable=True)

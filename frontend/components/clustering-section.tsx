@@ -6,9 +6,9 @@ interface ClusteringSectionProps {
   data: any
   isProcessing?: boolean
   clusteringComplete?: boolean
-  clusteringParams?: { distance_threshold: number, min_samples: number } | null
+  clusteringParams?: { distance_threshold: number, min_samples: number, min_parcel_area_ha?: number } | null
   clusteringResult?: { total_parcels: number, clustered_khasras: number, unclustered_khasras: number } | null
-  onClusteringComplete: (result: { distanceThreshold: number, minSamples: number }) => void
+  onClusteringComplete: (result: { distanceThreshold: number, minParcelArea: number }) => void
   onClusteringDeleted?: () => void
 }
 
@@ -21,8 +21,8 @@ export default function ClusteringSection({
   onClusteringComplete,
   onClusteringDeleted
 }: ClusteringSectionProps) {
-  const [distanceThreshold, setDistanceThreshold] = useState(25)
-  const [minSamples, setMinSamples] = useState(2)
+  const [distanceThreshold, setDistanceThreshold] = useState(10)
+  const [minParcelArea, setMinParcelArea] = useState(100)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -34,7 +34,7 @@ export default function ClusteringSection({
 
     onClusteringComplete({
       distanceThreshold,
-      minSamples,
+      minParcelArea,
     })
   }
 
@@ -75,8 +75,8 @@ export default function ClusteringSection({
                   <span className="font-medium text-slate-900">{clusteringParams.distance_threshold} meters</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-600">Minimum Khasras per Cluster:</span>
-                  <span className="font-medium text-slate-900">{clusteringParams.min_samples}</span>
+                  <span className="text-slate-600">Minimum Parcel Area:</span>
+                  <span className="font-medium text-slate-900">{clusteringParams.min_parcel_area_ha ?? 50} hectares</span>
                 </div>
               </div>
             </div>
@@ -187,7 +187,7 @@ export default function ClusteringSection({
               value={distanceThreshold}
               onChange={(e) => {
                 const value = e.target.value.replace(/[^0-9]/g, '');
-                const num = value === '' ? 0 : Math.min(500, Math.max(1, Number(value)));
+                const num = value === '' ? 0 : Math.max(1, Number(value));
                 setDistanceThreshold(num);
               }}
               className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -197,25 +197,25 @@ export default function ClusteringSection({
             </p>
           </div>
 
-          {/* Min Samples */}
+          {/* Minimum Parcel Area */}
           <div>
-            <label htmlFor="minSamples" className="block text-sm font-medium text-slate-700 mb-2">
-              Minimum Khasras per Cluster
+            <label htmlFor="minParcelArea" className="block text-sm font-medium text-slate-700 mb-2">
+              Minimum Parcel Area (hectares)
             </label>
             <input
-              id="minSamples"
+              id="minParcelArea"
               type="text"
-              inputMode="numeric"
-              value={minSamples}
+              inputMode="decimal"
+              value={minParcelArea}
               onChange={(e) => {
-                const value = e.target.value.replace(/[^0-9]/g, '');
-                const num = value === '' ? 1 : Math.min(20, Math.max(1, Number(value)));
-                setMinSamples(num);
+                const value = e.target.value.replace(/[^0-9.]/g, '');
+                const num = value === '' ? 0 : Math.max(0, Number(value));
+                setMinParcelArea(num);
               }}
               className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
             <p className="text-xs text-slate-500 mt-2">
-              Minimum number of khasras required to form a cluster
+              Parcels with total usable area below this threshold will be dropped
             </p>
           </div>
         </div>
@@ -248,7 +248,8 @@ export default function ClusteringSection({
         <ul className="text-xs text-slate-600 space-y-1">
           <li>• Adjacent khasras are grouped into parcels</li>
           <li>• Khasras must be within the distance threshold</li>
-          <li>• Clusters must have minimum number of khasras</li>
+          <li>• Clusters must have at least 2 khasras</li>
+          <li>• Parcels below minimum area threshold will be excluded</li>
           <li>• Unclustered khasras will be marked separately</li>
         </ul>
       </div>

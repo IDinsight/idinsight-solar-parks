@@ -3253,7 +3253,7 @@ def cluster_khasras(
     gdf_with_cluster_id = original_gdf_with_stats.copy()
     gdf_with_cluster_id[cluster_id_col] = labels
 
-    # Filter out parcels with total area < 50 hectares (using raw cluster IDs)
+    # Filter out parcels with total area below minimum threshold (using raw cluster IDs)
     # Calculate total area per parcel (excluding -1 which is unclustered)
     parcel_areas = (
         gdf_with_cluster_id[gdf_with_cluster_id[cluster_id_col] != -1]
@@ -3261,12 +3261,12 @@ def cluster_khasras(
         .sum()
     )
 
-    # Identify parcels with area < 50 hectares
-    small_parcels = parcel_areas[parcel_areas < 50].index.tolist()
+    # Identify parcels with area below minimum threshold
+    small_parcels = parcel_areas[parcel_areas < request.min_parcel_area_ha].index.tolist()
 
     # Mark khasras from small parcels as unclustered
     if small_parcels:
-        logger.info(f"Dropping {len(small_parcels)} parcels with total area < 50 hectares")
+        logger.info(f"Dropping {len(small_parcels)} parcels with total area < {request.min_parcel_area_ha} hectares")
         gdf_with_cluster_id.loc[
             gdf_with_cluster_id[cluster_id_col].isin(small_parcels),
             cluster_id_col
@@ -3321,6 +3321,7 @@ def cluster_khasras(
         distance_threshold=request.distance_threshold,
         min_samples=request.min_samples,
         max_distance_considered=settings.MAX_DISTANCE_CONSIDERED,
+        min_parcel_area_ha=request.min_parcel_area_ha,
         total_parcels=len(parcel_gdf),
         clustered_khasras=clustered_count,
         unclustered_khasras=unclustered_count,
@@ -3499,6 +3500,7 @@ def get_parcels_gdf(db: Session, project_id: str) -> Tuple[Optional[gpd.GeoDataF
             "distance_threshold": clustering_run.distance_threshold,
             "min_samples": clustering_run.min_samples,
             "max_distance_considered": clustering_run.max_distance_considered,
+            "min_parcel_area_ha": clustering_run.min_parcel_area_ha if clustering_run.min_parcel_area_ha is not None else 50.0,
             "total_parcels": clustering_run.total_parcels,
             "clustered_khasras": clustering_run.clustered_khasras,
             "unclustered_khasras": clustering_run.unclustered_khasras,

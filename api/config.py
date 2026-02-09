@@ -44,8 +44,8 @@ class Settings(BaseSettings):
     INDIA_PROJECTED_CRS: int = int(os.getenv("INDIA_PROJECTED_CRS", "24378"))  # India projected CRS for area calculations
 
     # Processing defaults
-    MAX_DISTANCE_CONSIDERED: int = 100  # meters for distance matrix
-    DEFAULT_CLUSTERING_DISTANCE: int = 25  # meters for DBSCAN
+    MAX_DISTANCE_CONSIDERED: int = 500  # meters for distance matrix
+    DEFAULT_CLUSTERING_DISTANCE: int = 10  # meters for DBSCAN
     DEFAULT_MIN_SAMPLES: int = 2  # minimum samples for DBSCAN
 
     # Building/Settlement detection

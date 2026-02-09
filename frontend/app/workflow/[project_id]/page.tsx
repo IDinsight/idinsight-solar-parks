@@ -91,7 +91,7 @@ function WorkflowContent() {
     // Step 3: Clustering state
     const [isClusteringComplete, setIsClusteringComplete] = useState(false)
     const [clusteringResult, setClusteringResult] = useState<any>(null)
-    const [clusteringParams, setClusteringParams] = useState<{ distance_threshold: number, min_samples: number } | null>(null)
+    const [clusteringParams, setClusteringParams] = useState<{ distance_threshold: number, min_samples: number, min_parcel_area_ha?: number } | null>(null)
     const [parcelGeoJSON, setParcelGeoJSON] = useState<any>(null)
 
     // Map visualization state
@@ -719,9 +719,9 @@ function WorkflowContent() {
 
     /**
      * Run DBSCAN clustering to group khasras into parcels
-     * Uses distance threshold and minimum samples parameters
+     * Uses distance threshold, minimum samples, and minimum parcel area parameters
      */
-    const handleRunClustering = async (distanceThreshold: number, minSamples: number = 2) => {
+    const handleRunClustering = async (distanceThreshold: number, minSamples: number = 2, minParcelArea: number = 50) => {
         if (!currentProject) return
 
         setIsProcessing(true)
@@ -731,13 +731,15 @@ function WorkflowContent() {
             const result = await api.clusterKhasras(currentProject.id, {
                 distance_threshold: distanceThreshold,
                 min_samples: minSamples,
+                min_parcel_area_ha: minParcelArea,
             })
 
             setClusteringResult(result)
             setIsClusteringComplete(true)
             setClusteringParams({
                 distance_threshold: distanceThreshold,
-                min_samples: minSamples
+                min_samples: minSamples,
+                min_parcel_area_ha: minParcelArea
             })
 
             // Fetch parcel geometries for map display
@@ -748,7 +750,8 @@ function WorkflowContent() {
             if (parcelsGeoJSON?.clusteringParams) {
                 setClusteringParams({
                     distance_threshold: parcelsGeoJSON.clusteringParams.distance_threshold,
-                    min_samples: parcelsGeoJSON.clusteringParams.min_samples
+                    min_samples: parcelsGeoJSON.clusteringParams.min_samples,
+                    min_parcel_area_ha: parcelsGeoJSON.clusteringParams.min_parcel_area_ha
                 })
             }
 
@@ -1493,7 +1496,7 @@ function WorkflowContent() {
                                         clusteringParams={clusteringParams}
                                         clusteringResult={clusteringResult}
                                         onClusteringComplete={(result: any) => {
-                                            handleRunClustering(result.distanceThreshold, result.minSamples)
+                                            handleRunClustering(result.distanceThreshold, 2, result.minParcelArea)
                                         }}
                                         onClusteringDeleted={handleDeleteClustering}
                                     />

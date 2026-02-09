@@ -112,6 +112,7 @@ export interface CalculateAreasResponse {
 export interface ClusteringRequest {
     distance_threshold: number
     min_samples?: number
+    min_parcel_area_ha?: number
 }
 
 export interface ParcelInfo {
