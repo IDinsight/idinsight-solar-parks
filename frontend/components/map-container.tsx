@@ -506,7 +506,27 @@ const LeafletMap = dynamic(
                 />
               </LayersControl.BaseLayer>
             </LayersControl>
-            {/* Render constraint layers first (bottom) */}
+            {/* Layer order (bottom to top): Khasras -> Constraint Layers -> Parcels */}
+            {/* This ensures parcels are on top and their tooltips show when overlapping */}
+
+            {/* 1. Render khasra outline (bottom) */}
+            {visibleLayers.khasras && geoJsonData && geoJsonData.features.length > 0 && (
+              <GeoJSON
+                key={`khasras-outline-${geoJsonData.features.length}`}
+                data={geoJsonData}
+                style={khasraOutlineStyle}
+              />
+            )}
+            {/* 2. Render khasras */}
+            {visibleLayers.khasras && geoJsonData && geoJsonData.features.length > 0 && (
+              <GeoJSON
+                key={`khasras-${geoJsonData.features.length}`}
+                data={geoJsonData}
+                style={khasraStyle}
+                onEachFeature={onEachKhasra}
+              />
+            )}
+            {/* 3. Render constraint layers (middle) */}
             {layersGeoJson.map((layer) => (
               layer.data && layer.data.features.length > 0 && visibleLayers.layers[layer.name] !== false && (
                 <GeoJSON
@@ -516,7 +536,7 @@ const LeafletMap = dynamic(
                 />
               )
             ))}
-            {/* Render parcel white outline first */}
+            {/* 4. Render parcel outline */}
             {visibleLayers.parcels && parcelsGeoJson && parcelsGeoJson.features && parcelsGeoJson.features.length > 0 && (
               <GeoJSON
                 key={`parcels-outline-${parcelsGeoJson.features.length}`}
@@ -524,30 +544,13 @@ const LeafletMap = dynamic(
                 style={parcelOutlineStyle}
               />
             )}
-            {/* Render parcel boundaries in the middle */}
+            {/* 5. Render parcel boundaries (top) */}
             {visibleLayers.parcels && parcelsGeoJson && parcelsGeoJson.features && parcelsGeoJson.features.length > 0 && (
               <GeoJSON
                 key={`parcels-${parcelsGeoJson.features.length}`}
                 data={parcelsGeoJson}
                 style={parcelStyle}
                 onEachFeature={onEachParcel}
-              />
-            )}
-            {/* Render khasra gray outline first */}
-            {visibleLayers.khasras && geoJsonData && geoJsonData.features.length > 0 && (
-              <GeoJSON
-                key={`khasras-outline-${geoJsonData.features.length}`}
-                data={geoJsonData}
-                style={khasraOutlineStyle}
-              />
-            )}
-            {/* Render khasras last (top layer for hover) */}
-            {visibleLayers.khasras && geoJsonData && geoJsonData.features.length > 0 && (
-              <GeoJSON
-                key={`khasras-${geoJsonData.features.length}`}
-                data={geoJsonData}
-                style={khasraStyle}
-                onEachFeature={onEachKhasra}
               />
             )}
           </MapContainer>
