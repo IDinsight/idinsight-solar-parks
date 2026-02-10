@@ -55,7 +55,7 @@ Later:
 
 ## About
 
-A FastAPI application for analyzing land parcels (khasras) for solar park development in India.
+A FastAPI application for analyzing land for solar park development in India.
 
 ## Architecture
 
@@ -108,42 +108,15 @@ cp .env.example .env
 # Edit .env with your settings
 ```
 
-**Important**: To use the slopes layer feature, you need NASA Earthdata credentials:
+You can leave most variables as defaults but to use the slopes layer feature, you need NASA Earthdata credentials:
+
 - Register for a free account at [NASA Earthdata](https://urs.earthdata.nasa.gov/users/new)
 - Add your credentials to the `.env` file:
-  ```
+
+  ```bash
   EARTHDATA_USERNAME=your_username
   EARTHDATA_PASSWORD=your_password
   ```
-
-## Configuration
-
-Environment variables (set in `.env` file):
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SECRET_KEY` | (required) | JWT signing key - change in production |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | 1440 (24h) | Token expiration time |
-| `DEFAULT_USERNAME` | admin | Default admin username |
-| `DEFAULT_PASSWORD` | admin | Default admin password |
-| `POSTGRES_USER` | postgres | PostgreSQL username |
-| `POSTGRES_PASSWORD` | postgres | PostgreSQL password |
-| `POSTGRES_HOST` | localhost | PostgreSQL host |
-| `POSTGRES_PORT` | 5432 | PostgreSQL port |
-| `POSTGRES_DB` | solar_parks | PostgreSQL database name |
-| `DATA_DIR` | ./data | Directory for cache files (distance matrices) |
-| `BUILDING_BUFFER` | 10 | Buffer distance around buildings in meters |
-
-## Database Migration (If Upgrading)
-
-If you have an existing database and are upgrading to a version that includes per-layer area tracking, run the migration script:
-
-```bash
-cd api
-python add_layer_areas_column.py
-```
-
-This adds the `layer_areas` JSONB column to the `khasras` table.
 
 ## Running the Server
 
@@ -271,7 +244,7 @@ Uploads khasra boundaries and stores them in the database. Each khasra geometry 
 **Layer Processing:**
 
 - Layers can be marked as `is_unusable=true` (area deducted from usable) or `is_unusable=false` (area deducted from available)
-- Settlement layer generation fetches building footprints from VIDA S2 rooftop data, clusters them using DBSCAN, and creates settlement polygons
+- Settlement layer generation fetches building footprints from Google and Microsoft rooftop data, clusters them using DBSCAN, and creates settlement polygons
 
 ### Clustering
 

@@ -754,7 +754,7 @@ def process_custom_layer_upload(
     db.commit()
 
     try:
-        update_layer_status(db, layer, "in_progress", "Loading khasras data")
+        update_layer_status(db, layer, "in_progress", "Loading khasra data")
 
         gdf = get_khasras_gdf(db, project_id, projected=False)
         if gdf is None:
@@ -810,7 +810,7 @@ def process_custom_layer_upload(
         layer_overlap_gdf[area_col] = layer_overlap_gdf.area / 10_000
 
         update_layer_status(
-            db, layer, "in_progress", "Storing layer features in database"
+            db, layer, "in_progress", "Storing custom layer in database"
         )
 
         # Update layer metadata
@@ -1246,7 +1246,7 @@ def process_settlement_layer(
         gdf_4326 = gdf.to_crs("EPSG:4326")
 
         update_layer_status(
-            db, settlements_layer, "in_progress", "Importing VIDA rooftop utilities"
+            db, settlements_layer, "in_progress", "Importing rooftop utilities"
         )
 
         # Import VIDA utilities
@@ -1264,7 +1264,7 @@ def process_settlement_layer(
             db,
             settlements_layer,
             "in_progress",
-            "Finding overlapping rooftop S2 bundles",
+            "Finding overlapping rooftop data",
         )
 
         # Get S2 cell IDs that overlap the khasras
@@ -1277,7 +1277,7 @@ def process_settlement_layer(
             db,
             settlements_layer,
             "in_progress",
-            f"Downloading rooftop data for {len(s2_cell_ids)} S2 bundles",
+            f"Downloading rooftop data for {len(s2_cell_ids)} tiles",
         )
 
         # Download rooftop data to shared folder (not per-project)
@@ -1394,7 +1394,7 @@ def process_settlement_layer(
             db,
             settlements_layer,
             "in_progress",
-            "Intersecting buildings with khasras",
+            "Filtering to buildings that overlap the khasras",
         )
 
         # Get intersection with khasras
@@ -1404,7 +1404,7 @@ def process_settlement_layer(
             db,
             settlements_layer,
             "in_progress",
-            f"Clustering {len(buildings_overlap_gdf)} buildings (distance={settlement_eps}m, min_buildings={min_buildings})",
+            f"Clustering {len(buildings_overlap_gdf)} buildings (max distance={settlement_eps}m, min buildings={min_buildings})",
         )
 
         # Cluster buildings using DBSCAN
@@ -1676,7 +1676,7 @@ def process_cropland_layer(
 
         # Load legend
         update_layer_status(
-            db, cropland_layer, "in_progress", "Loading landcover legend"
+            db, cropland_layer, "in_progress", "Loading landcover data"
         )
         legend_path = (
             Path(settings.DATA_DIR) / "landcover" / "legend_processed.csv"
@@ -1684,9 +1684,6 @@ def process_cropland_layer(
         class_value_dict = load_landcover_class_mapping(legend_path)
 
         # Load landcover TIFF and extract cropland shapes
-        update_layer_status(
-            db, cropland_layer, "in_progress", "Loading landcover TIFF data"
-        )
         landcover_dir = Path(settings.DATA_DIR) / "landcover"
 
         # Find which TIFF files overlap the project bounds
@@ -1746,7 +1743,7 @@ def process_cropland_layer(
 
         # Overlay with khasras
         update_layer_status(
-            db, cropland_layer, "in_progress", "Overlaying cropland with khasras"
+            db, cropland_layer, "in_progress", "Overlaying cropland onto khasras"
         )
         cropland_overlay_gdf = gpd.overlay(
             cropland_shapes_gdf, gdf, how="intersection"
@@ -1764,7 +1761,7 @@ def process_cropland_layer(
             db,
             cropland_layer,
             "in_progress",
-            "Saving cropland features to database",
+            "Saving cropland layer to database",
         )
 
         layer_info = _save_builtin_layer_with_status(
@@ -1905,16 +1902,13 @@ def process_water_layer(
         gdf_4326 = gdf.to_crs("EPSG:4326")
 
         # Load legend
-        update_layer_status(db, water_layer, "in_progress", "Loading landcover legend")
+        update_layer_status(db, water_layer, "in_progress", "Loading landcover data")
         legend_path = (
             Path(settings.DATA_DIR) / "landcover" / "legend_processed.csv"
         )
         class_value_dict = load_landcover_class_mapping(legend_path)
 
         # Load landcover TIFF and extract water shapes
-        update_layer_status(
-            db, water_layer, "in_progress", "Loading landcover TIFF data"
-        )
         landcover_dir = Path(settings.DATA_DIR) / "landcover"
 
         # Find which TIFF files overlap the project bounds
@@ -1971,7 +1965,7 @@ def process_water_layer(
 
         # Overlay with khasras
         update_layer_status(
-            db, water_layer, "in_progress", "Overlaying water with khasras"
+            db, water_layer, "in_progress", "Overlaying water onto khasras"
         )
         water_overlay_gdf = gpd.overlay(water_shapes_gdf, gdf, how="intersection")
         water_overlay_gdf = water_overlay_gdf.dissolve(
@@ -1984,7 +1978,7 @@ def process_water_layer(
 
         # Save to database using helper function
         update_layer_status(
-            db, water_layer, "in_progress", "Saving water features to database"
+            db, water_layer, "in_progress", "Saving water layer to database"
         )
 
         layer_info = _save_builtin_layer_with_status(
@@ -2179,9 +2173,9 @@ def process_slopes_layer(
 
         # Search for DEM data using ASF
         if north_layer:
-            update_layer_status(db, north_layer, "in_progress", "Searching for NASA ALOS DEM tiles")
+            update_layer_status(db, north_layer, "in_progress", "Searching for NASA elevation data")
         if other_layer:
-            update_layer_status(db, other_layer, "in_progress", "Searching for NASA ALOS DEM tiles")
+            update_layer_status(db, other_layer, "in_progress", "Searching for NASA elevation data")
 
         try:
             import asf_search as asf
@@ -2268,15 +2262,15 @@ def process_slopes_layer(
             logger.warning(f"Greedy selection failed, using all {len(results)} tiles")
 
         if north_layer:
-            update_layer_status(db, north_layer, "in_progress", f"Selected {len(results)} DEM tiles, downloading...")
+            update_layer_status(db, north_layer, "in_progress", f"Selected {len(results)} data tiles, downloading...")
         if other_layer:
-            update_layer_status(db, other_layer, "in_progress", f"Selected {len(results)} DEM tiles, downloading...")
+            update_layer_status(db, other_layer, "in_progress", f"Selected {len(results)} data tiles, downloading...")
 
         # Authenticate with NASA Earthdata
         if north_layer:
-            update_layer_status(db, north_layer, "in_progress", "Authenticating with NASA Earthdata")
+            update_layer_status(db, north_layer, "in_progress", "Authenticating with NASA Earthdata servers")
         if other_layer:
-            update_layer_status(db, other_layer, "in_progress", "Authenticating with NASA Earthdata")
+            update_layer_status(db, other_layer, "in_progress", "Authenticating with NASA Earthdata servers")
 
         if not settings.EARTHDATA_USERNAME or not settings.EARTHDATA_PASSWORD:
             raise ValueError(
@@ -2300,9 +2294,9 @@ def process_slopes_layer(
         dem_files = []
         for idx, result in enumerate(results):
             if north_layer:
-                update_layer_status(db, north_layer, "in_progress", f"Downloading DEM tile {idx+1}/{len(results)}")
+                update_layer_status(db, north_layer, "in_progress", f"Downloading elevation data tile {idx+1} of {len(results)}")
             if other_layer:
-                update_layer_status(db, other_layer, "in_progress", f"Downloading DEM tile {idx+1}/{len(results)}")
+                update_layer_status(db, other_layer, "in_progress", f"Downloading elevation data tile {idx+1} of {len(results)}")
 
             # Create subdirectory for this DEM
             dem_name = result.properties['sceneName'].replace('.zip', '')
@@ -2404,9 +2398,9 @@ def process_slopes_layer(
 
         # Process each DEM file to extract slopes - keep north and other separate
         if north_layer:
-            update_layer_status(db, north_layer, "in_progress", "Processing DEM files to calculate slopes")
+            update_layer_status(db, north_layer, "in_progress", "Calculating slopes from elevation data")
         if other_layer:
-            update_layer_status(db, other_layer, "in_progress", "Processing DEM files to calculate slopes")
+            update_layer_status(db, other_layer, "in_progress", "Calculating slopes from elevation data")
 
         north_slope_gdfs = []
         other_slope_gdfs = []
@@ -2414,9 +2408,9 @@ def process_slopes_layer(
 
         for idx, (dem_subdir, dem_name) in enumerate(dem_files):
             if north_layer:
-                update_layer_status(db, north_layer, "in_progress", f"Processing DEM {idx+1}/{len(dem_files)}: {dem_name}")
+                update_layer_status(db, north_layer, "in_progress", f"Processing elevation data tile {idx+1} of {len(dem_files)}: {dem_name}")
             if other_layer:
-                update_layer_status(db, other_layer, "in_progress", f"Processing DEM {idx+1}/{len(dem_files)}: {dem_name}")
+                update_layer_status(db, other_layer, "in_progress", f"Processing elevation data tile {idx+1} of {len(dem_files)}: {dem_name}")
 
             dem_tif_path = dem_subdir / f"{dem_name}.tif"
             if not dem_tif_path.exists():
@@ -2492,7 +2486,7 @@ def process_slopes_layer(
 
         # Process north-facing slopes
         if north_slope_gdfs and north_layer:
-            update_layer_status(db, north_layer, "in_progress", "Combining north slope geometries")
+            update_layer_status(db, north_layer, "in_progress", "Combining north slope shapes")
             north_slopes_gdf = pd.concat(north_slope_gdfs, ignore_index=True)
             logger.info(f"Combined {len(north_slopes_gdf)} north slope polygons")
 
@@ -2526,7 +2520,7 @@ def process_slopes_layer(
 
         # Process other-facing slopes
         if other_slope_gdfs and other_layer:
-            update_layer_status(db, other_layer, "in_progress", "Combining other slope geometries")
+            update_layer_status(db, other_layer, "in_progress", "Combining other slope shapes")
             other_slopes_gdf = pd.concat(other_slope_gdfs, ignore_index=True)
             logger.info(f"Combined {len(other_slopes_gdf)} other slope polygons")
 

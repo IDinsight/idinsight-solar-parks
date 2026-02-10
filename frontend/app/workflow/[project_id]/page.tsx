@@ -1072,7 +1072,7 @@ function WorkflowContent() {
                                             )}
                                         </div>
                                         <p className="text-xs text-slate-600 mb-4">
-                                            Automatically detect settlements and isolated buildings from VIDA rooftop data
+                                            Automatically detect settlements and isolated buildings from Google and Microsoft rooftop data
                                         </p>
 
                                         {!settlementLayerStatus || (settlementLayerStatus.settlements?.status === "failed" && settlementLayerStatus.isolated?.status === "failed") ? (
@@ -1324,7 +1324,7 @@ function WorkflowContent() {
                                                 )}
                                         </div>
                                         <p className="text-xs text-slate-600 mb-4">
-                                            Automatically detect steep slopes from NASA ALOS DEM data
+                                            Automatically detect steep slopes from NASA 12.5m elevation data
                                         </p>
 
                                         {(!northSlopesLayerStatus && !otherSlopesLayerStatus) ||
