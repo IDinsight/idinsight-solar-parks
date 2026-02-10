@@ -3547,7 +3547,6 @@ def export_data(
     db: Session,
     project_id: str,
     export_format: ExportFormat,
-    include_statistics: bool = True,
 ) -> Tuple[bytes, str]:
     """Export all project data in the specified format
 
@@ -3599,7 +3598,7 @@ def export_data(
     elif export_format == ExportFormat.CSV:
         return export_to_csv(gdfs_to_export, location)
     elif export_format == ExportFormat.EXCEL:
-        return export_to_excel(gdfs_to_export, location, include_statistics)
+        return export_to_excel(gdfs_to_export, location)
     else:
         raise ValueError(f"Unsupported export format: {export_format}")
 
@@ -3846,7 +3845,6 @@ def export_to_csv(
 def export_to_excel(
     gdfs: Dict[str, gpd.GeoDataFrame],
     location: str,
-    include_statistics: bool = True,
 ) -> Tuple[bytes, str]:
     buffer = BytesIO()
 
@@ -3854,9 +3852,7 @@ def export_to_excel(
         # Sheet 1: Parcels (exclude UNCLUSTERED parcels)
         if "parcels" in gdfs:
             parcels_df = gdfs["parcels"].drop(columns=["geometry"], errors="ignore")
-            # Filter out UNCLUSTERED parcels
-            if "parcel_id" in parcels_df.columns:
-                parcels_df = parcels_df[~parcels_df["parcel_id"].str.contains("UNCLUSTERED", na=True)]
+            parcels_df = parcels_df.sort_values(by="parcel_id")
             parcels_df.to_excel(writer, sheet_name="Parcels", index=False)
         
         # Sheet 2: Khasras that are part of clustered parcels only
@@ -3864,8 +3860,9 @@ def export_to_excel(
             khasras_df = gdfs["khasras"].drop(columns=["geometry"], errors="ignore")
             
             # Filter to only khasras that are part of clustered parcels (not UNCLUSTERED)
-            if "parcel_id" in khasras_df.columns:
-                khasras_df = khasras_df[~khasras_df["parcel_id"].str.contains("UNCLUSTERED", na=True)]
+            if "Parcel ID" in khasras_df.columns:
+                khasras_df = khasras_df[~khasras_df["Parcel ID"].str.contains("UNCLUSTERED", na=True)]
+                khasras_df = khasras_df.sort_values(by=["Parcel ID", "Khasra ID (Unique)"])
             
             khasras_df.to_excel(writer, sheet_name="Khasras", index=False)
 
