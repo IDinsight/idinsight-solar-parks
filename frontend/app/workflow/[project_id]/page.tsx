@@ -10,7 +10,7 @@ import ClusteringSection from "@/components/clustering-section"
 import MapContainer, { LAYER_COLORS } from "@/components/map-container"
 import * as api from "@/lib/api/services"
 import { ExportFormat } from "@/lib/api/types"
-import { ChevronLeft, ChevronRight, ArrowLeft, AlertCircle, Map, Globe, ExternalLink, Link, FileSpreadsheet, Trash2, AlertTriangle } from "lucide-react"
+import { ChevronLeft, ChevronRight, ArrowLeft, AlertCircle, Map, Globe, ExternalLink, Link, FileSpreadsheet, Trash2, AlertTriangle, Loader2 } from "lucide-react"
 import { getWorkflowPageForProject } from "@/lib/utils/project-navigation"
 
 
@@ -97,6 +97,9 @@ function WorkflowContent() {
     const [mapCenter, setMapCenter] = useState<[number, number]>([20, 0])
     const [mapZoom, setMapZoom] = useState(5)
     const [khasraDataVersion, setKhasraDataVersion] = useState(0) // Increment to force map remount
+
+    // Export loading state
+    const [exportingFormat, setExportingFormat] = useState<ExportFormat | null>(null)
 
     // Map link state
     const [mapLinkCopied, setMapLinkCopied] = useState(false)
@@ -804,6 +807,7 @@ function WorkflowContent() {
         if (!currentProject) return
 
         setIsProcessing(true)
+        setExportingFormat(format)
 
         try {
             const exportBlob = await api.exportData(currentProject.id, {
@@ -833,6 +837,7 @@ function WorkflowContent() {
             alert(error.response?.data?.detail || 'Failed to export data')
         } finally {
             setIsProcessing(false)
+            setExportingFormat(null)
         }
     }
 
@@ -1582,10 +1587,14 @@ function WorkflowContent() {
                                             <button
                                                 onClick={() => handleExportData(ExportFormat.KML)}
                                                 disabled={isProcessing}
-                                                className="w-full p-6 border-2 border-slate-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all text-left"
+                                                className="w-full p-6 border-2 border-slate-200 rounded-lg enabled:hover:border-blue-500 enabled:hover:bg-blue-50 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
                                                 <div className="flex items-start gap-4">
-                                                    <Map className="w-8 h-8 text-blue-600 flex-shrink-0" />
+                                                    {exportingFormat === ExportFormat.KML ? (
+                                                        <Loader2 className="w-8 h-8 text-blue-600 flex-shrink-0 animate-spin" />
+                                                    ) : (
+                                                        <Map className="w-8 h-8 text-blue-600 flex-shrink-0" />
+                                                    )}
                                                     <div>
                                                         <h4 className="text-base font-semibold text-slate-900">Download KMZ</h4>
                                                         <p className="text-xs text-slate-600 mt-1">All layers for Google Earth</p>
@@ -1598,10 +1607,14 @@ function WorkflowContent() {
                                             <button
                                                 onClick={() => handleExportData(ExportFormat.EXCEL)}
                                                 disabled={isProcessing}
-                                                className="w-full p-6 border-2 border-slate-200 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 transition-all text-left"
+                                                className="w-full p-6 border-2 border-slate-200 rounded-lg enabled:hover:border-emerald-500 enabled:hover:bg-emerald-50 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
                                                 <div className="flex items-start gap-4">
-                                                    <FileSpreadsheet className="w-8 h-8 text-emerald-600 flex-shrink-0" />
+                                                    {exportingFormat === ExportFormat.EXCEL ? (
+                                                        <Loader2 className="w-8 h-8 text-emerald-600 flex-shrink-0 animate-spin" />
+                                                    ) : (
+                                                        <FileSpreadsheet className="w-8 h-8 text-emerald-600 flex-shrink-0" />
+                                                    )}
                                                     <div>
                                                         <h4 className="text-base font-semibold text-slate-900">Download Excel</h4>
                                                         <p className="text-xs text-slate-600 mt-1">Complete statistics workbook</p>
