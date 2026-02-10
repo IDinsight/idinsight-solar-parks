@@ -48,6 +48,7 @@ Later:
 - show inter-khasra distance histogram to help with threshold selection. give suggested threshold.
 - clustering based on usable shapes?
 - flood risk?
+- Add substation markers?
 - host on AWS
 - user management with permissions
 - khasra api integration
@@ -131,6 +132,7 @@ Environment variables (set in `.env` file):
 | `POSTGRES_PORT` | 5432 | PostgreSQL port |
 | `POSTGRES_DB` | solar_parks | PostgreSQL database name |
 | `DATA_DIR` | ./data | Directory for cache files (distance matrices) |
+| `BUILDING_BUFFER` | 10 | Buffer distance around buildings in meters |
 
 ## Database Migration (If Upgrading)
 
@@ -336,8 +338,10 @@ curl -X POST "http://localhost:8000/projects/{project_id}/khasras" \
 curl -X POST "http://localhost:8000/projects/{project_id}/layers/settlements" \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
-  -d '{"building_buffer": 10, "settlement_eps": 50, "min_buildings": 5}'
+  -d '{"settlement_eps": 50, "min_buildings": 5}'
 ```
+
+Note: The building buffer is set to 10 meters via the `BUILDING_BUFFER` environment variable.
 
 1. **Add custom constraint layers (optional)**
 

@@ -70,7 +70,6 @@ function WorkflowContent() {
 
     // Settlement layer configuration
     const [settlementLayerParams, setSettlementLayerParams] = useState({
-        building_buffer: 10,
         settlement_eps: 50,
         min_buildings: 5,
     })
@@ -1088,35 +1087,7 @@ function WorkflowContent() {
                                                 {/* Parameters */}
                                                 <div className="space-y-3 mb-4">
                                                     <div>
-                                                        <label className="text-xs font-medium text-slate-700">Building Buffer (m)</label>
-                                                        <input
-                                                            type="text"
-                                                            inputMode="numeric"
-                                                            value={settlementLayerParams.building_buffer}
-                                                            onChange={(e) => {
-                                                                const value = e.target.value.replace(/[^0-9]/g, '');
-                                                                const num = value === '' ? 0 : Math.max(0, Number(value));
-                                                                setSettlementLayerParams({ ...settlementLayerParams, building_buffer: num });
-                                                            }}
-                                                            className="w-full mt-1 px-3 py-2 text-sm border border-slate-300 rounded-md"
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="text-xs font-medium text-slate-700">Max Inter-building Distance (m)</label>
-                                                        <input
-                                                            type="text"
-                                                            inputMode="numeric"
-                                                            value={settlementLayerParams.settlement_eps}
-                                                            onChange={(e) => {
-                                                                const value = e.target.value.replace(/[^0-9]/g, '');
-                                                                const num = value === '' ? 0 : Math.max(0, Number(value));
-                                                                setSettlementLayerParams({ ...settlementLayerParams, settlement_eps: num });
-                                                            }}
-                                                            className="w-full mt-1 px-3 py-2 text-sm border border-slate-300 rounded-md"
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="text-xs font-medium text-slate-700">Min Buildings in Settlement</label>
+                                                        <label className="text-xs font-medium text-slate-700">Minimum Buildings for Settlement</label>
                                                         <input
                                                             type="text"
                                                             inputMode="numeric"
@@ -1125,6 +1096,20 @@ function WorkflowContent() {
                                                                 const value = e.target.value.replace(/[^0-9]/g, '');
                                                                 const num = value === '' ? 1 : Math.max(1, Number(value));
                                                                 setSettlementLayerParams({ ...settlementLayerParams, min_buildings: num });
+                                                            }}
+                                                            className="w-full mt-1 px-3 py-2 text-sm border border-slate-300 rounded-md"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-xs font-medium text-slate-700">Max Inter-building Distance in Settlements (m)</label>
+                                                        <input
+                                                            type="text"
+                                                            inputMode="numeric"
+                                                            value={settlementLayerParams.settlement_eps}
+                                                            onChange={(e) => {
+                                                                const value = e.target.value.replace(/[^0-9]/g, '');
+                                                                const num = value === '' ? 0 : Math.max(0, Number(value));
+                                                                setSettlementLayerParams({ ...settlementLayerParams, settlement_eps: num });
                                                             }}
                                                             className="w-full mt-1 px-3 py-2 text-sm border border-slate-300 rounded-md"
                                                         />
