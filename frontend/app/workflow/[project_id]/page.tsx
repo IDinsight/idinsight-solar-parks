@@ -1469,7 +1469,7 @@ function WorkflowContent() {
                             <div className="mb-6">
                                 <h2 className="text-3xl font-bold text-slate-900 mb-2">Step 3: Cluster Khasras into Parcels</h2>
                                 <p className="text-base text-slate-600">
-                                    Group adjacent khasras into contiguous parcels for solar development. Only parcels larger than 50 hectares will be included in the final results.
+                                    Group adjacent khasras into contiguous parcels for solar development.
                                 </p>
                             </div>
                             <div className="flex gap-8 flex-1 min-h-0">
