@@ -36,6 +36,9 @@ DONE:
 
 TO DO:
 
+- filter excel to only khasras in parcels
+- make parcels selectable for merging
+
 - add stringy filter (new "Clean Khasras" page?)
 - rework ID naming
 - refactor and split files. change out of service structure.

@@ -144,7 +144,6 @@ export enum ExportFormat {
 
 export interface ExportRequest {
     format: ExportFormat
-    include_statistics?: boolean
 }
 
 export interface AvailableLayer {

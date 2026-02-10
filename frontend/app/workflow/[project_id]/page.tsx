@@ -808,7 +808,6 @@ function WorkflowContent() {
         try {
             const exportBlob = await api.exportData(currentProject.id, {
                 format: format,
-                include_statistics: true,
             })
 
             // Map export formats to file extensions
