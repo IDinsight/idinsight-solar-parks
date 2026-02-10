@@ -1323,7 +1323,6 @@ async def export_project_data_endpoint(
             db=db,
             project_id=project_id,
             export_format=request.format,
-            include_statistics=request.include_statistics,
         )
 
         # Determine media type

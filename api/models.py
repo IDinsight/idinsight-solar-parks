@@ -331,7 +331,6 @@ class ExportFormat(str, Enum):
 class ExportRequest(BaseModel):
     """Request to export data - always exports all project data (khasras, parcels, layers)"""
     format: ExportFormat = ExportFormat.GEOJSON
-    include_statistics: bool = True
 
 
 class ExportResponse(BaseModel):
