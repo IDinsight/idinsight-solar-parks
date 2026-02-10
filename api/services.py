@@ -37,6 +37,7 @@ from models import (
     ParcelStats,
     ProjectStatus,
 )
+from openpyxl.styles import Alignment, Font, PatternFill
 from shapely import MultiPolygon
 from shapely.geometry import Polygon
 from shapely.strtree import STRtree
@@ -299,8 +300,7 @@ def process_khasra_upload(
             file_storage.delete_file(project.distance_matrix_path)
             # Also delete metadata
             metadata_path = project.distance_matrix_path.replace(
-                "distance_matrix.npy",
-                "distance_matrix_metadata.json"
+                "distance_matrix.npy", "distance_matrix_metadata.json"
             )
             file_storage.delete_file(metadata_path)
         except Exception as e:
@@ -509,10 +509,16 @@ def get_khasras(db: Session, project_id: str) -> Dict[str, Any]:
         properties = {
             "khasra_id": khasra_id,
             "khasra_id_unique": khasra_id_unique,
-            "original_area_ha": round(original_area_ha, 4) if original_area_ha else None,
+            "original_area_ha": round(original_area_ha, 4)
+            if original_area_ha
+            else None,
             "usable_area_ha": round(usable_area_ha, 4) if usable_area_ha else None,
-            "unusable_area_ha": round(unusable_area_ha, 4) if unusable_area_ha else None,
-            "usable_available_area_ha": round(usable_available_area_ha, 4) if usable_available_area_ha else None,
+            "unusable_area_ha": round(unusable_area_ha, 4)
+            if unusable_area_ha
+            else None,
+            "usable_available_area_ha": round(usable_available_area_ha, 4)
+            if usable_available_area_ha
+            else None,
             "parcel_id": parcel_id,
             "building_count": building_count or 0,
             **(props or {}),
@@ -521,11 +527,17 @@ def get_khasras(db: Session, project_id: str) -> Dict[str, Any]:
         # Calculate percentages if original_area_ha is available
         if original_area_ha and original_area_ha > 0:
             if usable_area_ha is not None:
-                properties["usable_area_percent"] = round((usable_area_ha / original_area_ha) * 100, 2)
+                properties["usable_area_percent"] = round(
+                    (usable_area_ha / original_area_ha) * 100, 2
+                )
             if unusable_area_ha is not None:
-                properties["unusable_area_percent"] = round((unusable_area_ha / original_area_ha) * 100, 2)
+                properties["unusable_area_percent"] = round(
+                    (unusable_area_ha / original_area_ha) * 100, 2
+                )
             if usable_available_area_ha is not None:
-                properties["usable_available_area_percent"] = round((usable_available_area_ha / original_area_ha) * 100, 2)
+                properties["usable_available_area_percent"] = round(
+                    (usable_available_area_ha / original_area_ha) * 100, 2
+                )
 
         # Add layer-specific areas if available
         if layer_areas:
@@ -537,12 +549,20 @@ def get_khasras(db: Session, project_id: str) -> Dict[str, Any]:
             description_parts.append(f"Area: {round(original_area_ha, 2)} ha")
         if usable_area_ha is not None and original_area_ha:
             usable_pct = round((usable_area_ha / original_area_ha) * 100, 1)
-            description_parts.append(f"Usable: {round(usable_area_ha, 2)} ha ({usable_pct}%)")
+            description_parts.append(
+                f"Usable: {round(usable_area_ha, 2)} ha ({usable_pct}%)"
+            )
         if unusable_area_ha is not None and original_area_ha:
             unusable_pct = round((unusable_area_ha / original_area_ha) * 100, 1)
-            description_parts.append(f"Unusable: {round(unusable_area_ha, 2)} ha ({unusable_pct}%)")
+            description_parts.append(
+                f"Unusable: {round(unusable_area_ha, 2)} ha ({unusable_pct}%)"
+            )
 
-        properties["description"] = " | ".join(description_parts) if description_parts else "No area calculated yet"
+        properties["description"] = (
+            " | ".join(description_parts)
+            if description_parts
+            else "No area calculated yet"
+        )
 
         features.append(
             {
@@ -622,7 +642,9 @@ def delete_parcels(db: Session, project_id: str) -> bool:
         return False
 
     # Delete all clustering runs (this will cascade delete parcels due to FK)
-    db.query(ClusteringRunModel).filter(ClusteringRunModel.project_id == project_id).delete()
+    db.query(ClusteringRunModel).filter(
+        ClusteringRunModel.project_id == project_id
+    ).delete()
 
     # Reset parcel_id on all khasras
     db.query(KhasraModel).filter(KhasraModel.project_id == project_id).update(
@@ -630,7 +652,9 @@ def delete_parcels(db: Session, project_id: str) -> bool:
     )
 
     # Update project status - check if layers exist
-    layer_count = db.query(LayerModel).filter(LayerModel.project_id == project_id).count()
+    layer_count = (
+        db.query(LayerModel).filter(LayerModel.project_id == project_id).count()
+    )
     if layer_count > 0:
         project.status = ProjectStatus.LAYERS_ADDED
     else:
@@ -702,9 +726,15 @@ def format_error_message(exception: Exception, context: str = "") -> str:
             user_reason = "External data source authentication failed"
         else:
             user_reason = "Invalid configuration or data format"
-    elif "authenticate" in str(exception).lower() or "credentials" in str(exception).lower():
+    elif (
+        "authenticate" in str(exception).lower()
+        or "credentials" in str(exception).lower()
+    ):
         user_reason = "External data source authentication failed"
-    elif any(keyword in str(exception).lower() for keyword in ["geometry", "invalid", "corrupt"]):
+    elif any(
+        keyword in str(exception).lower()
+        for keyword in ["geometry", "invalid", "corrupt"]
+    ):
         user_reason = "Processing failed due to data quality issues"
     else:
         user_reason = "An unexpected error occurred"
@@ -714,7 +744,9 @@ def format_error_message(exception: Exception, context: str = "") -> str:
     if context:
         return f"Processing failed: {user_reason}. Context: {context}. Technical details: {technical_details}"
     else:
-        return f"Processing failed: {user_reason}. Technical details: {technical_details}"
+        return (
+            f"Processing failed: {user_reason}. Technical details: {technical_details}"
+        )
 
 
 def process_custom_layer_upload(
@@ -1018,7 +1050,7 @@ def get_landcover_shapes(
 
     # Handle empty case
     if not vector_shapes:
-        return gpd.GeoDataFrame(columns=['geometry', 'class'], crs=target_crs)
+        return gpd.GeoDataFrame(columns=["geometry", "class"], crs=target_crs)
 
     # Create GeoDataFrame using from_features which handles GeoJSON-like dictionaries
     shapes_gdf = gpd.GeoDataFrame.from_features(vector_shapes, crs=raster_crs)
@@ -1088,13 +1120,16 @@ def process_settlement_layer(
         # Check if layers already exist to avoid duplicates
         existing_settlements = (
             db.query(LayerModel)
-            .filter(LayerModel.project_id == project_id, LayerModel.name == "Settlements")
+            .filter(
+                LayerModel.project_id == project_id, LayerModel.name == "Settlements"
+            )
             .first()
         )
         existing_isolated = (
             db.query(LayerModel)
             .filter(
-                LayerModel.project_id == project_id, LayerModel.name == "Isolated Buildings"
+                LayerModel.project_id == project_id,
+                LayerModel.name == "Isolated Buildings",
             )
             .first()
         )
@@ -1165,7 +1200,11 @@ def process_settlement_layer(
                 name="Settlements",
                 description="Settlement clusters from buildings",
                 is_unusable=True,
-                parameters={"building_buffer": building_buffer, "settlement_eps": settlement_eps, "min_buildings": min_buildings},
+                parameters={
+                    "building_buffer": building_buffer,
+                    "settlement_eps": settlement_eps,
+                    "min_buildings": min_buildings,
+                },
                 status="in_progress",
                 details="Queued for processing",
             ),
@@ -1340,11 +1379,15 @@ def process_settlement_layer(
         if khasra_id_col:
             rooftops_in_khasras = rooftops_in_khasras[["geometry", khasra_id_col]]
             # Rename to consistent name for easier handling
-            rooftops_in_khasras = rooftops_in_khasras.rename(columns={khasra_id_col: "khasra_id_unique"})
+            rooftops_in_khasras = rooftops_in_khasras.rename(
+                columns={khasra_id_col: "khasra_id_unique"}
+            )
             khasra_id_col = "khasra_id_unique"
         else:
             # If we can't find the khasra ID column, just keep geometry
-            logger.warning("Could not find khasra ID column after spatial join, building counts will not be tracked")
+            logger.warning(
+                "Could not find khasra ID column after spatial join, building counts will not be tracked"
+            )
             rooftops_in_khasras = rooftops_in_khasras[["geometry"]]
 
         if len(rooftops_in_khasras) == 0:
@@ -1360,24 +1403,30 @@ def process_settlement_layer(
             )
 
             # First, reset all building counts to 0 for this project
-            db.query(KhasraModel).filter(
-                KhasraModel.project_id == project_id
-            ).update({KhasraModel.building_count: 0})
+            db.query(KhasraModel).filter(KhasraModel.project_id == project_id).update(
+                {KhasraModel.building_count: 0}
+            )
             db.commit()
 
             building_counts = rooftops_in_khasras.groupby(khasra_id_col).size()
 
             # Update khasra building counts in database for khasras with buildings
             for khasra_id_unique, count in building_counts.items():
-                khasra = db.query(KhasraModel).filter(
-                    KhasraModel.project_id == project_id,
-                    KhasraModel.khasra_id_unique == khasra_id_unique
-                ).first()
+                khasra = (
+                    db.query(KhasraModel)
+                    .filter(
+                        KhasraModel.project_id == project_id,
+                        KhasraModel.khasra_id_unique == khasra_id_unique,
+                    )
+                    .first()
+                )
                 if khasra:
                     khasra.building_count = int(count)
 
             db.commit()
-            logger.info(f"Reset building counts and updated {len(building_counts)} khasras with buildings")
+            logger.info(
+                f"Reset building counts and updated {len(building_counts)} khasras with buildings"
+            )
 
         update_layer_status(
             db,
@@ -1560,7 +1609,9 @@ def process_settlement_layer(
         settlements_layer.status = "failed"
         settlements_layer.details = format_error_message(e, "processing settlements")
         isolated_layer.status = "failed"
-        isolated_layer.details = format_error_message(e, "processing isolated buildings")
+        isolated_layer.details = format_error_message(
+            e, "processing isolated buildings"
+        )
         db.commit()
         raise
 
@@ -1675,12 +1726,8 @@ def process_cropland_layer(
         gdf_4326 = gdf.to_crs("EPSG:4326")
 
         # Load legend
-        update_layer_status(
-            db, cropland_layer, "in_progress", "Loading landcover data"
-        )
-        legend_path = (
-            Path(settings.DATA_DIR) / "landcover" / "legend_processed.csv"
-        )
+        update_layer_status(db, cropland_layer, "in_progress", "Loading landcover data")
+        legend_path = Path(settings.DATA_DIR) / "landcover" / "legend_processed.csv"
         class_value_dict = load_landcover_class_mapping(legend_path)
 
         # Load landcover TIFF and extract cropland shapes
@@ -1745,9 +1792,7 @@ def process_cropland_layer(
         update_layer_status(
             db, cropland_layer, "in_progress", "Overlaying cropland onto khasras"
         )
-        cropland_overlay_gdf = gpd.overlay(
-            cropland_shapes_gdf, gdf, how="intersection"
-        )
+        cropland_overlay_gdf = gpd.overlay(cropland_shapes_gdf, gdf, how="intersection")
         cropland_overlay_gdf = cropland_overlay_gdf.dissolve(
             by="Khasra ID (Unique)"
         ).reset_index()
@@ -1774,8 +1819,7 @@ def process_cropland_layer(
         # Update layer status
         cropland_layer.status = "successful"
         cropland_layer.details = format_success_message(
-            cropland_layer.feature_count,
-            cropland_layer.total_area_ha
+            cropland_layer.feature_count, cropland_layer.total_area_ha
         )
         db.commit()
 
@@ -1903,9 +1947,7 @@ def process_water_layer(
 
         # Load legend
         update_layer_status(db, water_layer, "in_progress", "Loading landcover data")
-        legend_path = (
-            Path(settings.DATA_DIR) / "landcover" / "legend_processed.csv"
-        )
+        legend_path = Path(settings.DATA_DIR) / "landcover" / "legend_processed.csv"
         class_value_dict = load_landcover_class_mapping(legend_path)
 
         # Load landcover TIFF and extract water shapes
@@ -1991,8 +2033,7 @@ def process_water_layer(
         # Update layer status
         water_layer.status = "successful"
         water_layer.details = format_success_message(
-            water_layer.feature_count,
-            water_layer.total_area_ha
+            water_layer.feature_count, water_layer.total_area_ha
         )
         db.commit()
 
@@ -2050,26 +2091,30 @@ def process_slopes_layer(
         result_layers = []
 
         if include_north_slopes:
-            result_layers.append(LayerInfo(
-                layer_type=LayerType.SLOPE_NORTH.value,
-                name="Slopes - North Facing",
-                description="North-facing steep slopes (NE to NW, 45-135°)",
-                is_unusable=True,
-                parameters={"min_angle": north_min_angle},
-                status="in_progress",
-                details="Queued for processing",
-            ))
+            result_layers.append(
+                LayerInfo(
+                    layer_type=LayerType.SLOPE_NORTH.value,
+                    name="Slopes - North Facing",
+                    description="North-facing steep slopes (NE to NW, 45-135°)",
+                    is_unusable=True,
+                    parameters={"min_angle": north_min_angle},
+                    status="in_progress",
+                    details="Queued for processing",
+                )
+            )
 
         if include_other_slopes:
-            result_layers.append(LayerInfo(
-                layer_type=LayerType.SLOPE_OTHER.value,
-                name="Slopes - Other Facing",
-                description="Other-facing steep slopes (S/E/W, <45° or >135°)",
-                is_unusable=True,
-                parameters={"min_angle": other_min_angle},
-                status="in_progress",
-                details="Queued for processing",
-            ))
+            result_layers.append(
+                LayerInfo(
+                    layer_type=LayerType.SLOPE_OTHER.value,
+                    name="Slopes - Other Facing",
+                    description="Other-facing steep slopes (S/E/W, <45° or >135°)",
+                    is_unusable=True,
+                    parameters={"min_angle": other_min_angle},
+                    status="in_progress",
+                    details="Queued for processing",
+                )
+            )
 
         return result_layers
 
@@ -2078,7 +2123,7 @@ def process_slopes_layer(
         db.query(LayerModel)
         .filter(
             LayerModel.project_id == project_id,
-            LayerModel.name == "Slopes - North Facing"
+            LayerModel.name == "Slopes - North Facing",
         )
         .first()
     )
@@ -2089,7 +2134,7 @@ def process_slopes_layer(
         db.query(LayerModel)
         .filter(
             LayerModel.project_id == project_id,
-            LayerModel.name == "Slopes - Other Facing"
+            LayerModel.name == "Slopes - Other Facing",
         )
         .first()
     )
@@ -2099,10 +2144,7 @@ def process_slopes_layer(
     # Also delete legacy "Slopes" layer if it exists
     legacy_slopes = (
         db.query(LayerModel)
-        .filter(
-            LayerModel.project_id == project_id,
-            LayerModel.name == "Slopes"
-        )
+        .filter(LayerModel.project_id == project_id, LayerModel.name == "Slopes")
         .first()
     )
     if legacy_slopes:
@@ -2162,20 +2204,20 @@ def process_slopes_layer(
         xmin, ymin, xmax, ymax = gdf_4326.total_bounds
         from shapely.geometry import Polygon as ShapelyPolygon
 
-        bbox_poly = ShapelyPolygon([
-            (xmin, ymin),
-            (xmax, ymin),
-            (xmax, ymax),
-            (xmin, ymax),
-            (xmin, ymin)
-        ])
+        bbox_poly = ShapelyPolygon(
+            [(xmin, ymin), (xmax, ymin), (xmax, ymax), (xmin, ymax), (xmin, ymin)]
+        )
         wkt_string = bbox_poly.wkt
 
         # Search for DEM data using ASF
         if north_layer:
-            update_layer_status(db, north_layer, "in_progress", "Searching for NASA elevation data")
+            update_layer_status(
+                db, north_layer, "in_progress", "Searching for NASA elevation data"
+            )
         if other_layer:
-            update_layer_status(db, other_layer, "in_progress", "Searching for NASA elevation data")
+            update_layer_status(
+                db, other_layer, "in_progress", "Searching for NASA elevation data"
+            )
 
         try:
             import asf_search as asf
@@ -2187,7 +2229,7 @@ def process_slopes_layer(
         results = asf.geo_search(
             platform=[asf.PLATFORM.ALOS],
             processingLevel=asf.PRODUCT_TYPE.RTC_HIGH_RES,
-            intersectsWith=wkt_string
+            intersectsWith=wkt_string,
         )
 
         if not results:
@@ -2206,11 +2248,13 @@ def process_slopes_layer(
                 tile_geom_dict = result.geometry
                 if tile_geom_dict:
                     tile_poly = shapely_shape(tile_geom_dict)
-                    dem_tiles.append({
-                        'result': result,
-                        'geometry': tile_poly,
-                        'sceneName': result.properties.get('sceneName', 'unknown')
-                    })
+                    dem_tiles.append(
+                        {
+                            "result": result,
+                            "geometry": tile_poly,
+                            "sceneName": result.properties.get("sceneName", "unknown"),
+                        }
+                    )
             except Exception as e:
                 logger.warning(f"Could not parse tile geometry: {e}")
 
@@ -2229,22 +2273,24 @@ def process_slopes_layer(
 
         while len(remaining_khasras) > 0 and len(remaining_dems) > 0:
             # Calculate coverage area for each remaining DEM
-            remaining_dems['coverage_area'] = remaining_dems.geometry.apply(
+            remaining_dems["coverage_area"] = remaining_dems.geometry.apply(
                 lambda dem_geom: remaining_khasras.intersection(dem_geom).area.sum()
             )
 
             # Find DEM with maximum coverage
-            best_idx = remaining_dems['coverage_area'].idxmax()
+            best_idx = remaining_dems["coverage_area"].idxmax()
             best_dem = remaining_dems.loc[best_idx]
 
             # Stop if no new coverage is added
-            if best_dem['coverage_area'] == 0:
+            if best_dem["coverage_area"] == 0:
                 break
 
             # Add to selected DEMs
-            selected_dems.append(best_dem['result'])
-            coverage_ha = best_dem['coverage_area'] / 10_000
-            logger.info(f"Selected DEM {len(selected_dems)}: {best_dem['sceneName']} (covers {coverage_ha:.2f} ha)")
+            selected_dems.append(best_dem["result"])
+            coverage_ha = best_dem["coverage_area"] / 10_000
+            logger.info(
+                f"Selected DEM {len(selected_dems)}: {best_dem['sceneName']} (covers {coverage_ha:.2f} ha)"
+            )
 
             # Remove covered khasras and this DEM
             remaining_khasras = remaining_khasras[
@@ -2254,23 +2300,49 @@ def process_slopes_layer(
 
         if selected_dems:
             results = selected_dems
-            uncovered_area_ha = remaining_khasras.area.sum() / 10_000 if len(remaining_khasras) > 0 else 0
-            logger.info(f"Greedy algorithm selected {len(results)} DEM tiles (reduced from {len(dem_tiles)})")
+            uncovered_area_ha = (
+                remaining_khasras.area.sum() / 10_000
+                if len(remaining_khasras) > 0
+                else 0
+            )
+            logger.info(
+                f"Greedy algorithm selected {len(results)} DEM tiles (reduced from {len(dem_tiles)})"
+            )
             if uncovered_area_ha > 0:
                 logger.warning(f"Remaining uncovered area: {uncovered_area_ha:.2f} ha")
         else:
             logger.warning(f"Greedy selection failed, using all {len(results)} tiles")
 
         if north_layer:
-            update_layer_status(db, north_layer, "in_progress", f"Selected {len(results)} data tiles, downloading...")
+            update_layer_status(
+                db,
+                north_layer,
+                "in_progress",
+                f"Selected {len(results)} data tiles, downloading...",
+            )
         if other_layer:
-            update_layer_status(db, other_layer, "in_progress", f"Selected {len(results)} data tiles, downloading...")
+            update_layer_status(
+                db,
+                other_layer,
+                "in_progress",
+                f"Selected {len(results)} data tiles, downloading...",
+            )
 
         # Authenticate with NASA Earthdata
         if north_layer:
-            update_layer_status(db, north_layer, "in_progress", "Authenticating with NASA Earthdata servers")
+            update_layer_status(
+                db,
+                north_layer,
+                "in_progress",
+                "Authenticating with NASA Earthdata servers",
+            )
         if other_layer:
-            update_layer_status(db, other_layer, "in_progress", "Authenticating with NASA Earthdata servers")
+            update_layer_status(
+                db,
+                other_layer,
+                "in_progress",
+                "Authenticating with NASA Earthdata servers",
+            )
 
         if not settings.EARTHDATA_USERNAME or not settings.EARTHDATA_PASSWORD:
             raise ValueError(
@@ -2280,8 +2352,7 @@ def process_slopes_layer(
 
         try:
             session = asf.ASFSession().auth_with_creds(
-                settings.EARTHDATA_USERNAME,
-                settings.EARTHDATA_PASSWORD
+                settings.EARTHDATA_USERNAME, settings.EARTHDATA_PASSWORD
             )
         except Exception as e:
             raise ValueError(f"Failed to authenticate with NASA Earthdata: {str(e)}")
@@ -2294,12 +2365,22 @@ def process_slopes_layer(
         dem_files = []
         for idx, result in enumerate(results):
             if north_layer:
-                update_layer_status(db, north_layer, "in_progress", f"Downloading elevation data tile {idx+1} of {len(results)}")
+                update_layer_status(
+                    db,
+                    north_layer,
+                    "in_progress",
+                    f"Downloading elevation data tile {idx+1} of {len(results)}",
+                )
             if other_layer:
-                update_layer_status(db, other_layer, "in_progress", f"Downloading elevation data tile {idx+1} of {len(results)}")
+                update_layer_status(
+                    db,
+                    other_layer,
+                    "in_progress",
+                    f"Downloading elevation data tile {idx+1} of {len(results)}",
+                )
 
             # Create subdirectory for this DEM
-            dem_name = result.properties['sceneName'].replace('.zip', '')
+            dem_name = result.properties["sceneName"].replace(".zip", "")
             dem_subdir = dem_dir / dem_name
             dem_subdir.mkdir(parents=True, exist_ok=True)
 
@@ -2310,8 +2391,8 @@ def process_slopes_layer(
             else:
                 # Need to download and process
                 logger.info(f"Downloading new DEM: {dem_name}")
-                import zipfile as zf
                 import shutil
+                import zipfile as zf
 
                 # Check for existing zip files and validate them
                 existing_zips = list(dem_subdir.glob("*.zip"))
@@ -2319,12 +2400,14 @@ def process_slopes_layer(
                 # Remove any corrupted/invalid zip files
                 for existing_zip in existing_zips:
                     try:
-                        with zf.ZipFile(existing_zip, 'r') as test_zip:
+                        with zf.ZipFile(existing_zip, "r") as test_zip:
                             # Try to read the file list to validate
                             test_zip.namelist()
                         logger.info(f"Existing valid zip found: {existing_zip.name}")
                     except (zf.BadZipFile, EOFError, OSError) as e:
-                        logger.warning(f"Found corrupted zip file {existing_zip.name}, deleting: {e}")
+                        logger.warning(
+                            f"Found corrupted zip file {existing_zip.name}, deleting: {e}"
+                        )
                         existing_zip.unlink()
 
                 # Download the file (ASF will skip if valid file exists)
@@ -2334,7 +2417,9 @@ def process_slopes_layer(
                 zip_files = list(dem_subdir.glob("*.zip"))
 
                 if not zip_files:
-                    raise ValueError(f"No zip file found after download in {dem_subdir}")
+                    raise ValueError(
+                        f"No zip file found after download in {dem_subdir}"
+                    )
 
                 zip_path = zip_files[0]
                 logger.info(f"Processing zip: {zip_path.name}")
@@ -2342,7 +2427,7 @@ def process_slopes_layer(
                 # Validate and extract
                 logger.info(f"Extracting {zip_path.name}...")
                 try:
-                    with zf.ZipFile(zip_path, 'r') as zip_ref:
+                    with zf.ZipFile(zip_path, "r") as zip_ref:
                         # Log contents for debugging
                         file_list = zip_ref.namelist()
                         logger.info(f"Zip contains {len(file_list)} files")
@@ -2352,7 +2437,9 @@ def process_slopes_layer(
                     # Delete corrupted file and raise error
                     logger.error(f"Corrupted zip file detected: {e}")
                     zip_path.unlink()
-                    raise ValueError(f"Downloaded zip file is corrupted: {zip_path.name}. Please try again.")
+                    raise ValueError(
+                        f"Downloaded zip file is corrupted: {zip_path.name}. Please try again."
+                    )
 
                 # Find the DEM .tif file
                 # ALOS structure: zip contains a folder, inside is {folder_name}.dem.tif
@@ -2377,14 +2464,23 @@ def process_slopes_layer(
 
                     # Delete extracted folder (if it's different from dem_subdir)
                     extracted_folder = found_tif.parent
-                    if extracted_folder != dem_subdir and extracted_folder.is_relative_to(dem_subdir):
+                    if (
+                        extracted_folder != dem_subdir
+                        and extracted_folder.is_relative_to(dem_subdir)
+                    ):
                         shutil.rmtree(extracted_folder)
-                        logger.info(f"Deleted extracted folder: {extracted_folder.name}")
+                        logger.info(
+                            f"Deleted extracted folder: {extracted_folder.name}"
+                        )
                 else:
                     # List what we did find for debugging
                     all_files = list(dem_subdir.glob("**/*"))
-                    logger.error(f"No .tif files found. Files in directory: {[f.name for f in all_files[:10]]}")
-                    raise ValueError(f"No .tif file found in extracted zip for {dem_name}")
+                    logger.error(
+                        f"No .tif files found. Files in directory: {[f.name for f in all_files[:10]]}"
+                    )
+                    raise ValueError(
+                        f"No .tif file found in extracted zip for {dem_name}"
+                    )
 
             # Verify the TIF exists before adding to list
             if not dem_tif_path.exists():
@@ -2394,13 +2490,19 @@ def process_slopes_layer(
 
         # Verify we have DEM files to process
         if not dem_files:
-            raise ValueError("Failed to download and extract any DEM files successfully")
+            raise ValueError(
+                "Failed to download and extract any DEM files successfully"
+            )
 
         # Process each DEM file to extract slopes - keep north and other separate
         if north_layer:
-            update_layer_status(db, north_layer, "in_progress", "Calculating slopes from elevation data")
+            update_layer_status(
+                db, north_layer, "in_progress", "Calculating slopes from elevation data"
+            )
         if other_layer:
-            update_layer_status(db, other_layer, "in_progress", "Calculating slopes from elevation data")
+            update_layer_status(
+                db, other_layer, "in_progress", "Calculating slopes from elevation data"
+            )
 
         north_slope_gdfs = []
         other_slope_gdfs = []
@@ -2408,9 +2510,19 @@ def process_slopes_layer(
 
         for idx, (dem_subdir, dem_name) in enumerate(dem_files):
             if north_layer:
-                update_layer_status(db, north_layer, "in_progress", f"Processing elevation data tile {idx+1} of {len(dem_files)}: {dem_name}")
+                update_layer_status(
+                    db,
+                    north_layer,
+                    "in_progress",
+                    f"Processing elevation data tile {idx+1} of {len(dem_files)}: {dem_name}",
+                )
             if other_layer:
-                update_layer_status(db, other_layer, "in_progress", f"Processing elevation data tile {idx+1} of {len(dem_files)}: {dem_name}")
+                update_layer_status(
+                    db,
+                    other_layer,
+                    "in_progress",
+                    f"Processing elevation data tile {idx+1} of {len(dem_files)}: {dem_name}",
+                )
 
             dem_tif_path = dem_subdir / f"{dem_name}.tif"
             if not dem_tif_path.exists():
@@ -2486,16 +2598,22 @@ def process_slopes_layer(
 
         # Process north-facing slopes
         if north_slope_gdfs and north_layer:
-            update_layer_status(db, north_layer, "in_progress", "Combining north slope shapes")
+            update_layer_status(
+                db, north_layer, "in_progress", "Combining north slope shapes"
+            )
             north_slopes_gdf = pd.concat(north_slope_gdfs, ignore_index=True)
             logger.info(f"Combined {len(north_slopes_gdf)} north slope polygons")
 
             # Overlay with khasras
             north_overlay_gdf = gpd.overlay(north_slopes_gdf, gdf, how="intersection")
-            logger.info(f"North slopes after overlay: {len(north_overlay_gdf)} features")
+            logger.info(
+                f"North slopes after overlay: {len(north_overlay_gdf)} features"
+            )
 
             if not north_overlay_gdf.empty:
-                north_overlay_gdf = north_overlay_gdf.dissolve(by="Khasra ID (Unique)").reset_index()
+                north_overlay_gdf = north_overlay_gdf.dissolve(
+                    by="Khasra ID (Unique)"
+                ).reset_index()
                 area_col = "Unusable Area - North Slopes (ha)"
                 north_overlay_gdf[area_col] = north_overlay_gdf.geometry.area / 10_000
 
@@ -2508,8 +2626,7 @@ def process_slopes_layer(
                 )
                 north_layer.status = "successful"
                 north_layer.details = format_success_message(
-                    north_layer.feature_count,
-                    north_layer.total_area_ha
+                    north_layer.feature_count, north_layer.total_area_ha
                 )
                 result_layers.append(layer_info)
             else:
@@ -2520,16 +2637,22 @@ def process_slopes_layer(
 
         # Process other-facing slopes
         if other_slope_gdfs and other_layer:
-            update_layer_status(db, other_layer, "in_progress", "Combining other slope shapes")
+            update_layer_status(
+                db, other_layer, "in_progress", "Combining other slope shapes"
+            )
             other_slopes_gdf = pd.concat(other_slope_gdfs, ignore_index=True)
             logger.info(f"Combined {len(other_slopes_gdf)} other slope polygons")
 
             # Overlay with khasras
             other_overlay_gdf = gpd.overlay(other_slopes_gdf, gdf, how="intersection")
-            logger.info(f"Other slopes after overlay: {len(other_overlay_gdf)} features")
+            logger.info(
+                f"Other slopes after overlay: {len(other_overlay_gdf)} features"
+            )
 
             if not other_overlay_gdf.empty:
-                other_overlay_gdf = other_overlay_gdf.dissolve(by="Khasra ID (Unique)").reset_index()
+                other_overlay_gdf = other_overlay_gdf.dissolve(
+                    by="Khasra ID (Unique)"
+                ).reset_index()
                 area_col = "Unusable Area - Other Slopes (ha)"
                 other_overlay_gdf[area_col] = other_overlay_gdf.geometry.area / 10_000
 
@@ -2542,8 +2665,7 @@ def process_slopes_layer(
                 )
                 other_layer.status = "successful"
                 other_layer.details = format_success_message(
-                    other_layer.feature_count,
-                    other_layer.total_area_ha
+                    other_layer.feature_count, other_layer.total_area_ha
                 )
                 result_layers.append(layer_info)
             else:
@@ -2576,21 +2698,33 @@ def process_slopes_layer(
         db.rollback()
 
         # Try to update any layers that were created
-        north_layer = db.query(LayerModel).filter(
-            LayerModel.project_id == project_id,
-            LayerModel.name == "Slopes - North Facing"
-        ).first()
+        north_layer = (
+            db.query(LayerModel)
+            .filter(
+                LayerModel.project_id == project_id,
+                LayerModel.name == "Slopes - North Facing",
+            )
+            .first()
+        )
         if north_layer:
             north_layer.status = "failed"
-            north_layer.details = format_error_message(e, "processing north-facing slopes")
+            north_layer.details = format_error_message(
+                e, "processing north-facing slopes"
+            )
 
-        other_layer = db.query(LayerModel).filter(
-            LayerModel.project_id == project_id,
-            LayerModel.name == "Slopes - Other Facing"
-        ).first()
+        other_layer = (
+            db.query(LayerModel)
+            .filter(
+                LayerModel.project_id == project_id,
+                LayerModel.name == "Slopes - Other Facing",
+            )
+            .first()
+        )
         if other_layer:
             other_layer.status = "failed"
-            other_layer.details = format_error_message(e, "processing other-facing slopes")
+            other_layer.details = format_error_message(
+                e, "processing other-facing slopes"
+            )
 
         db.commit()
         raise
@@ -2618,9 +2752,9 @@ def _extract_steep_slopes_from_dem(
     Returns:
         GeoDataFrame of steep slope polygons
     """
+    import rasterio
     from rasterio.features import shapes
     from shapely.geometry import shape
-    import rasterio
 
     if slope_type not in ["north", "other"]:
         raise ValueError("slope_type must be either 'north' or 'other'")
@@ -2667,8 +2801,12 @@ def _extract_steep_slopes_from_dem(
     slope[slope < 0] = 0
 
     # Log statistics for debugging
-    logger.info(f"DEM {dem_filename} - Slope stats: min={slope.min():.2f}°, max={slope.max():.2f}°, mean={slope.mean():.2f}°")
-    logger.info(f"DEM {dem_filename} - Aspect stats: min={aspect.min():.2f}°, max={aspect.max():.2f}°, mean={aspect.mean():.2f}°")
+    logger.info(
+        f"DEM {dem_filename} - Slope stats: min={slope.min():.2f}°, max={slope.max():.2f}°, mean={slope.mean():.2f}°"
+    )
+    logger.info(
+        f"DEM {dem_filename} - Aspect stats: min={aspect.min():.2f}°, max={aspect.max():.2f}°, mean={aspect.mean():.2f}°"
+    )
 
     # Apply slope/aspect filters based on type
     if slope_type == "north":
@@ -2676,13 +2814,17 @@ def _extract_steep_slopes_from_dem(
         slope_mask = np.where(
             (aspect >= 45) & (aspect < 135) & (slope > min_angle), True, False
         )
-        logger.info(f"DEM {dem_filename} - North slopes > {min_angle}°: {slope_mask.sum()} pixels ({100*slope_mask.sum()/slope_mask.size:.2f}%)")
+        logger.info(
+            f"DEM {dem_filename} - North slopes > {min_angle}°: {slope_mask.sum()} pixels ({100*slope_mask.sum()/slope_mask.size:.2f}%)"
+        )
     elif slope_type == "other":
         # Other-facing slopes: remaining directions with angle > min_angle
         slope_mask = np.where(
             ((aspect < 45) | (aspect >= 135)) & (slope > min_angle), True, False
         )
-        logger.info(f"DEM {dem_filename} - Other slopes > {min_angle}°: {slope_mask.sum()} pixels ({100*slope_mask.sum()/slope_mask.size:.2f}%)")
+        logger.info(
+            f"DEM {dem_filename} - Other slopes > {min_angle}°: {slope_mask.sum()} pixels ({100*slope_mask.sum()/slope_mask.size:.2f}%)"
+        )
 
     # Extract vector shapes from raster mask
     # Convert boolean mask to uint8 for rasterio shapes
@@ -2690,17 +2832,22 @@ def _extract_steep_slopes_from_dem(
 
     vector_shapes = [
         {"geometry": shape(geom)}
-        for geom, class_value in shapes(slope_mask_uint8, mask=slope_mask, transform=transform)
-        if class_value == 1  # Only get the slope areas (value=1), not background (value=0)
+        for geom, class_value in shapes(
+            slope_mask_uint8, mask=slope_mask, transform=transform
+        )
+        if class_value
+        == 1  # Only get the slope areas (value=1), not background (value=0)
     ]
 
-    logger.info(f"DEM {dem_filename} - Extracted {len(vector_shapes)} slope polygons ({slope_type} type)")
+    logger.info(
+        f"DEM {dem_filename} - Extracted {len(vector_shapes)} slope polygons ({slope_type} type)"
+    )
 
     if not vector_shapes:
         return gpd.GeoDataFrame(columns=["geometry"], crs=f"EPSG:{output_crs}")
 
     # Create GeoDataFrame with explicit geometry column
-    slope_shapes_gdf = gpd.GeoDataFrame(vector_shapes, geometry='geometry')
+    slope_shapes_gdf = gpd.GeoDataFrame(vector_shapes, geometry="geometry")
 
     # Set CRS and transform to output CRS
     if input_crs:
@@ -2922,7 +3069,10 @@ def recalculate_areas_and_parcels(db: Session, project_id: str):
         calculate_usable_areas(db, project_id)
 
         # Check if parcels exist for this project
-        parcels_exist = db.query(ParcelModel).filter(ParcelModel.project_id == project_id).count() > 0
+        parcels_exist = (
+            db.query(ParcelModel).filter(ParcelModel.project_id == project_id).count()
+            > 0
+        )
 
         if parcels_exist:
             logger.info(f"Recalculating parcel areas for project {project_id}")
@@ -2940,33 +3090,43 @@ def recalculate_areas_and_parcels(db: Session, project_id: str):
                 if khasras_gdf is not None and not khasras_gdf.empty:
                     # Group by parcel_id and aggregate
                     parcel_updates = {}
-                    for parcel_id in khasras_gdf['Parcel ID'].unique():
+                    for parcel_id in khasras_gdf["Parcel ID"].unique():
                         if pd.isna(parcel_id) or "UNCLUSTERED" in str(parcel_id):
                             continue
 
-                        parcel_khasras = khasras_gdf[khasras_gdf['Parcel ID'] == parcel_id]
+                        parcel_khasras = khasras_gdf[
+                            khasras_gdf["Parcel ID"] == parcel_id
+                        ]
 
                         # Aggregate area columns
-                        original_area = parcel_khasras['Original Area (ha)'].sum()
-                        usable_area = parcel_khasras['Usable Area (ha)'].sum()
-                        unusable_area = parcel_khasras['Unusable Area (ha)'].sum()
-                        usable_available_area = parcel_khasras['Usable and Available Area (ha)'].sum()
+                        original_area = parcel_khasras["Original Area (ha)"].sum()
+                        usable_area = parcel_khasras["Usable Area (ha)"].sum()
+                        unusable_area = parcel_khasras["Unusable Area (ha)"].sum()
+                        usable_available_area = parcel_khasras[
+                            "Usable and Available Area (ha)"
+                        ].sum()
 
                         # Aggregate layer-specific areas
                         layer_areas_dict = {}
                         for col in parcel_khasras.columns:
-                            if col.endswith('(ha)') and col not in [
-                                'Original Area (ha)', 'Usable Area (ha)',
-                                'Unusable Area (ha)', 'Usable and Available Area (ha)'
+                            if col.endswith("(ha)") and col not in [
+                                "Original Area (ha)",
+                                "Usable Area (ha)",
+                                "Unusable Area (ha)",
+                                "Usable and Available Area (ha)",
                             ]:
-                                layer_areas_dict[col] = round(float(parcel_khasras[col].sum()), 2)
+                                layer_areas_dict[col] = round(
+                                    float(parcel_khasras[col].sum()), 2
+                                )
 
                         parcel_updates[parcel_id] = {
-                            'original_area_ha': round(original_area, 2),
-                            'usable_area_ha': round(usable_area, 2),
-                            'unusable_area_ha': round(unusable_area, 2),
-                            'usable_available_area_ha': round(usable_available_area, 2),
-                            'layer_areas': layer_areas_dict if layer_areas_dict else None,
+                            "original_area_ha": round(original_area, 2),
+                            "usable_area_ha": round(usable_area, 2),
+                            "unusable_area_ha": round(unusable_area, 2),
+                            "usable_available_area_ha": round(usable_available_area, 2),
+                            "layer_areas": layer_areas_dict
+                            if layer_areas_dict
+                            else None,
                         }
 
                     # Update parcel records
@@ -2975,24 +3135,29 @@ def recalculate_areas_and_parcels(db: Session, project_id: str):
                             db.query(ParcelModel)
                             .filter(
                                 ParcelModel.project_id == project_id,
-                                ParcelModel.parcel_id == parcel_id
+                                ParcelModel.parcel_id == parcel_id,
                             )
                             .first()
                         )
                         if parcel:
-                            parcel.original_area_ha = updates['original_area_ha']
-                            parcel.usable_area_ha = updates['usable_area_ha']
-                            parcel.unusable_area_ha = updates['unusable_area_ha']
-                            parcel.usable_available_area_ha = updates['usable_available_area_ha']
-                            parcel.layer_areas = updates['layer_areas']
+                            parcel.original_area_ha = updates["original_area_ha"]
+                            parcel.usable_area_ha = updates["usable_area_ha"]
+                            parcel.unusable_area_ha = updates["unusable_area_ha"]
+                            parcel.usable_available_area_ha = updates[
+                                "usable_available_area_ha"
+                            ]
+                            parcel.layer_areas = updates["layer_areas"]
 
                             # Mark as modified for JSONB field
                             from sqlalchemy.orm import attributes
-                            if updates['layer_areas']:
+
+                            if updates["layer_areas"]:
                                 attributes.flag_modified(parcel, "layer_areas")
 
                     db.commit()
-                    logger.info(f"Updated {len(parcel_updates)} parcels with new area calculations")
+                    logger.info(
+                        f"Updated {len(parcel_updates)} parcels with new area calculations"
+                    )
 
         logger.info(f"Successfully recalculated areas for project {project_id}")
 
@@ -3029,8 +3194,8 @@ def build_optimised_distance_matrix(
     # Use threading backend to avoid pickling issues with STRtree
     # Limit to reasonable number of threads to avoid resource leaks
     n_jobs_safe = min(n_jobs, 4) if n_jobs > 0 else 4
-    
-    with Parallel(n_jobs=n_jobs_safe, backend='threading') as parallel:
+
+    with Parallel(n_jobs=n_jobs_safe, backend="threading") as parallel:
         results = parallel(
             delayed(_get_distances_for_geom)(
                 i, geom, geometries, tree, max_distance_considered
@@ -3052,7 +3217,9 @@ def build_optimised_distance_matrix(
         non_diagonal = distance_matrix[~np.eye(n, dtype=bool)]
         logger.info(f"Distance matrix min (non-diagonal): {np.min(non_diagonal)}")
         logger.info(f"Distance matrix max: {np.max(distance_matrix)}")
-        logger.info(f"Number of finite distances (< 99999): {np.sum(distance_matrix < 99999) - n}")
+        logger.info(
+            f"Number of finite distances (< 99999): {np.sum(distance_matrix < 99999) - n}"
+        )
     else:
         logger.info("Single khasra - no pairwise distances to compute")
 
@@ -3076,8 +3243,7 @@ def _create_distance_matrix_metadata(khasra_ids: List[str]) -> Dict[str, Any]:
 
 
 def _validate_distance_matrix_metadata(
-    metadata: Dict[str, Any],
-    current_khasra_ids: List[str]
+    metadata: Dict[str, Any], current_khasra_ids: List[str]
 ) -> bool:
     """Validate that saved distance matrix matches current khasras
 
@@ -3187,8 +3353,7 @@ def cluster_khasras(
 
         # Try to load metadata
         metadata_path = project.distance_matrix_path.replace(
-            "distance_matrix.npy",
-            "distance_matrix_metadata.json"
+            "distance_matrix.npy", "distance_matrix_metadata.json"
         )
         metadata = file_storage.load_json(metadata_path)
 
@@ -3256,14 +3421,17 @@ def cluster_khasras(
     )
 
     # Identify parcels with area below minimum threshold
-    small_parcels = parcel_areas[parcel_areas < request.min_parcel_area_ha].index.tolist()
+    small_parcels = parcel_areas[
+        parcel_areas < request.min_parcel_area_ha
+    ].index.tolist()
 
     # Mark khasras from small parcels as unclustered
     if small_parcels:
-        logger.info(f"Dropping {len(small_parcels)} parcels with total area < {request.min_parcel_area_ha} hectares")
+        logger.info(
+            f"Dropping {len(small_parcels)} parcels with total area < {request.min_parcel_area_ha} hectares"
+        )
         gdf_with_cluster_id.loc[
-            gdf_with_cluster_id[cluster_id_col].isin(small_parcels),
-            cluster_id_col
+            gdf_with_cluster_id[cluster_id_col].isin(small_parcels), cluster_id_col
         ] = -1
 
     # Format cluster labels once, after filtering
@@ -3307,7 +3475,9 @@ def cluster_khasras(
     )
 
     # Delete old clustering runs and parcels for this project
-    db.query(ClusteringRunModel).filter(ClusteringRunModel.project_id == project_id).delete()
+    db.query(ClusteringRunModel).filter(
+        ClusteringRunModel.project_id == project_id
+    ).delete()
 
     # Create clustering run record
     clustering_run = ClusteringRunModel(
@@ -3325,15 +3495,26 @@ def cluster_khasras(
 
     # Identify layer-specific area columns for parcels
     standard_parcel_columns = {
-        cluster_id_col, "Khasra Count", "Khasra ID (Unique)", "Original Area (ha)",
-        "Usable Area (ha)", "Unusable Area (ha)", "Usable and Available Area (ha)",
-        "Usable but Unavailable Area (ha)", "Unusable Area (%)", "Usable Area (%)",
-        "Usable and Available Area (%)", "Usable but Unavailable Area (%)",
-        "Building Count", "geometry"
+        cluster_id_col,
+        "Khasra Count",
+        "Khasra ID (Unique)",
+        "Original Area (ha)",
+        "Usable Area (ha)",
+        "Unusable Area (ha)",
+        "Usable and Available Area (ha)",
+        "Usable but Unavailable Area (ha)",
+        "Unusable Area (%)",
+        "Usable Area (%)",
+        "Usable and Available Area (%)",
+        "Usable but Unavailable Area (%)",
+        "Building Count",
+        "geometry",
     }
     layer_columns_in_parcels = [
-        col for col in parcel_gdf_4326.columns
-        if col not in standard_parcel_columns and pd.api.types.is_numeric_dtype(parcel_gdf_4326[col])
+        col
+        for col in parcel_gdf_4326.columns
+        if col not in standard_parcel_columns
+        and pd.api.types.is_numeric_dtype(parcel_gdf_4326[col])
     ]
 
     # Store parcels in database
@@ -3477,7 +3658,9 @@ def aggregate_to_parcels(
     return parcel_gdf
 
 
-def get_parcels_gdf(db: Session, project_id: str) -> Tuple[Optional[gpd.GeoDataFrame], Optional[Dict[str, Any]]]:
+def get_parcels_gdf(
+    db: Session, project_id: str
+) -> Tuple[Optional[gpd.GeoDataFrame], Optional[Dict[str, Any]]]:
     """Load parcels GeoDataFrame from database, excluding UNCLUSTERED parcels.
     Returns (GeoDataFrame, clustering_params) tuple"""
     # Get the latest clustering run for this project
@@ -3487,19 +3670,21 @@ def get_parcels_gdf(db: Session, project_id: str) -> Tuple[Optional[gpd.GeoDataF
         .order_by(ClusteringRunModel.created_at.desc())
         .first()
     )
-    
+
     clustering_params = None
     if clustering_run:
         clustering_params = {
             "distance_threshold": clustering_run.distance_threshold,
             "min_samples": clustering_run.min_samples,
             "max_distance_considered": clustering_run.max_distance_considered,
-            "min_parcel_area_ha": clustering_run.min_parcel_area_ha if clustering_run.min_parcel_area_ha is not None else 50.0,
+            "min_parcel_area_ha": clustering_run.min_parcel_area_ha
+            if clustering_run.min_parcel_area_ha is not None
+            else 50.0,
             "total_parcels": clustering_run.total_parcels,
             "clustered_khasras": clustering_run.clustered_khasras,
             "unclustered_khasras": clustering_run.unclustered_khasras,
         }
-    
+
     parcels = db.query(ParcelModel).filter(ParcelModel.project_id == project_id).all()
 
     if not parcels:
@@ -3626,14 +3811,14 @@ def export_to_kml(
     gdfs: Dict[str, gpd.GeoDataFrame], location: str
 ) -> Tuple[bytes, str]:
     """Export data to KML/KMZ format.
-    
+
     Creates a single KMZ file with all layers properly styled:
     - Khasras with default styling
     - Layers with color-coded styling
     - Parcels as boundaries with labels
-    """    
+    """
     kml = simplekml.Kml()
-    
+
     # Define colors for different layer types (KML uses AABBGGRR format)
     # Alpha channel: b3 = 70% opacity (179/255)
     layer_colors = {
@@ -3645,7 +3830,7 @@ def export_to_kml(
         "slopes - other facing": "b3d0d0d0",  # Light grey/white-ish at 70% opacity
         "slope": "b3808080",  # Grey (legacy fallback) at 70% opacity
     }
-    
+
     # Process each GeoDataFrame
     for name, gdf in gdfs.items():
         # Create friendly folder names
@@ -3653,42 +3838,44 @@ def export_to_kml(
             folder_name = "Khasras"
         else:
             folder_name = name.replace("_", " ").title()
-        
+
         folder = kml.newfolder(name=folder_name)
-        
+
         if "parcel" in name.lower():
             # Parcels: boundaries with labels
             for idx, row in gdf.iterrows():
                 geom = row.geometry
                 if geom is None or geom.is_empty:
                     continue
-                    
+
                 parcel_name = str(row.get("parcel_id", f"Parcel {idx}"))
-                
+
                 try:
                     if geom.geom_type == "Polygon":
                         pol = folder.newpolygon(name=parcel_name)
                         pol.outerboundaryis = list(geom.exterior.coords)
-                        pol.style.linestyle.color = "b3ffffff"  # White boundary at 70% opacity
+                        pol.style.linestyle.color = (
+                            "b3ffffff"  # White boundary at 70% opacity
+                        )
                         pol.style.linestyle.width = 3
                         pol.style.polystyle.fill = 0  # No fill
-                        # Enable label visibility
-                        pol.style.labelstyle.scale = 1.5
-                        pol.style.labelstyle.color = simplekml.Color.white
+                        # Disable polygon label (we'll use a point label instead)
+                        pol.style.labelstyle.scale = 0
                     elif geom.geom_type == "MultiPolygon":
                         # Create a folder for this multipolygon
                         for poly_idx, poly in enumerate(geom.geoms):
                             pol = folder.newpolygon(name=f"{parcel_name}_{poly_idx}")
                             pol.outerboundaryis = list(poly.exterior.coords)
-                            pol.style.linestyle.color = "b3ffffff"  # White boundary at 70% opacity
+                            pol.style.linestyle.color = (
+                                "b3ffffff"  # White boundary at 70% opacity
+                            )
                             pol.style.linestyle.width = 3
                             pol.style.polystyle.fill = 0
-                            # Enable label visibility
-                            pol.style.labelstyle.scale = 1.5
-                            pol.style.labelstyle.color = simplekml.Color.white
+                            # Disable polygon label (we'll use a point label instead)
+                            pol.style.labelstyle.scale = 0
                     else:
                         continue
-                    
+
                     # Add comprehensive description with stats
                     desc = f"""
                     <b>Parcel ID:</b> {parcel_name}<br/>
@@ -3700,22 +3887,36 @@ def export_to_kml(
                     <b>Building Count:</b> {row.get('building_count', 0)}<br/>
                     """
                     pol.description = desc
+
+                    # Add a point label at the centroid of the parcel
+                    centroid = geom.centroid
+                    usable_available_area = row.get('usable_available_area_ha', 0)
+                    label_name = f"{parcel_name} ({usable_available_area:.2f} ha)"
+                    pnt = folder.newpoint(
+                        name=label_name, coords=[(centroid.x, centroid.y)]
+                    )
+                    pnt.style.labelstyle.scale = 1.2
+                    pnt.style.labelstyle.color = simplekml.Color.white
+                    pnt.style.iconstyle.scale = 0  # Hide the icon, show only the label
+                    pnt.description = desc
                 except Exception as e:
                     print(f"Error processing parcel {parcel_name}: {e}")
                     continue
-                
+
         elif "layer" in name.lower():
             # Constraint layers with color coding
             layer_type = name.lower().replace("layer_", "")
-            color = layer_colors.get(layer_type, "b3888888")  # Default gray at 70% opacity
-            
+            color = layer_colors.get(
+                layer_type, "b3888888"
+            )  # Default gray at 70% opacity
+
             for idx, row in gdf.iterrows():
                 geom = row.geometry
                 if geom is None or geom.is_empty:
                     continue
-                    
+
                 feature_name = f"{layer_type.title()} {idx + 1}"
-                
+
                 try:
                     if geom.geom_type == "Polygon":
                         pol = folder.newpolygon(name=feature_name)
@@ -3737,60 +3938,78 @@ def export_to_kml(
                 except Exception as e:
                     print(f"Error processing layer feature {feature_name}: {e}")
                     continue
-                
+
         else:
             # Khasras with default styling
             for idx, row in gdf.iterrows():
                 geom = row.geometry
                 if geom is None or geom.is_empty:
                     continue
-                    
-                khasra_name = str(row.get("khasra_id_unique", row.get("khasra_id", f"Khasra {idx}")))
-                
+
+                khasra_name = str(
+                    row.get("khasra_id_unique", row.get("khasra_id", f"Khasra {idx}"))
+                )
+
                 try:
                     if geom.geom_type == "Polygon":
                         pol = folder.newpolygon(name=khasra_name)
                         pol.outerboundaryis = list(geom.exterior.coords)
                         pol.style.polystyle.color = "b300ff00"  # Green at 70% opacity
                         pol.style.polystyle.fill = 1
-                        pol.style.linestyle.color = "b300ff00"  # Green outline at 70% opacity
+                        pol.style.linestyle.color = (
+                            "b300ff00"  # Green outline at 70% opacity
+                        )
                         pol.style.linestyle.width = 1
                     elif geom.geom_type == "MultiPolygon":
                         for poly_idx, poly in enumerate(geom.geoms):
                             pol = folder.newpolygon(name=f"{khasra_name}_{poly_idx}")
                             pol.outerboundaryis = list(poly.exterior.coords)
-                            pol.style.polystyle.color = "b300ff00"  # Green at 70% opacity
+                            pol.style.polystyle.color = (
+                                "b300ff00"  # Green at 70% opacity
+                            )
                             pol.style.polystyle.fill = 1
-                            pol.style.linestyle.color = "b300ff00"  # Green outline at 70% opacity
+                            pol.style.linestyle.color = (
+                                "b300ff00"  # Green outline at 70% opacity
+                            )
                             pol.style.linestyle.width = 1
                     else:
                         continue
-                    
+
                     # Add comprehensive description with stats
                     desc_parts = [f"<b>Khasra ID:</b> {khasra_name}<br/>"]
                     if "original_area_ha" in row:
-                        desc_parts.append(f"<b>Original Area:</b> {row.get('original_area_ha', 0):.2f} ha<br/>")
+                        desc_parts.append(
+                            f"<b>Original Area:</b> {row.get('original_area_ha', 0):.2f} ha<br/>"
+                        )
                     if "usable_area_ha" in row:
-                        desc_parts.append(f"<b>Usable Area:</b> {row.get('usable_area_ha', 0):.2f} ha ({row.get('usable_area_percent', 0):.1f}%)<br/>")
+                        desc_parts.append(
+                            f"<b>Usable Area:</b> {row.get('usable_area_ha', 0):.2f} ha ({row.get('usable_area_percent', 0):.1f}%)<br/>"
+                        )
                     if "usable_available_area_ha" in row:
-                        desc_parts.append(f"<b>Usable & Available:</b> {row.get('usable_available_area_ha', 0):.2f} ha ({row.get('usable_available_area_percent', 0):.1f}%)<br/>")
+                        desc_parts.append(
+                            f"<b>Usable & Available:</b> {row.get('usable_available_area_ha', 0):.2f} ha ({row.get('usable_available_area_percent', 0):.1f}%)<br/>"
+                        )
                     if "unusable_area_ha" in row:
-                        desc_parts.append(f"<b>Unusable Area:</b> {row.get('unusable_area_ha', 0):.2f} ha ({row.get('unusable_area_percent', 0):.1f}%)<br/>")
+                        desc_parts.append(
+                            f"<b>Unusable Area:</b> {row.get('unusable_area_ha', 0):.2f} ha ({row.get('unusable_area_percent', 0):.1f}%)<br/>"
+                        )
                     if "parcel_id" in row:
-                        desc_parts.append(f"<b>Parcel ID:</b> {row.get('parcel_id', 'N/A')}<br/>")
-                    
+                        desc_parts.append(
+                            f"<b>Parcel ID:</b> {row.get('parcel_id', 'N/A')}<br/>"
+                        )
+
                     pol.description = "".join(desc_parts)
                 except Exception as e:
                     print(f"Error processing khasra {khasra_name}: {e}")
                     continue
-    
+
     # Save to KMZ (compressed KML in a ZIP file)
     buffer = BytesIO()
     kml_string = kml.kml()
-    
+
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as kmz:
         kmz.writestr("doc.kml", kml_string)
-    
+
     buffer.seek(0)
     filename = f"{location}_export.kmz"
     return buffer.getvalue(), filename
@@ -3853,18 +4072,78 @@ def export_to_excel(
         if "parcels" in gdfs:
             parcels_df = gdfs["parcels"].drop(columns=["geometry"], errors="ignore")
             parcels_df = parcels_df.sort_values(by="parcel_id")
+
+            # rename columns to be more user-friendly in Excel
+            parcels_df.rename(
+                columns={
+                    "parcel_id": "Parcel ID",
+                    "khasra_count": "Khasra Count",
+                    "khasra_ids": "Khasra IDs",
+                    "original_area_ha": "Original Area (ha)",
+                    "usable_area_ha": "Usable Area (ha)",
+                    "usable_available_area_ha": "Usable and Available Area (ha)",
+                    "unusable_area_ha": "Unusable Area (ha)",
+                    "building_count": "Building Count",
+                },
+                inplace=True,
+            )
+
+            # Round all numeric columns to 2 decimal places
+            numeric_columns = parcels_df.select_dtypes(include=["number"]).columns
+            parcels_df[numeric_columns] = parcels_df[numeric_columns].round(2)
+
             parcels_df.to_excel(writer, sheet_name="Parcels", index=False)
-        
+
         # Sheet 2: Khasras that are part of clustered parcels only
         if "khasras" in gdfs:
             khasras_df = gdfs["khasras"].drop(columns=["geometry"], errors="ignore")
-            
+
             # Filter to only khasras that are part of clustered parcels (not UNCLUSTERED)
             if "Parcel ID" in khasras_df.columns:
-                khasras_df = khasras_df[~khasras_df["Parcel ID"].str.contains("UNCLUSTERED", na=True)]
-                khasras_df = khasras_df.sort_values(by=["Parcel ID", "Khasra ID (Unique)"])
-            
-            khasras_df.to_excel(writer, sheet_name="Khasras", index=False)
+                khasras_df = khasras_df[
+                    ~khasras_df["Parcel ID"].str.contains("UNCLUSTERED", na=True)
+                ]
+                khasras_df = khasras_df.sort_values(
+                    by=["Parcel ID", "Khasra ID (Unique)"]
+                )
+
+            # Round all numeric columns to 2 decimal places
+            numeric_columns = khasras_df.select_dtypes(include=["number"]).columns
+            khasras_df[numeric_columns] = khasras_df[numeric_columns].round(2)
+
+        khasras_df.to_excel(writer, sheet_name="Khasras", index=False)
+        # Auto-fit column widths with a maximum limit and format headers
+        header_fill = PatternFill(
+            start_color="1F4E78", end_color="1F4E78", fill_type="solid"
+        )
+        header_font = Font(color="FFFFFF", bold=True)
+        header_alignment = Alignment(horizontal="left", vertical="center")
+
+        for sheet_name in writer.sheets:
+            worksheet = writer.sheets[sheet_name]
+            for column in worksheet.columns:
+                column_width = 0
+                column_letter = column[0].column_letter
+
+                for cell in column:
+                    try:
+                        if cell.value:
+                            column_width = max(column_width, len(str(cell.value)))
+                    except Exception:
+                        pass
+
+                # Set width with padding, max 50 characters
+                adjusted_width = min(column_width, 50)
+                worksheet.column_dimensions[column_letter].width = adjusted_width
+
+            # Format header row (row 1)
+            for cell in worksheet[1]:
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = header_alignment
+
+            # Double the header row height
+            worksheet.row_dimensions[1].height = 20
 
     filename = f"{location}_export.xlsx"
     return buffer.getvalue(), filename
