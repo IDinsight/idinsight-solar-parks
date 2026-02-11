@@ -50,6 +50,13 @@ class ProjectCreate(BaseModel):
     description: Optional[str] = Field(None, max_length=500, description="Project description")
 
 
+class ProjectUpdate(BaseModel):
+    """Update an existing project"""
+    name: Optional[str] = Field(None, min_length=1, max_length=100, description="Project name")
+    location: Optional[str] = Field(None, min_length=1, max_length=100, description="Location/District name")
+    description: Optional[str] = Field(None, max_length=500, description="Project description")
+
+
 class ProjectResponse(BaseModel):
     """Project response model"""
     id: str

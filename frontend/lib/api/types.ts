@@ -45,6 +45,12 @@ export interface ProjectCreate {
     description?: string
 }
 
+export interface ProjectUpdate {
+    name?: string
+    location?: string
+    description?: string
+}
+
 export interface ProjectListResponse {
     projects: Project[]
     total: number
