@@ -56,6 +56,7 @@ from models import (
     ProjectListResponse,
     ProjectResponse,
     ProjectStatsResponse,
+    ProjectUpdate,
     SettlementLayerRequest,
     SlopesLayerRequest,
     Token,
@@ -86,6 +87,7 @@ from services import (
     process_slopes_layer_background,
     process_water_layer,
     process_water_layer_background,
+    update_project,
 )
 from sqlalchemy import delete as sql_delete
 from sqlalchemy.orm import Session
@@ -307,6 +309,49 @@ async def get_project_details_endpoint(
         updated_at=project.updated_at,
         khasra_count=project.khasra_count,
         total_area_ha=project.total_area_ha,
+        layers_added=[layer.name for layer in layers],
+    )
+
+
+@app.patch(
+    "/projects/{project_id}",
+    response_model=ProjectResponse,
+    tags=["Projects"],
+    summary="Update a project",
+)
+async def update_project_endpoint(
+    project_id: str,
+    project_update: ProjectUpdate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """Update project details (name, location, description)."""
+    updated_project = update_project(
+        db=db,
+        project_id=project_id,
+        name=project_update.name,
+        location=project_update.location,
+        description=project_update.description,
+    )
+
+    if not updated_project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project {project_id} not found",
+        )
+
+    layers = get_layers_metadata(db, project_id)
+
+    return ProjectResponse(
+        id=updated_project.id,
+        name=updated_project.name,
+        location=updated_project.location,
+        description=updated_project.description,
+        status=updated_project.status,
+        created_at=updated_project.created_at,
+        updated_at=updated_project.updated_at,
+        khasra_count=updated_project.khasra_count,
+        total_area_ha=updated_project.total_area_ha,
         layers_added=[layer.name for layer in layers],
     )
 

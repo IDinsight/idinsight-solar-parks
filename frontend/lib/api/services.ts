@@ -6,6 +6,7 @@ import type {
     TokenResponse,
     User,
     ProjectCreate,
+    ProjectUpdate,
     Project,
     ProjectListResponse,
     KhasraUploadResponse,
@@ -54,6 +55,11 @@ export async function listProjects(): Promise<ProjectListResponse> {
 
 export async function getProject(projectId: string): Promise<Project> {
     const response = await apiClient.get<Project>(`/projects/${projectId}`)
+    return response.data
+}
+
+export async function updateProject(projectId: string, data: ProjectUpdate): Promise<Project> {
+    const response = await apiClient.patch<Project>(`/projects/${projectId}`, data)
     return response.data
 }
 

@@ -6,7 +6,13 @@ import { ProtectedRoute } from "@/components/protected-route"
 import { useAuthStore } from "@/lib/stores/auth"
 import { useProjectStore } from "@/lib/stores/project"
 import * as api from "@/lib/api/services"
-import { Plus, FolderOpen, LogOut, Sun, Trash2, Calendar, MapPin } from "lucide-react"
+import { Plus, FolderOpen, LogOut, Sun, Trash2, Calendar, MapPin, MoreVertical, Pencil, Loader2 } from "lucide-react"
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 export default function DashboardPage() {
     return (
@@ -24,6 +30,12 @@ function DashboardContent() {
     const [showCreateModal, setShowCreateModal] = useState(false)
     const [newProject, setNewProject] = useState({ name: '', location: '', description: '' })
     const [isCreating, setIsCreating] = useState(false)
+    const [showEditModal, setShowEditModal] = useState(false)
+    const [editingProject, setEditingProject] = useState<any>(null)
+    const [isUpdating, setIsUpdating] = useState(false)
+    const [showDeleteModal, setShowDeleteModal] = useState(false)
+    const [deletingProject, setDeletingProject] = useState<any>(null)
+    const [isDeleting, setIsDeleting] = useState(false)
 
     useEffect(() => {
         loadProjects()
@@ -61,17 +73,54 @@ function DashboardContent() {
         router.push(`/workflow/${project.id}`)
     }
 
-    const handleDeleteProject = async (projectId: string, e: React.MouseEvent) => {
+    const handleEditProject = (project: any, e: React.MouseEvent) => {
         e.stopPropagation()
-        if (!confirm('Are you sure you want to delete this project? This action cannot be undone.')) {
-            return
-        }
+        setEditingProject(project)
+        setShowEditModal(true)
+    }
+
+    const handleUpdateProject = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!editingProject) return
+
+        setIsUpdating(true)
 
         try {
-            await api.deleteProject(projectId)
-            removeProject(projectId)
+            const updated = await api.updateProject(editingProject.id, {
+                name: editingProject.name,
+                location: editingProject.location,
+                description: editingProject.description,
+            })
+            setProjects(projects.map(p => p.id === updated.id ? updated : p))
+            setShowEditModal(false)
+            setEditingProject(null)
+        } catch (error: any) {
+            alert(error.response?.data?.detail || 'Failed to update project')
+        } finally {
+            setIsUpdating(false)
+        }
+    }
+
+    const handleDeleteProject = (project: any, e: React.MouseEvent) => {
+        e.stopPropagation()
+        setDeletingProject(project)
+        setShowDeleteModal(true)
+    }
+
+    const handleConfirmDelete = async () => {
+        if (!deletingProject) return
+
+        setIsDeleting(true)
+
+        try {
+            await api.deleteProject(deletingProject.id)
+            removeProject(deletingProject.id)
+            setShowDeleteModal(false)
+            setDeletingProject(null)
         } catch (error: any) {
             alert(error.response?.data?.detail || 'Failed to delete project')
+        } finally {
+            setIsDeleting(false)
         }
     }
 
@@ -167,13 +216,33 @@ function DashboardContent() {
                                             {project.location}
                                         </div>
                                     </div>
-                                    <button
-                                        onClick={(e) => handleDeleteProject(project.id, e)}
-                                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                        title="Delete project"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <button
+                                                onClick={(e) => e.stopPropagation()}
+                                                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                                                title="Project actions"
+                                            >
+                                                <MoreVertical className="w-4 h-4" />
+                                            </button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-48">
+                                            <DropdownMenuItem
+                                                onClick={(e) => handleEditProject(project, e)}
+                                                className="flex items-center gap-2 cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white"
+                                            >
+                                                <Pencil className="w-4 h-4" />
+                                                Edit Project
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem
+                                                onClick={(e) => handleDeleteProject(project, e)}
+                                                className="flex items-center gap-2 cursor-pointer text-red-600 hover:text-white hover:bg-red-600 focus:text-white focus:bg-red-600"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                                Delete Project
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                 </div>
 
                                 {project.description && (
@@ -281,6 +350,117 @@ function DashboardContent() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Project Modal */}
+            {showEditModal && editingProject && (
+                <div className="fixed inset-0 bg-white/30 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
+                        <h3 className="text-2xl font-bold text-slate-900 mb-6">Edit Project</h3>
+                        <form onSubmit={handleUpdateProject} className="space-y-5">
+                            <div>
+                                <label htmlFor="edit-name" className="block text-sm font-medium text-slate-700 mb-2">
+                                    Project Name *
+                                </label>
+                                <input
+                                    id="edit-name"
+                                    type="text"
+                                    value={editingProject.name}
+                                    onChange={(e) => setEditingProject({ ...editingProject, name: e.target.value })}
+                                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="e.g., Sagar District Solar"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor="edit-location" className="block text-sm font-medium text-slate-700 mb-2">
+                                    Location *
+                                </label>
+                                <input
+                                    id="edit-location"
+                                    type="text"
+                                    value={editingProject.location}
+                                    onChange={(e) => setEditingProject({ ...editingProject, location: e.target.value })}
+                                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="e.g., Madhya Pradesh"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor="edit-description" className="block text-sm font-medium text-slate-700 mb-2">
+                                    Description (optional)
+                                </label>
+                                <textarea
+                                    id="edit-description"
+                                    value={editingProject.description || ''}
+                                    onChange={(e) => setEditingProject({ ...editingProject, description: e.target.value })}
+                                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                                    rows={3}
+                                    placeholder="Brief description of the project..."
+                                />
+                            </div>
+                            <div className="flex gap-3 pt-4">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowEditModal(false)
+                                        setEditingProject(null)
+                                    }}
+                                    className="flex-1 px-4 py-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-lg transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isUpdating}
+                                    className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold rounded-lg transition-colors"
+                                >
+                                    {isUpdating ? 'Updating...' : 'Update'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {showDeleteModal && deletingProject && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
+                        <h3 className="text-2xl font-bold text-slate-900 mb-4">Delete Project?</h3>
+                        <p className="text-slate-600 mb-6">
+                            Are you sure you want to delete <span className="font-semibold text-slate-900">{deletingProject.name}</span>? This action cannot be undone and will delete all associated data.
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowDeleteModal(false)
+                                    setDeletingProject(null)
+                                }}
+                                disabled={isDeleting}
+                                className="flex-1 px-4 py-3 bg-slate-200 hover:bg-slate-300 disabled:opacity-50 text-slate-700 font-semibold rounded-lg transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleConfirmDelete}
+                                disabled={isDeleting}
+                                className="flex-1 px-4 py-3 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+                            >
+                                {isDeleting ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Deleting...
+                                    </>
+                                ) : (
+                                    'Delete'
+                                )}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

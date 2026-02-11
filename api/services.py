@@ -184,6 +184,32 @@ def update_project_status(db: Session, project_id: str, status: ProjectStatus):
         db.commit()
 
 
+def update_project(
+    db: Session,
+    project_id: str,
+    name: Optional[str] = None,
+    location: Optional[str] = None,
+    description: Optional[str] = None,
+) -> ProjectModel:
+    """Update project details"""
+    project = get_project(db, project_id)
+    if not project:
+        return None
+
+    if name is not None:
+        project.name = name
+    if location is not None:
+        project.location = location
+    if description is not None:
+        project.description = description
+
+    project.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(project)
+
+    return project
+
+
 # ============ Khasras ============================
 
 

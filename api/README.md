@@ -38,6 +38,7 @@ TO DO:
 
 - filter excel to only khasras in parcels
 - make parcels selectable for merging
+- dashboard and download options on online map
 
 - add stringy filter (new "Clean Khasras" page?)
 - rework ID naming
