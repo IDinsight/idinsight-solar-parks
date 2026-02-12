@@ -229,14 +229,15 @@ function DashboardContent() {
                                         <DropdownMenuContent align="end" className="w-48">
                                             <DropdownMenuItem
                                                 onClick={(e) => handleEditProject(project, e)}
-                                                className="flex items-center gap-2 cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white"
+                                                className="flex items-center gap-2 cursor-pointer"
                                             >
                                                 <Pencil className="w-4 h-4" />
                                                 Edit Project
                                             </DropdownMenuItem>
                                             <DropdownMenuItem
                                                 onClick={(e) => handleDeleteProject(project, e)}
-                                                className="flex items-center gap-2 cursor-pointer text-red-600 hover:text-white hover:bg-red-600 focus:text-white focus:bg-red-600"
+                                                variant="destructive"
+                                                className="flex items-center gap-2 cursor-pointer"
                                             >
                                                 <Trash2 className="w-4 h-4" />
                                                 Delete Project
