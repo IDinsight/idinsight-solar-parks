@@ -39,7 +39,6 @@ TO DO:
 - filter excel to only khasras in parcels
 - make parcels selectable for merging
 - dashboard and download options on online map
-
 - add stringy filter (new "Clean Khasras" page?)
 - rework ID naming
 - refactor and split files. change out of service structure.
@@ -53,7 +52,7 @@ Later:
 - clustering based on usable shapes?
 - flood risk?
 - Add substation markers?
-- host on AWS
+- Allow combining parcels on the UI. Or paintbrush to add or remove khasras
 - user management with permissions
 - khasra api integration
 

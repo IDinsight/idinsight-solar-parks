@@ -132,9 +132,10 @@ export default function ClusteringSection({
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999]">
             <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4 relative z-[10000]">
               <h3 className="text-lg font-semibold text-slate-900 mb-2">Delete Clustering Results?</h3>
-              <p className="text-sm text-slate-600 mb-6">
+              <p className="text-sm text-slate-600 mb-4">
                 This will delete all parcel clustering results. You can re-run clustering with different parameters afterwards.
               </p>
+              <p className="text-red-600 font-medium text-sm mb-6">This action cannot be undone.</p>
               <div className="flex gap-3 justify-end">
                 <button
                   onClick={() => setShowDeleteModal(false)}
@@ -155,7 +156,6 @@ export default function ClusteringSection({
                     </>
                   ) : (
                     <>
-                      <Trash2 className="w-4 h-4" />
                       Delete
                     </>
                   )}
