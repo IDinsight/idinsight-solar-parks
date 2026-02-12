@@ -32,11 +32,12 @@ DONE:
 - Fix map and stats auto-updates (hover is still N/A before refresh, slopes didn't auto update)
 - fix building_count on excel or remove
 - check that area calculations are being done correctly in the correct order etc
+- filter excel to only khasras in parcels
 - Group parcel labels on map at high zoom with combined usable area!
 
 TO DO:
 
-- filter excel to only khasras in parcels
+- widen UI, make map maximal
 - make parcels selectable for merging
 - dashboard and download options on online map
 - add stringy filter (new "Clean Khasras" page?)
