@@ -211,7 +211,7 @@ export default function UploadSection({ onFileUpload, onKhasraDeleted, isProcess
     return (
       <div className="flex gap-6 flex-1 min-h-0">
         {/* Left side: Data Preview and Actions */}
-        <div className="w-80 flex-shrink-0 space-y-6 overflow-y-auto">
+        <div className="w-120 flex-shrink-0 space-y-6 overflow-y-auto">
           {/* Warning banner for limited preview */}
           {previewData.total_count && previewData.preview_count && previewData.preview_count < previewData.total_count && (
             <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 flex items-start gap-3">
