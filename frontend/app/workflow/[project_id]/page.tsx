@@ -977,7 +977,7 @@ function WorkflowContent() {
                 )}
 
                 {/* Page Indicator */}
-                <div className="flex gap-4 mb-6">
+                <div className="flex gap-4 mb-4">
                     {[
                         { number: 1, label: "Upload Khasras" },
                         { number: 2, label: "Add Layers" },
@@ -1012,7 +1012,7 @@ function WorkflowContent() {
                 </div>
 
                 {/* Content Area */}
-                <div className="bg-white rounded-lg p-8 mb-4 flex-1 flex flex-col min-h-0">
+                <div className="bg-white rounded-lg p-6 mb-4 flex-1 flex flex-col min-h-0">
                     {/* Page 1: Upload */}
                     {currentPage === 1 && (
                         <div className="flex flex-col flex-1 min-h-0">
