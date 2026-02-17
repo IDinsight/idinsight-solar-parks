@@ -3505,6 +3505,11 @@ def cluster_khasras(
         ClusteringRunModel.project_id == project_id
     ).delete()
 
+    # Calculate total parcels excluding UNCLUSTERED
+    total_parcels = len(
+        parcel_gdf[~parcel_gdf[cluster_id_col].str.contains("UNCLUSTERED")]
+    )
+
     # Create clustering run record
     clustering_run = ClusteringRunModel(
         project_id=project_id,
@@ -3512,7 +3517,7 @@ def cluster_khasras(
         min_samples=request.min_samples,
         max_distance_considered=settings.MAX_DISTANCE_CONSIDERED,
         min_parcel_area_ha=request.min_parcel_area_ha,
-        total_parcels=len(parcel_gdf),
+        total_parcels=total_parcels,
         clustered_khasras=clustered_count,
         unclustered_khasras=unclustered_count,
     )
@@ -3604,7 +3609,7 @@ def cluster_khasras(
     return {
         "distance_threshold": request.distance_threshold,
         "min_samples": request.min_samples,
-        "total_parcels": len(parcel_gdf),
+        "total_parcels": total_parcels,
         "clustered_khasras": clustered_count,
         "unclustered_khasras": unclustered_count,
         "parcels": parcels,
