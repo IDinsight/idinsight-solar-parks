@@ -930,7 +930,7 @@ function WorkflowContent() {
         <main className="min-h-screen bg-slate-50 flex flex-col">
             {/* Header */}
             <div className="bg-white border-b border-slate-200 shadow-sm">
-                <div className="container mx-auto max-w-6xl px-6 py-4">
+                <div className="container mx-auto max-w-8xl px-6 py-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                             <button
@@ -958,7 +958,7 @@ function WorkflowContent() {
                 </div>
             </div>
 
-            <div className="flex-1 flex flex-col container mx-auto max-w-6xl px-6 py-6">
+            <div className="flex-1 flex flex-col container mx-auto max-w-8xl px-6 py-6">
                 {/* Error Display */}
                 {error && (
                     <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
@@ -1020,8 +1020,7 @@ function WorkflowContent() {
                                 <h2 className="text-3xl font-bold text-slate-900 mb-2">Step 1: Upload Khasra Boundaries</h2>
                                 <p className="text-base text-slate-600">Upload your KML or GeoJSON file containing land parcel boundaries</p>
                             </div>
-                            <div className="flex-1 min-h-0">
-                                <UploadSection
+                            <UploadSection
                                     onFileUpload={handleKhasraUpload}
                                     onKhasraDeleted={() => {
                                         // Reset all workflow state when khasras are deleted
@@ -1046,7 +1045,6 @@ function WorkflowContent() {
                                     }}
                                     isProcessing={isProcessing}
                                 />
-                            </div>
                         </div>
                     )}
 
