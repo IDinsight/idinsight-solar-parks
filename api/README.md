@@ -34,6 +34,7 @@ DONE:
 - check that area calculations are being done correctly in the correct order etc
 - filter excel to only khasras in parcels
 - Group parcel labels on map at high zoom with combined usable area!
+- fix parcel count to drop UNCLUSTERED
 
 TO DO:
 
