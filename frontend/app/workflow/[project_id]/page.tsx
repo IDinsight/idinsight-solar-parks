@@ -958,7 +958,7 @@ function WorkflowContent() {
                 </div>
             </div>
 
-            <div className="flex-1 flex flex-col container mx-auto max-w-6xl px-6 py-12">
+            <div className="flex-1 flex flex-col container mx-auto max-w-6xl px-6 py-6">
                 {/* Error Display */}
                 {error && (
                     <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
@@ -1012,7 +1012,7 @@ function WorkflowContent() {
                 </div>
 
                 {/* Content Area */}
-                <div className="bg-white rounded-lg p-8 mb-8 flex-1 flex flex-col min-h-0">
+                <div className="bg-white rounded-lg p-8 mb-4 flex-1 flex flex-col min-h-0">
                     {/* Page 1: Upload */}
                     {currentPage === 1 && (
                         <div className="flex flex-col flex-1 min-h-0">
@@ -1058,8 +1058,8 @@ function WorkflowContent() {
                                 <p className="text-base text-slate-600">Add unusable land layers to exclude from solar park areas</p>
                             </div>
 
-                            <div className="flex gap-8 flex-1 min-h-0">
-                                <div className="w-80 flex-shrink-0 space-y-6 overflow-y-auto">
+                            <div className="flex gap-6 flex-1 min-h-0">
+                                <div className="w-80 flex-shrink-0 space-y-4 overflow-y-auto">
                                     {/* Settlements & Buildings Layer */}
                                     <div className="border border-slate-200 rounded-lg p-4">
                                         <div className="flex items-start justify-between mb-2">
@@ -1476,7 +1476,7 @@ function WorkflowContent() {
                                     Group adjacent khasras into contiguous parcels for solar development.
                                 </p>
                             </div>
-                            <div className="flex gap-8 flex-1 min-h-0">
+                            <div className="flex gap-6 flex-1 min-h-0">
                                 <div className="w-80 flex-shrink-0 overflow-y-auto">
                                     <ClusteringSection
                                         data={khasraGeoJSON}
@@ -1521,7 +1521,7 @@ function WorkflowContent() {
                                 <p className="text-base text-slate-600">Download your analysis results in various formats</p>
                             </div>
 
-                            <div className="flex gap-8 flex-1 min-h-0">
+                            <div className="flex gap-6 flex-1 min-h-0">
                                 <div className="w-80 flex-shrink-0 space-y-6 overflow-y-auto">
                                     {/* Summary Stats */}
                                     {clusteringResult && (
@@ -1537,7 +1537,7 @@ function WorkflowContent() {
                                                     <span className="text-lg font-bold text-green-600">{clusteringResult.clustered_khasras}</span>
                                                 </div>
                                                 <div className="flex justify-between items-center">
-                                                    <span className="text-xs text-slate-600">Unclustered</span>
+                                                    <span className="text-xs text-slate-600">Unclustered Khasras</span>
                                                     <span className="text-lg font-bold text-slate-600">{clusteringResult.unclustered_khasras}</span>
                                                 </div>
                                             </div>
