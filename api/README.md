@@ -35,10 +35,10 @@ DONE:
 - filter excel to only khasras in parcels
 - Group parcel labels on map at high zoom with combined usable area!
 - fix parcel count to drop UNCLUSTERED
+- widen UI, make map maximal
 
 TO DO:
 
-- widen UI, make map maximal
 - make parcels selectable for merging
 - dashboard and download options on online map
 - add stringy filter (new "Clean Khasras" page?)
