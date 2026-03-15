@@ -85,6 +85,54 @@ def clean_non_polygons(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     return gdf
 
 
+def _repair_geometry(geom):
+    """Repair a single geometry for robust overlay operations."""
+    if geom is None or geom.is_empty:
+        return None
+
+    repaired = geom
+    if not repaired.is_valid:
+        try:
+            repaired = shapely.make_valid(repaired)
+        except Exception:
+            repaired = repaired.buffer(0)
+
+    if repaired is None or repaired.is_empty:
+        return None
+
+    if not repaired.is_valid:
+        try:
+            repaired = repaired.buffer(0)
+        except Exception:
+            return None
+
+    if repaired.is_empty:
+        return None
+
+    return repaired
+
+
+def sanitize_polygons_for_overlay(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """Repair invalid geometries and keep only polygonal features for overlay."""
+    if gdf is None or gdf.empty:
+        return gdf
+
+    cleaned = gdf.copy()
+    cleaned.geometry = cleaned.geometry.apply(_repair_geometry)
+    cleaned = gpd.GeoDataFrame(
+        cleaned[cleaned.geometry.notna()].copy(),
+        geometry="geometry",
+        crs=gdf.crs,
+    )
+    cleaned = clean_non_polygons(cleaned)
+    cleaned = gpd.GeoDataFrame(
+        cleaned[~cleaned.geometry.is_empty].copy(),
+        geometry="geometry",
+        crs=gdf.crs,
+    )
+    return cleaned
+
+
 def difference_overlay_without_discard(
     gdf1: gpd.GeoDataFrame, gdf2: gpd.GeoDataFrame
 ) -> gpd.GeoDataFrame:
@@ -1308,6 +1356,9 @@ def process_settlement_layer(
 
         # Project khasras
         gdf = gdf.to_crs(f"EPSG:{settings.INDIA_PROJECTED_CRS}")
+        gdf = sanitize_polygons_for_overlay(gdf)
+        if gdf.empty:
+            raise ValueError("No valid khasra geometries found after geometry repair")
         gdf_4326 = gdf.to_crs("EPSG:4326")
 
         update_layer_status(
@@ -1464,6 +1515,9 @@ def process_settlement_layer(
         # Buffer buildings
         buffered_buildings = rooftops_in_khasras.copy()
         buffered_buildings["geometry"] = buffered_buildings.buffer(building_buffer)
+        buffered_buildings = sanitize_polygons_for_overlay(buffered_buildings)
+        if buffered_buildings.empty:
+            raise ValueError("No valid buffered building geometries found")
 
         update_layer_status(
             db,
@@ -1474,6 +1528,9 @@ def process_settlement_layer(
 
         # Get intersection with khasras
         buildings_overlap_gdf = gpd.overlay(buffered_buildings, gdf, how="intersection")
+        buildings_overlap_gdf = sanitize_polygons_for_overlay(buildings_overlap_gdf)
+        if buildings_overlap_gdf.empty:
+            raise ValueError("No valid building overlaps found within khasras")
 
         update_layer_status(
             db,
@@ -1526,10 +1583,14 @@ def process_settlement_layer(
             ).reset_index()
             settlements_gdf = settlements_gdf[["geometry", "settlement_id"]]
             settlements_gdf["geometry"] = settlements_gdf.convex_hull
+            settlements_gdf = sanitize_polygons_for_overlay(settlements_gdf)
 
             # Intersect with khasras
             settlements_overlap_gdf = gpd.overlay(
                 settlements_gdf, gdf, how="intersection"
+            )
+            settlements_overlap_gdf = sanitize_polygons_for_overlay(
+                settlements_overlap_gdf
             )
             settlements_overlap_gdf = settlements_overlap_gdf.dissolve(
                 by="Khasra ID (Unique)"
@@ -1749,6 +1810,9 @@ def process_cropland_layer(
 
         # Project to target CRS
         gdf = gdf.to_crs(f"EPSG:{settings.INDIA_PROJECTED_CRS}")
+        gdf = sanitize_polygons_for_overlay(gdf)
+        if gdf.empty:
+            raise ValueError("No valid khasra geometries found after geometry repair")
         gdf_4326 = gdf.to_crs("EPSG:4326")
 
         # Load legend
@@ -1790,6 +1854,8 @@ def process_cropland_layer(
                 raster_crs=str(src.crs),
                 target_crs=f"EPSG:{settings.INDIA_PROJECTED_CRS}",
             )
+
+        cropland_shapes_gdf = sanitize_polygons_for_overlay(cropland_shapes_gdf)
 
         if cropland_shapes_gdf.empty:
             update_layer_status(
@@ -1969,6 +2035,9 @@ def process_water_layer(
 
         # Project to target CRS
         gdf = gdf.to_crs(f"EPSG:{settings.INDIA_PROJECTED_CRS}")
+        gdf = sanitize_polygons_for_overlay(gdf)
+        if gdf.empty:
+            raise ValueError("No valid khasra geometries found after geometry repair")
         gdf_4326 = gdf.to_crs("EPSG:4326")
 
         # Load legend
@@ -2010,6 +2079,8 @@ def process_water_layer(
                 raster_crs=str(src.crs),
                 target_crs=f"EPSG:{settings.INDIA_PROJECTED_CRS}",
             )
+
+        water_shapes_gdf = sanitize_polygons_for_overlay(water_shapes_gdf)
 
         if water_shapes_gdf.empty:
             update_layer_status(
@@ -2224,6 +2295,9 @@ def process_slopes_layer(
 
         # Project to target CRS and get bounds
         gdf = gdf.to_crs(f"EPSG:{settings.INDIA_PROJECTED_CRS}")
+        gdf = sanitize_polygons_for_overlay(gdf)
+        if gdf.empty:
+            raise ValueError("No valid khasra geometries found after geometry repair")
         gdf_4326 = gdf.to_crs("EPSG:4326")
 
         # Get bounding box for DEM search
@@ -2628,6 +2702,7 @@ def process_slopes_layer(
                 db, north_layer, "in_progress", "Combining north slope shapes"
             )
             north_slopes_gdf = pd.concat(north_slope_gdfs, ignore_index=True)
+            north_slopes_gdf = sanitize_polygons_for_overlay(north_slopes_gdf)
             logger.info(f"Combined {len(north_slopes_gdf)} north slope polygons")
 
             # Overlay with khasras
@@ -2667,6 +2742,7 @@ def process_slopes_layer(
                 db, other_layer, "in_progress", "Combining other slope shapes"
             )
             other_slopes_gdf = pd.concat(other_slope_gdfs, ignore_index=True)
+            other_slopes_gdf = sanitize_polygons_for_overlay(other_slopes_gdf)
             logger.info(f"Combined {len(other_slopes_gdf)} other slope polygons")
 
             # Overlay with khasras
