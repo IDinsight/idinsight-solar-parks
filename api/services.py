@@ -965,8 +965,8 @@ def get_layers_geojson(db: Session, project_id: str) -> Dict[str, Any]:
                 LayerFeatureModel.properties,
             )
             .filter(LayerFeatureModel.layer_id == layer.id)
-            # .limit(1000)
-        )  # Limit to prevent hanging
+            # .limit(1000) # Limit to prevent hanging
+        )  
 
         features_data = features_query.all()
 
