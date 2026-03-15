@@ -137,6 +137,11 @@ def difference_overlay_without_discard(
     gdf1: gpd.GeoDataFrame, gdf2: gpd.GeoDataFrame
 ) -> gpd.GeoDataFrame:
     """Perform difference overlay without discarding rows that don't intersect"""
+    # Repair invalid geometries to avoid TopologyException during overlay
+    # Only repair gdf1 in-place (don't drop rows, as index mapping is needed later)
+    gdf1 = gdf1.copy()
+    gdf1.geometry = gdf1.geometry.apply(_repair_geometry)
+    gdf2 = sanitize_polygons_for_overlay(gdf2)
     overlay_gdf = gpd.overlay(
         gdf1.reset_index(names="original_index"),
         gdf2,
@@ -381,6 +386,19 @@ def process_khasra_upload(
             logger.warning(f"Failed to delete distance matrix files: {e}")
 
         project.distance_matrix_path = None
+
+    # Validate and repair invalid geometries at import time
+    invalid_count = (~gdf_4326.geometry.is_valid).sum()
+    if invalid_count > 0:
+        logger.warning(
+            f"Repairing {invalid_count} invalid khasra geometries out of {len(gdf_4326)}"
+        )
+        gdf_4326.geometry = gdf_4326.geometry.apply(_repair_geometry)
+        # Also repair the projected version so area calculations are correct
+        gdf_projected.geometry = gdf_projected.geometry.apply(_repair_geometry)
+        # Recalculate areas after repair
+        gdf_projected["Original Area (ha)"] = gdf_projected.geometry.area / 10_000
+        gdf_4326["Original Area (ha)"] = gdf_projected["Original Area (ha)"]
 
     for idx, row in gdf_4326.iterrows():
         geom = ensure_multipolygon(row.geometry)
@@ -3753,9 +3771,12 @@ def aggregate_to_parcels(
                 * 100
             ).round(2)
 
-    # Add convex hull geometry
+    # Add convex hull geometry (repair invalid geometries before dissolve)
+    gdf_for_dissolve = gdf.copy()
+    gdf_for_dissolve.geometry = gdf_for_dissolve.geometry.apply(_repair_geometry)
+    gdf_for_dissolve = gdf_for_dissolve[gdf_for_dissolve.geometry.notna()]
     convex_hull_geoms_gdf = (
-        gdf.dissolve(by=cluster_id_col)
+        gdf_for_dissolve.dissolve(by=cluster_id_col)
         .convex_hull.to_frame(name="geometry")
         .reset_index()
     )
