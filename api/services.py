@@ -1385,13 +1385,13 @@ def process_settlement_layer(
 
         # Import VIDA utilities
         try:
-            from gridsample.utils_rooftop import (
+            from rooftop_utils import (
                 download_VIDA_rooftops_data_by_s2,
                 get_overlapping_s2_cell_ids,
             )
         except ImportError:
             raise ValueError(
-                "gridsample package not installed. Install it with: pip install -e . in gridsample directory"
+                "rooftop_utils.py not available."
             )
 
         update_layer_status(
