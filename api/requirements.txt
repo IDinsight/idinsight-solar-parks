@@ -32,6 +32,7 @@ openpyxl>=3.1.0
 s2cell==1.8.0
 s2sphere==0.2.5
 boto3==1.36.10
+asf_search==10.2.0
 
 # Optional for DEM processing
 pydem>=0.1.0
