@@ -429,7 +429,7 @@ def process_khasra_upload(
     # Update project
     bounds = gdf_4326.total_bounds
     project.khasra_count = len(gdf_projected)
-    project.total_area_ha = round(gdf_projected["Original Area (ha)"].sum(), 2)
+    project.total_area_ha = float(round(gdf_projected["Original Area (ha)"].sum(), 2))
     project.bounds_json = {
         "minx": round(bounds[0], 6),
         "miny": round(bounds[1], 6),
@@ -939,7 +939,7 @@ def process_custom_layer_upload(
 
         # Update layer metadata
         layer.feature_count = len(layer_overlap_gdf)
-        layer.total_area_ha = round(layer_overlap_gdf[area_col].sum(), 2)
+        layer.total_area_ha = float(round(layer_overlap_gdf[area_col].sum(), 2))
         layer.parameters = {"area_col": area_col}
         db.flush()
 
@@ -2987,7 +2987,7 @@ def _save_builtin_layer_with_status(
 
     # Update layer metadata
     layer.feature_count = len(layer_gdf)
-    layer.total_area_ha = round(layer_gdf[area_col].sum(), 2)
+    layer.total_area_ha = float(round(layer_gdf[area_col].sum(), 2))
     layer.parameters = {"area_col": area_col}
     db.flush()
 
