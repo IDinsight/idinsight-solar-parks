@@ -1389,10 +1389,9 @@ def process_settlement_layer(
                 download_VIDA_rooftops_data_by_s2,
                 get_overlapping_s2_cell_ids,
             )
-        except ImportError:
-            raise ValueError(
-                "rooftop_utils.py not available."
-            )
+        except ImportError as e:
+            raise e
+
 
         update_layer_status(
             db,

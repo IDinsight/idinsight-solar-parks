@@ -1,15 +1,9 @@
-import math
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import boto3
 import geopandas as gpd
-import matplotlib.cm
-import numpy as np
-import requests
 import s2sphere
 from s2cell.s2cell import lat_lon_to_cell_id
-from shapely import Point
 from shapely.geometry import Polygon
 
 
