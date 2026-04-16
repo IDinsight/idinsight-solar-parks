@@ -174,10 +174,6 @@ async def login_for_access_toke_endpoint(
 ):
     """
     Authenticate with username and password to receive a JWT access token.
-
-    Default credentials:
-    - Username: `admin`
-    - Password: `admin`
     """
     user = authenticate_user(fake_users_db, form_data.username, form_data.password)
     if not user:

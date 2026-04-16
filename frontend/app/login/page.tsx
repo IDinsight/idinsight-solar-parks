@@ -115,14 +115,6 @@ export default function LoginPage() {
                             )}
                         </button>
                     </form>
-
-                    {/* Default Credentials */}
-                    <div className="mt-6 pt-6 border-t border-slate-200">
-                        <p className="text-xs text-slate-500 text-center">
-                            Default credentials: <span className="font-mono font-semibold">admin</span> /{' '}
-                            <span className="font-mono font-semibold">admin</span>
-                        </p>
-                    </div>
                 </div>
             </div>
         </div>
