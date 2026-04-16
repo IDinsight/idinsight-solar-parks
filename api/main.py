@@ -9,6 +9,7 @@ Now with PostgreSQL/PostGIS persistence and local file storage.
 """
 
 import json
+import os
 import traceback
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
@@ -131,9 +132,10 @@ Use the `/auth/token` endpoint to obtain an access token.
 )
 
 # CORS middleware
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
