@@ -984,11 +984,7 @@ function WorkflowContent() {
                         { number: 3, label: "Cluster" },
                         { number: 4, label: "Export" },
                     ].map((step) => {
-                        const canNavigateToStep =
-                            step.number === 1 ||
-                            (step.number === 2 && canProceedToLayerSelection) ||
-                            (step.number === 3 && canProceedToClustering) ||
-                            (step.number === 4 && canProceedToExport)
+                        const canNavigateToStep = true
 
                         return (
                             <button
@@ -1665,12 +1661,7 @@ function WorkflowContent() {
                     {currentPage < 4 && (
                         <button
                             onClick={() => updateCurrentPage(Math.min(4, currentPage + 1))}
-                            disabled={
-                                isProcessing ||
-                                (currentPage === 1 && !canProceedToLayerSelection) ||
-                                (currentPage === 2 && !canProceedToClustering) ||
-                                (currentPage === 3 && !canProceedToExport)
-                            }
+                            disabled={isProcessing}
                             className="flex items-center gap-2 px-6 py-3 border border-blue-600 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 disabled:border-slate-400 text-white font-semibold rounded-lg transition-colors ml-auto"
                         >
                             Next
