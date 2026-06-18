@@ -309,6 +309,7 @@ const LeafletMap = dynamic(
         const center = bounds.getCenter()
 
         const parcelId = feature.properties.parcel_id
+        const usableArea = feature.properties.usable_area_ha || 0
         const usableAvailableArea = feature.properties.usable_available_area_ha || 0
 
         const labelIcon = L.divIcon({
@@ -331,7 +332,8 @@ const LeafletMap = dynamic(
             line-height: 1.3;
           ">
             <div>${parcelId}</div>
-            <div style="font-size: 11px;">${Math.round(usableAvailableArea).toLocaleString()} ha</div>
+            <div style="font-size: 11px;">${Math.round(usableArea).toLocaleString()} ha</div>
+            <div style="font-size: 10px; opacity: 0.75;">${Math.round(usableAvailableArea).toLocaleString()} ha available</div>
           </div>`,
           iconSize: undefined,
           iconAnchor: [0, 0],
@@ -356,8 +358,9 @@ const LeafletMap = dynamic(
           iconCreateFunction={(cluster: any) => {
             const count = cluster.getChildCount()
 
-            // Calculate total usable area from all markers in this cluster
+            // Calculate total usable and available area from all markers in this cluster
             let totalUsableArea = 0
+            let totalAvailableArea = 0
             const markers = cluster.getAllChildMarkers()
             markers.forEach((marker: any) => {
               // Get the usable area from the marker's feature properties
@@ -373,7 +376,8 @@ const LeafletMap = dynamic(
                          Math.abs(center.lng - markerPos.lng) < 0.0001
                 })
                 if (feature && feature.properties) {
-                  totalUsableArea += feature.properties.usable_available_area_ha || 0
+                  totalUsableArea += feature.properties.usable_area_ha || 0
+                  totalAvailableArea += feature.properties.usable_available_area_ha || 0
                 }
               }
             })
@@ -398,6 +402,7 @@ const LeafletMap = dynamic(
               ">
                 <div>${count} parcels</div>
                 <div style="font-size: 11px;">${Math.round(totalUsableArea).toLocaleString()} ha</div>
+                <div style="font-size: 10px; opacity: 0.75;">${Math.round(totalAvailableArea).toLocaleString()} ha available</div>
               </div>`,
               className: 'custom-cluster-icon',
               iconSize: undefined,
