@@ -3239,10 +3239,12 @@ def recalculate_areas_and_parcels(db: Session, project_id: str):
                                 )
 
                         parcel_updates[parcel_id] = {
-                            "original_area_ha": round(original_area, 2),
-                            "usable_area_ha": round(usable_area, 2),
-                            "unusable_area_ha": round(unusable_area, 2),
-                            "usable_available_area_ha": round(usable_available_area, 2),
+                            "original_area_ha": round(float(original_area), 2),
+                            "usable_area_ha": round(float(usable_area), 2),
+                            "unusable_area_ha": round(float(unusable_area), 2),
+                            "usable_available_area_ha": round(
+                                float(usable_available_area), 2
+                            ),
                             "layer_areas": layer_areas_dict
                             if layer_areas_dict
                             else None,
