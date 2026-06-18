@@ -2343,11 +2343,30 @@ def process_slopes_layer(
                 "asf_search package not installed. Install with: pip install asf_search"
             )
 
-        results = asf.geo_search(
-            platform=[asf.PLATFORM.ALOS],
-            processingLevel=asf.PRODUCT_TYPE.RTC_HIGH_RES,
-            intersectsWith=wkt_string,
-        )
+        # The default CMR timeout (30s) is frequently exceeded on remote
+        # deployments, causing "CMR took too long to respond" errors. Raise it
+        # and retry the search a few times before giving up.
+        asf.constants.INTERNAL.CMR_TIMEOUT = 120
+
+        results = None
+        last_error = None
+        for attempt in range(3):
+            try:
+                results = asf.geo_search(
+                    platform=[asf.PLATFORM.ALOS],
+                    processingLevel=asf.PRODUCT_TYPE.RTC_HIGH_RES,
+                    intersectsWith=wkt_string,
+                )
+                break
+            except Exception as e:
+                last_error = e
+                logger.warning(
+                    f"ASF/CMR search attempt {attempt + 1} failed: {e}"
+                )
+        if results is None:
+            raise ValueError(
+                f"Failed to search NASA elevation data after 3 attempts: {last_error}"
+            )
 
         if not results:
             raise ValueError("No DEM tiles found for the project area")
