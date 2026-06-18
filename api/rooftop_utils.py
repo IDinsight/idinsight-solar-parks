@@ -1,7 +1,10 @@
+import warnings
 from pathlib import Path
 
 import boto3
 import geopandas as gpd
+from botocore import UNSIGNED
+from botocore.config import Config
 import s2sphere
 from s2cell.s2cell import lat_lon_to_cell_id
 from shapely.geometry import Polygon
@@ -97,7 +100,15 @@ def get_overlapping_s2_cell_ids(gdf, level=6) -> list[int]:
         raise ValueError("GeoDataFrame must be in WGS84 (EPSG:4326) CRS.")
 
     # generate initial S2 cell IDs from the GeoDataFrame centroids
-    points = gdf.geometry.centroid.to_frame(name="geometry")
+    # centroids are computed in the geographic CRS intentionally, so silence the
+    # "Geometry is in a geographic CRS" warning geopandas raises for centroid
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message="Geometry is in a geographic CRS",
+            category=UserWarning,
+        )
+        points = gdf.geometry.centroid.to_frame(name="geometry")
     s2_cell_ids = get_overlapping_s2_cell_ids_from_points(points, level=level)
 
     # get initial S2 cell shapes and check for full coverage
@@ -108,9 +119,17 @@ def get_overlapping_s2_cell_ids(gdf, level=6) -> list[int]:
     print(f"Shapes with spillover after round 1: {len(leftover_shapes)}")
 
     step = 2
+    stall_count = 0
+    prev_leftover = len(leftover_shapes)
     while len(leftover_shapes) > 0:
         # get new s2 cell IDs from the leftover shapes
-        points_new = leftover_shapes.geometry.centroid.to_frame(name="geometry")
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message="Geometry is in a geographic CRS",
+                category=UserWarning,
+            )
+            points_new = leftover_shapes.geometry.centroid.to_frame(name="geometry")
         s2_cell_ids_new = get_overlapping_s2_cell_ids_from_points(
             points_new, level=level
         )
@@ -125,6 +144,20 @@ def get_overlapping_s2_cell_ids(gdf, level=6) -> list[int]:
 
         print(f"Shapes with spillover after round {step}: {len(leftover_shapes)}")
         step += 1
+
+        # stop if the leftover count hasn't changed for the past 2 steps,
+        # otherwise the loop could spin forever on shapes S2 cells can't cover
+        if len(leftover_shapes) == prev_leftover:
+            stall_count += 1
+            if stall_count >= 2:
+                print(
+                    f"Leftover count unchanged ({len(leftover_shapes)}) for 2 steps; "
+                    "stopping early."
+                )
+                break
+        else:
+            stall_count = 0
+        prev_leftover = len(leftover_shapes)
 
     return s2_cell_ids
 
@@ -144,7 +177,11 @@ def download_VIDA_rooftops_data_by_s2_single(
     else:
         print(f"Downloading file for S2 cell ID: {s2_cell_id}")
         s2_rooftops_path.parent.mkdir(parents=True, exist_ok=True)
-        s3 = boto3.client("s3", endpoint_url="https://data.source.coop")
+        s3 = boto3.client(
+            "s3",
+            endpoint_url="https://data.source.coop",
+            config=Config(signature_version=UNSIGNED),
+        )
         try:
             s3.download_file(
                 "vida",
