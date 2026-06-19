@@ -30,9 +30,8 @@ apiClient.interceptors.response.use(
     (response) => response,
     async (error: AxiosError) => {
         if (error.response?.status === 401) {
-            // Clear token and redirect to login
             localStorage.removeItem('access_token')
-            if (typeof window !== 'undefined') {
+            if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/map/')) {
                 window.location.href = '/login'
             }
         }
@@ -41,3 +40,11 @@ apiClient.interceptors.response.use(
 )
 
 export default apiClient
+
+export const publicApiClient = axios.create({
+    baseURL: API_BASE_URL,
+    timeout: 120000,
+    headers: {
+        'Content-Type': 'application/json',
+    },
+})

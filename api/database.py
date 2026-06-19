@@ -62,6 +62,9 @@ class ProjectModel(Base):
     total_area_ha = Column(Float, nullable=True)
     bounds_json = Column(JSONB, nullable=True)
     
+    # Sharing
+    is_public = Column(Boolean, default=False, nullable=False, server_default="false")
+
     # Distance matrix cache file path (for clustering)
     distance_matrix_path = Column(String, nullable=True)
     

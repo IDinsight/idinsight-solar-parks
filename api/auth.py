@@ -75,6 +75,26 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return encoded_jwt
 
 
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="auth/token", auto_error=False)
+
+
+async def get_optional_user(token: Optional[str] = Depends(oauth2_scheme_optional)) -> Optional[User]:
+    """Return the authenticated user if a valid token is present, otherwise None."""
+    if token is None:
+        return None
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            return None
+        user = get_user(fake_users_db, username=username)
+        if user is None or user.disabled:
+            return None
+        return user
+    except JWTError:
+        return None
+
+
 async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     """Get current user from JWT token"""
     credentials_exception = HTTPException(

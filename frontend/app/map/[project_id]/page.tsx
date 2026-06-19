@@ -5,8 +5,9 @@ import { useParams, useRouter } from "next/navigation"
 import MapContainer from "@/components/map-container"
 import * as api from "@/lib/api/services"
 import type { Project } from "@/lib/api/types"
-import { ArrowLeft, Loader2 } from "lucide-react"
+import { ArrowLeft, Loader2, Globe, Lock, Sun, LogIn, Check, Copy } from "lucide-react"
 import { getWorkflowPageForProject } from "@/lib/utils/project-navigation"
+import { toast } from "sonner"
 
 export default function FullScreenMapPage() {
     const params = useParams()
@@ -18,7 +19,11 @@ export default function FullScreenMapPage() {
     const [parcelsData, setParcelsData] = useState<any>(null)
     const [layersData, setLayersData] = useState<Record<string, any>>({})
     const [isLoading, setIsLoading] = useState(true)
+    const [authedView, setAuthedView] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [isPrivate, setIsPrivate] = useState(false)
+    const [isTogglingVisibility, setIsTogglingVisibility] = useState(false)
+    const [copied, setCopied] = useState(false)
 
     useEffect(() => {
         if (!projectId) return
@@ -27,40 +32,69 @@ export default function FullScreenMapPage() {
             try {
                 setIsLoading(true)
                 setError(null)
+                setIsPrivate(false)
 
-                // Load project details
-                const projectData = await api.getProject(projectId)
-                setProject(projectData)
+                // Try authenticated first if user appears logged in
+                const hasToken = typeof window !== 'undefined' && !!localStorage.getItem('access_token')
 
-                // Load khasras
-                try {
-                    const khasrasSummary = await api.getKhasrasSummary(projectId)
-                    if (khasrasSummary.geojson) {
-                        setKhasrasData(khasrasSummary.geojson)
+                if (hasToken) {
+                    try {
+                        const projectData = await api.getProject(projectId)
+                        setProject(projectData)
+                        setAuthedView(true)
+
+                        try {
+                            const khasrasSummary = await api.getKhasrasSummary(projectId)
+                            if (khasrasSummary.geojson) setKhasrasData(khasrasSummary.geojson)
+                        } catch (e) { console.warn("No khasras data available") }
+
+                        try {
+                            const parcels = await api.getParcelsGeoJSON(projectId)
+                            setParcelsData(parcels)
+                        } catch (e) { console.warn("No parcels data available") }
+
+                        try {
+                            const layers = await api.getProjectLayersGeoJSON(projectId)
+                            setLayersData(layers)
+                        } catch (e) { console.warn("No layers data available") }
+
+                        return
+                    } catch (e: any) {
+                        // Auth failed — fall through to public path
+                        // Prevent the 401 interceptor redirect by clearing token
+                        localStorage.removeItem('access_token')
+                        localStorage.removeItem('access_token_expiry')
                     }
-                } catch (e) {
-                    console.warn("No khasras data available")
                 }
 
-                // Load parcels
+                // Public path (no auth)
                 try {
-                    const parcels = await api.getParcelsGeoJSON(projectId)
-                    setParcelsData(parcels)
-                } catch (e) {
-                    console.warn("No parcels data available")
-                }
+                    const projectData = await api.getPublicProject(projectId)
+                    setProject(projectData)
+                    setAuthedView(false)
 
-                // Load layers
-                try {
-                    const layers = await api.getProjectLayersGeoJSON(projectId)
-                    setLayersData(layers)
-                } catch (e) {
-                    console.warn("No layers data available")
-                }
+                    try {
+                        const khasrasSummary = await api.getPublicKhasrasSummary(projectId)
+                        if (khasrasSummary.geojson) setKhasrasData(khasrasSummary.geojson)
+                    } catch (e) { console.warn("No khasras data available") }
 
-            } catch (err) {
-                console.error("Error loading map data:", err)
-                setError(err instanceof Error ? err.message : "Failed to load map data")
+                    try {
+                        const parcels = await api.getPublicParcelsGeoJSON(projectId)
+                        setParcelsData(parcels)
+                    } catch (e) { console.warn("No parcels data available") }
+
+                    try {
+                        const layers = await api.getPublicLayersGeoJSON(projectId)
+                        setLayersData(layers)
+                    } catch (e) { console.warn("No layers data available") }
+
+                } catch (err: any) {
+                    if (err?.response?.status === 404) {
+                        setIsPrivate(true)
+                    } else {
+                        setError(err instanceof Error ? err.message : "Failed to load map data")
+                    }
+                }
             } finally {
                 setIsLoading(false)
             }
@@ -69,12 +103,63 @@ export default function FullScreenMapPage() {
         loadData()
     }, [projectId])
 
+    const handleToggleVisibility = async () => {
+        if (!project) return
+        setIsTogglingVisibility(true)
+        try {
+            const updated = await api.updateProjectVisibility(projectId, !project.is_public)
+            setProject(updated)
+            if (updated.is_public) {
+                const mapUrl = `${window.location.origin}/map/${projectId}`
+                toast.success("Map is now public", {
+                    description: mapUrl,
+                    action: {
+                        label: "Copy Link",
+                        onClick: () => navigator.clipboard.writeText(mapUrl),
+                    },
+                })
+            } else {
+                toast.success("Map is now private")
+            }
+        } catch (err) {
+            toast.error("Failed to update visibility")
+        } finally {
+            setIsTogglingVisibility(false)
+        }
+    }
+
+    const handleCopyLink = async () => {
+        const mapUrl = `${window.location.origin}/map/${projectId}`
+        await navigator.clipboard.writeText(mapUrl)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+    }
+
     if (isLoading) {
         return (
             <div className="h-screen w-screen flex items-center justify-center bg-slate-50">
                 <div className="text-center">
                     <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-3" />
                     <p className="text-slate-600">Loading map data...</p>
+                </div>
+            </div>
+        )
+    }
+
+    if (isPrivate) {
+        return (
+            <div className="h-screen w-screen flex items-center justify-center bg-slate-50">
+                <div className="text-center max-w-md">
+                    <Lock className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+                    <h2 className="text-xl font-semibold text-slate-900 mb-2">This map is private</h2>
+                    <p className="text-slate-600 mb-6">You need to log in to view this map, or ask the owner to make it public.</p>
+                    <button
+                        onClick={() => router.push("/login")}
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                        <LogIn className="h-4 w-4" />
+                        Log in
+                    </button>
                 </div>
             </div>
         )
@@ -98,8 +183,7 @@ export default function FullScreenMapPage() {
         )
     }
 
-    // Calculate map center from khasras or parcels
-    let mapCenter: [number, number] = [23.0, 77.0] // Default center for India
+    let mapCenter: [number, number] = [23.0, 77.0]
     let mapZoom = 10
 
     if (khasrasData?.features?.[0]?.geometry?.coordinates) {
@@ -115,16 +199,26 @@ export default function FullScreenMapPage() {
             {/* Header Bar */}
             <div className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shadow-sm">
                 <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => {
-                            const targetPage = getWorkflowPageForProject(project)
-                            router.push(`/workflow/${projectId}?page=${targetPage}`)
-                        }}
-                        className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-                    >
-                        <ArrowLeft className="h-4 w-4" />
-                        Go to Project
-                    </button>
+                    {authedView ? (
+                        <button
+                            onClick={() => {
+                                const targetPage = getWorkflowPageForProject(project)
+                                router.push(`/workflow/${projectId}?page=${targetPage}`)
+                            }}
+                            className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                        >
+                            <ArrowLeft className="h-4 w-4" />
+                            Go to Project
+                        </button>
+                    ) : (
+                        <button
+                            onClick={() => router.push("/login")}
+                            className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                        >
+                            <Sun className="h-4 w-4 text-blue-600" />
+                            Login to Edit
+                        </button>
+                    )}
                     <div className="h-6 w-px bg-slate-300" />
                     <div>
                         <h1 className="text-lg font-semibold text-slate-900">
@@ -135,6 +229,41 @@ export default function FullScreenMapPage() {
                         )}
                     </div>
                 </div>
+
+                {/* Share controls (authenticated only) */}
+                {authedView && (
+                    <div className="flex items-center gap-2">
+                        {project?.is_public && (
+                            <button
+                                onClick={handleCopyLink}
+                                className="flex items-center gap-1.5 px-3 py-2 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                                title="Copy public link"
+                            >
+                                {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                                {copied ? "Copied!" : "Copy Link"}
+                            </button>
+                        )}
+                        <button
+                            onClick={handleToggleVisibility}
+                            disabled={isTogglingVisibility}
+                            className={`flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${
+                                project?.is_public
+                                    ? "bg-green-50 text-green-700 hover:bg-green-100 border border-green-200"
+                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200"
+                            }`}
+                            title={project?.is_public ? "Map is public — click to make private" : "Map is private — click to make public"}
+                        >
+                            {isTogglingVisibility ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : project?.is_public ? (
+                                <Globe className="h-4 w-4" />
+                            ) : (
+                                <Lock className="h-4 w-4" />
+                            )}
+                            {project?.is_public ? "Public" : "Private"}
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Full Screen Map */}

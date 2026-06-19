@@ -243,6 +243,7 @@ def update_project(
     name: Optional[str] = None,
     location: Optional[str] = None,
     description: Optional[str] = None,
+    is_public: Optional[bool] = None,
 ) -> ProjectModel:
     """Update project details"""
     project = get_project(db, project_id)
@@ -255,6 +256,8 @@ def update_project(
         project.location = location
     if description is not None:
         project.description = description
+    if is_public is not None:
+        project.is_public = is_public
 
     project.updated_at = datetime.utcnow()
     db.commit()

@@ -2,6 +2,7 @@
  * API service functions
  */
 import apiClient from './client'
+import { publicApiClient } from './client'
 import type {
     TokenResponse,
     User,
@@ -225,5 +226,34 @@ export async function exportData(projectId: string, request: ExportRequest): Pro
     const response = await apiClient.post(`/projects/${projectId}/export`, request, {
         responseType: 'blob',
     })
+    return response.data
+}
+
+// ============ Public (Unauthenticated) Access ============
+
+export async function getPublicProject(projectId: string): Promise<Project> {
+    const response = await publicApiClient.get<Project>(`/projects/${projectId}`)
+    return response.data
+}
+
+export async function getPublicKhasrasSummary(projectId: string): Promise<KhasraSummary> {
+    const response = await publicApiClient.get<KhasraSummary>(`/projects/${projectId}/khasras`)
+    return response.data
+}
+
+export async function getPublicParcelsGeoJSON(projectId: string): Promise<any> {
+    const response = await publicApiClient.get(`/projects/${projectId}/parcels/geojson`)
+    return response.data
+}
+
+export async function getPublicLayersGeoJSON(projectId: string): Promise<Record<string, any>> {
+    const response = await publicApiClient.get<Record<string, any>>(`/projects/${projectId}/layers/geojson`)
+    return response.data
+}
+
+// ============ Project Visibility ============
+
+export async function updateProjectVisibility(projectId: string, isPublic: boolean): Promise<Project> {
+    const response = await apiClient.patch<Project>(`/projects/${projectId}`, { is_public: isPublic })
     return response.data
 }

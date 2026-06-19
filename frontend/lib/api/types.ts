@@ -37,6 +37,7 @@ export interface Project {
     khasra_count?: number
     total_area_ha?: number
     layers_added: string[]
+    is_public?: boolean
 }
 
 export interface ProjectCreate {
@@ -49,6 +50,7 @@ export interface ProjectUpdate {
     name?: string
     location?: string
     description?: string
+    is_public?: boolean
 }
 
 export interface ProjectListResponse {

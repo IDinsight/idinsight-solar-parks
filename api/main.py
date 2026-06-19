@@ -21,6 +21,7 @@ from auth import (
     create_access_token,
     fake_users_db,
     get_current_active_user,
+    get_optional_user,
 )
 from config import AVAILABLE_LAYERS, settings
 from database import LayerFeatureModel, LayerModel, SessionLocal, get_db, init_db
@@ -31,6 +32,7 @@ from fastapi import (
     File,
     Form,
     HTTPException,
+    Query,
     UploadFile,
     status,
 )
@@ -203,6 +205,34 @@ async def read_users_me_endpoint(current_user: User = Depends(get_current_active
 # ============ Project Endpoints ============
 
 
+def get_accessible_project(db: Session, project_id: str, user: Optional[User]):
+    """Return project if user is authenticated or project is public. Raises 404 otherwise."""
+    project = get_project(db, project_id)
+    if not project:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Project {project_id} not found")
+    if user is not None:
+        return project
+    if project.is_public:
+        return project
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Project {project_id} not found")
+
+
+def build_project_response(project, layers=None) -> ProjectResponse:
+    return ProjectResponse(
+        id=project.id,
+        name=project.name,
+        location=project.location,
+        description=project.description,
+        status=project.status,
+        created_at=project.created_at,
+        updated_at=project.updated_at,
+        khasra_count=project.khasra_count,
+        total_area_ha=project.total_area_ha,
+        layers_added=[layer.name for layer in layers] if layers else [],
+        is_public=project.is_public,
+    )
+
+
 @app.post(
     "/projects",
     response_model=ProjectResponse,
@@ -228,18 +258,7 @@ async def create_project_endpoint(
     )
     project_data = get_project(db, project_id)
 
-    return ProjectResponse(
-        id=project_data.id,
-        name=project_data.name,
-        location=project_data.location,
-        description=project_data.description,
-        status=project_data.status,
-        created_at=project_data.created_at,
-        updated_at=project_data.updated_at,
-        khasra_count=project_data.khasra_count,
-        total_area_ha=project_data.total_area_ha,
-        layers_added=[],
-    )
+    return build_project_response(project_data)
 
 
 @app.get(
@@ -258,20 +277,7 @@ async def list_projects_endpoint(
     project_responses = []
     for p in projects:
         layers = get_layers_metadata(db, p.id)
-        project_responses.append(
-            ProjectResponse(
-                id=p.id,
-                name=p.name,
-                location=p.location,
-                description=p.description,
-                status=p.status,
-                created_at=p.created_at,
-                updated_at=p.updated_at,
-                khasra_count=p.khasra_count,
-                total_area_ha=p.total_area_ha,
-                layers_added=[layer.name for layer in layers],
-            )
-        )
+        project_responses.append(build_project_response(p, layers))
 
     return ProjectListResponse(projects=project_responses, total=len(project_responses))
 
@@ -284,31 +290,15 @@ async def list_projects_endpoint(
 )
 async def get_project_details_endpoint(
     project_id: str,
-    current_user: User = Depends(get_current_active_user),
+    current_user: Optional[User] = Depends(get_optional_user),
     db: Session = Depends(get_db),
 ):
     """Get details about a specific project."""
-    project = get_project(db, project_id)
-    if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Project {project_id} not found",
-        )
+    project = get_accessible_project(db, project_id, current_user)
 
     layers = get_layers_metadata(db, project_id)
 
-    return ProjectResponse(
-        id=project.id,
-        name=project.name,
-        location=project.location,
-        description=project.description,
-        status=project.status,
-        created_at=project.created_at,
-        updated_at=project.updated_at,
-        khasra_count=project.khasra_count,
-        total_area_ha=project.total_area_ha,
-        layers_added=[layer.name for layer in layers],
-    )
+    return build_project_response(project, layers)
 
 
 @app.patch(
@@ -323,13 +313,14 @@ async def update_project_endpoint(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
-    """Update project details (name, location, description)."""
+    """Update project details (name, location, description, visibility)."""
     updated_project = update_project(
         db=db,
         project_id=project_id,
         name=project_update.name,
         location=project_update.location,
         description=project_update.description,
+        is_public=project_update.is_public,
     )
 
     if not updated_project:
@@ -340,18 +331,7 @@ async def update_project_endpoint(
 
     layers = get_layers_metadata(db, project_id)
 
-    return ProjectResponse(
-        id=updated_project.id,
-        name=updated_project.name,
-        location=updated_project.location,
-        description=updated_project.description,
-        status=updated_project.status,
-        created_at=updated_project.created_at,
-        updated_at=updated_project.updated_at,
-        khasra_count=updated_project.khasra_count,
-        total_area_ha=updated_project.total_area_ha,
-        layers_added=[layer.name for layer in layers],
-    )
+    return build_project_response(updated_project, layers)
 
 
 @app.delete(
@@ -385,7 +365,7 @@ async def delete_project_endpoint(
 )
 async def get_khasras_endpoint(
     project_id: str,
-    current_user: User = Depends(get_current_active_user),
+    current_user: Optional[User] = Depends(get_optional_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -393,6 +373,7 @@ async def get_khasras_endpoint(
 
     Returns count, total area, and upload date if khasras exist.
     """
+    get_accessible_project(db, project_id, current_user)
     summary = get_khasras(db, project_id)
     return summary
 
@@ -1111,7 +1092,7 @@ async def delete_layer_endpoint(
 )
 async def get_layers_geojson_endpoint(
     project_id: str,
-    current_user: User = Depends(get_current_active_user),
+    current_user: Optional[User] = Depends(get_optional_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -1119,12 +1100,7 @@ async def get_layers_geojson_endpoint(
     Returns a dictionary with layer names as keys and GeoJSON FeatureCollections as values.
     """
 
-    project = get_project(db, project_id)
-    if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Project {project_id} not found",
-        )
+    get_accessible_project(db, project_id, current_user)
 
     return get_layers_geojson(db, project_id)
 
@@ -1243,21 +1219,16 @@ async def cluster_khasras_endpoint(
 )
 async def get_parcels_geojson(
     project_id: str,
-    current_user: User = Depends(get_current_active_user),
+    current_user: Optional[User] = Depends(get_optional_user),
     db: Session = Depends(get_db),
 ):
     """
     Get parcel boundaries as GeoJSON with parcel IDs and statistics.
-    
+
     Returns the clustered parcel geometries that can be displayed on a map.
     Each feature includes parcel_id, khasra_count, and area statistics.
     """
-    project = get_project(db, project_id)
-    if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Project {project_id} not found",
-        )
+    get_accessible_project(db, project_id, current_user)
 
     try:
         parcel_gdf, clustering_params = get_parcels_gdf(db, project_id)

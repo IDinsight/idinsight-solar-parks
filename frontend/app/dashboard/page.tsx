@@ -6,13 +6,14 @@ import { ProtectedRoute } from "@/components/protected-route"
 import { useAuthStore } from "@/lib/stores/auth"
 import { useProjectStore } from "@/lib/stores/project"
 import * as api from "@/lib/api/services"
-import { Plus, FolderOpen, LogOut, Sun, Trash2, Calendar, MapPin, MoreVertical, Pencil, Loader2 } from "lucide-react"
+import { Plus, FolderOpen, LogOut, Sun, Trash2, Calendar, MapPin, MoreVertical, Pencil, Loader2, Globe, Lock } from "lucide-react"
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { toast } from "sonner"
 
 export default function DashboardPage() {
     return (
@@ -129,6 +130,28 @@ function DashboardContent() {
         router.push('/login')
     }
 
+    const handleToggleVisibility = async (project: any, e: React.MouseEvent) => {
+        e.stopPropagation()
+        try {
+            const updated = await api.updateProjectVisibility(project.id, !project.is_public)
+            setProjects(projects.map(p => p.id === updated.id ? updated : p))
+            if (updated.is_public) {
+                const mapUrl = `${window.location.origin}/map/${project.id}`
+                toast.success("Map is now public", {
+                    description: mapUrl,
+                    action: {
+                        label: "Copy Link",
+                        onClick: () => navigator.clipboard.writeText(mapUrl),
+                    },
+                })
+            } else {
+                toast.success("Map is now private")
+            }
+        } catch (error: any) {
+            toast.error(error.response?.data?.detail || 'Failed to update visibility')
+        }
+    }
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-slate-100">
             {/* Header */}
@@ -208,9 +231,16 @@ function DashboardContent() {
                             >
                                 <div className="flex items-start justify-between mb-4">
                                     <div className="flex-1">
-                                        <h3 className="text-lg font-semibold text-slate-900 group-hover:text-blue-600 transition-colors mb-1">
-                                            {project.name}
-                                        </h3>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <h3 className="text-lg font-semibold text-slate-900 group-hover:text-blue-600 transition-colors">
+                                                {project.name}
+                                            </h3>
+                                            {project.is_public ? (
+                                                <Globe className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
+                                            ) : (
+                                                <Lock className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                                            )}
+                                        </div>
                                         <div className="flex items-center gap-1 text-sm text-slate-500">
                                             <MapPin className="w-3 h-3" />
                                             {project.location}
@@ -233,6 +263,22 @@ function DashboardContent() {
                                             >
                                                 <Pencil className="w-4 h-4" />
                                                 Edit Project
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem
+                                                onClick={(e) => handleToggleVisibility(project, e)}
+                                                className="flex items-center gap-2 cursor-pointer"
+                                            >
+                                                {project.is_public ? (
+                                                    <>
+                                                        <Lock className="w-4 h-4" />
+                                                        Make Private
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Globe className="w-4 h-4" />
+                                                        Make Public
+                                                    </>
+                                                )}
                                             </DropdownMenuItem>
                                             <DropdownMenuItem
                                                 onClick={(e) => handleDeleteProject(project, e)}

@@ -55,6 +55,7 @@ class ProjectUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=100, description="Project name")
     location: Optional[str] = Field(None, min_length=1, max_length=100, description="Location/District name")
     description: Optional[str] = Field(None, max_length=500, description="Project description")
+    is_public: Optional[bool] = Field(None, description="Whether the project map is publicly accessible")
 
 
 class ProjectResponse(BaseModel):
@@ -69,6 +70,7 @@ class ProjectResponse(BaseModel):
     khasra_count: Optional[int] = None
     total_area_ha: Optional[float] = None
     layers_added: List[str] = []
+    is_public: bool = False
 
 
 class ProjectListResponse(BaseModel):
