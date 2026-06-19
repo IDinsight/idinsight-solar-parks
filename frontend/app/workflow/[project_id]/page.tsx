@@ -1557,63 +1557,67 @@ function WorkflowContent() {
                                         <div className="space-y-4">
                                             {/* Fullscreen Online Map */}
                                             <div className="w-full border-2 border-slate-200 rounded-lg px-4 py-4">
-                                                <div className="flex items-start gap-4">
-                                                    <Globe className="w-8 h-8 text-blue-600 flex-shrink-0" />
-                                                    <div className="flex-1">
-                                                        <h4 className="text-base font-semibold text-slate-900">Online Map</h4>
-                                                        <p className="text-xs text-slate-600 mt-1">Full screen version of the online map</p>
-                                                        <div className="flex items-center gap-3 mt-3 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
-                                                            <div className="flex items-center gap-1.5 text-sm text-slate-600">
-                                                                {currentProject?.is_public ? (
-                                                                    <Globe className="h-4 w-4 text-green-600" />
-                                                                ) : (
-                                                                    <Lock className="h-4 w-4 text-slate-400" />
-                                                                )}
-                                                                <span>Currently {currentProject?.is_public ? "Public" : "Private"}</span>
-                                                            </div>
-                                                            <button
-                                                                onClick={handleToggleMapVisibility}
-                                                                disabled={isTogglingVisibility}
-                                                                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                                                                    currentProject?.is_public
-                                                                        ? "bg-slate-200 text-slate-700 hover:bg-slate-300"
-                                                                        : "bg-blue-600 text-white hover:bg-blue-700"
-                                                                }`}
-                                                            >
-                                                                {isTogglingVisibility ? (
-                                                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                                                ) : null}
-                                                                {currentProject?.is_public ? "Make Private" : "Make Public"}
-                                                            </button>
-                                                        </div>
-                                                        <div className="flex items-start justify-start gap-3 mt-3">
-                                                            <button
-                                                                onClick={handleOpenMapInNewTab}
-                                                                className="flex items-center gap-1.5 p-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded transition-colors"
-                                                            >
-                                                                <ExternalLink className="w-3.5 h-3.5" />
-                                                                Open
-                                                            </button>
-                                                            {currentProject?.is_public && (
-                                                                <button
-                                                                    onClick={handleCopyMapLink}
-                                                                    className="flex items-center gap-1.5 p-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded transition-colors"
-                                                                >
-                                                                    {mapLinkCopied ? (
-                                                                        <>
-                                                                            <Check className="w-3.5 h-3.5 text-green-600" />
-                                                                            Copied
-                                                                        </>
-                                                                    ) : (
-                                                                        <>
-                                                                            <Copy className="w-3.5 h-3.5" />
-                                                                            Copy Link
-                                                                        </>
-                                                                    )}
-                                                                </button>
-                                                            )}
+                                                {/* Top header: icon + title/subtitle on the left, actions on the right */}
+                                                <div className="flex items-start justify-between gap-4">
+                                                    <div className="flex items-start gap-4">
+                                                        <Globe className="w-8 h-8 text-blue-600 flex-shrink-0" />
+                                                        <div>
+                                                            <h4 className="text-base font-semibold text-slate-900">Online Map</h4>
+                                                            <p className="text-xs text-slate-600 mt-1">Full screen version of the online map</p>
                                                         </div>
                                                     </div>
+                                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                                        <button
+                                                            onClick={handleOpenMapInNewTab}
+                                                            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors"
+                                                        >
+                                                            <ExternalLink className="w-3.5 h-3.5" />
+                                                            Open
+                                                        </button>
+                                                        {currentProject?.is_public && (
+                                                            <button
+                                                                onClick={handleCopyMapLink}
+                                                                className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-md transition-colors"
+                                                            >
+                                                                {mapLinkCopied ? (
+                                                                    <>
+                                                                        <Check className="w-3.5 h-3.5 text-green-600" />
+                                                                        Copied
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <Copy className="w-3.5 h-3.5" />
+                                                                        Copy Link
+                                                                    </>
+                                                                )}
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                {/* Visibility toggle: full width under the header */}
+                                                <div className="flex items-center justify-between gap-3 mt-4 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                                                    <div className="flex items-center gap-1.5 text-sm text-slate-600">
+                                                        {currentProject?.is_public ? (
+                                                            <Globe className="h-4 w-4 text-green-600" />
+                                                        ) : (
+                                                            <Lock className="h-4 w-4 text-slate-400" />
+                                                        )}
+                                                        <span>Currently {currentProject?.is_public ? "Public" : "Private"}</span>
+                                                    </div>
+                                                    <button
+                                                        onClick={handleToggleMapVisibility}
+                                                        disabled={isTogglingVisibility}
+                                                        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                                                            currentProject?.is_public
+                                                                ? "bg-slate-200 text-slate-700 hover:bg-slate-300"
+                                                                : "bg-blue-600 text-white hover:bg-blue-700"
+                                                        }`}
+                                                    >
+                                                        {isTogglingVisibility ? (
+                                                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                        ) : null}
+                                                        {currentProject?.is_public ? "Make Private" : "Make Public"}
+                                                    </button>
                                                 </div>
                                             </div>
                                             {/* KML */}
