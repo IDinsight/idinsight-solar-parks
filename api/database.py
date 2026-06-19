@@ -235,8 +235,16 @@ def get_db():
 
 
 def init_db():
-    """Initialize database tables"""
+    """Initialize database tables and add missing columns"""
     Base.metadata.create_all(bind=engine)
+
+    from sqlalchemy import inspect, text
+    inspector = inspect(engine)
+    if 'projects' in inspector.get_table_names():
+        columns = [col['name'] for col in inspector.get_columns('projects')]
+        if 'is_public' not in columns:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE projects ADD COLUMN is_public BOOLEAN NOT NULL DEFAULT false"))
 
 
 def drop_db():

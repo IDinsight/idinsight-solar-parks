@@ -229,7 +229,7 @@ def build_project_response(project, layers=None) -> ProjectResponse:
         khasra_count=project.khasra_count,
         total_area_ha=project.total_area_ha,
         layers_added=[layer.name for layer in layers] if layers else [],
-        is_public=project.is_public,
+        is_public=getattr(project, 'is_public', False),
     )
 
 
