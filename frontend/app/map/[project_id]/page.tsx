@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation"
 import MapContainer from "@/components/map-container"
 import * as api from "@/lib/api/services"
 import type { Project } from "@/lib/api/types"
-import { ArrowLeft, Loader2, Globe, Lock, Sun, LogIn, Check, Copy } from "lucide-react"
+import { ArrowLeft, Loader2, Globe, Lock, LogIn, Check, Copy } from "lucide-react"
 import { getWorkflowPageForProject } from "@/lib/utils/project-navigation"
 import { toast } from "sonner"
 
@@ -215,7 +215,7 @@ export default function FullScreenMapPage() {
                             onClick={() => router.push("/login")}
                             className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
                         >
-                            <Sun className="h-4 w-4 text-blue-600" />
+                            <LogIn className="h-4 w-4 text-blue-600" />
                             Login to Edit
                         </button>
                     )}
@@ -232,36 +232,38 @@ export default function FullScreenMapPage() {
 
                 {/* Share controls (authenticated only) */}
                 {authedView && (
-                    <div className="flex items-center gap-2">
-                        {project?.is_public && (
-                            <button
-                                onClick={handleCopyLink}
-                                className="flex items-center gap-1.5 px-3 py-2 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-                                title="Copy public link"
-                            >
-                                {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
-                                {copied ? "Copied!" : "Copy Link"}
-                            </button>
-                        )}
+                    <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                        <div className="flex items-center gap-1.5 text-sm text-slate-600">
+                            {project?.is_public ? (
+                                <Globe className="h-4 w-4 text-green-600" />
+                            ) : (
+                                <Lock className="h-4 w-4 text-slate-400" />
+                            )}
+                            <span>Currently {project?.is_public ? "Public" : "Private"}</span>
+                        </div>
                         <button
                             onClick={handleToggleVisibility}
                             disabled={isTogglingVisibility}
-                            className={`flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors ${
+                            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
                                 project?.is_public
-                                    ? "bg-green-50 text-green-700 hover:bg-green-100 border border-green-200"
-                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200"
+                                    ? "bg-slate-200 text-slate-700 hover:bg-slate-300"
+                                    : "bg-blue-600 text-white hover:bg-blue-700"
                             }`}
-                            title={project?.is_public ? "Map is public — click to make private" : "Map is private — click to make public"}
                         >
                             {isTogglingVisibility ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : project?.is_public ? (
-                                <Globe className="h-4 w-4" />
-                            ) : (
-                                <Lock className="h-4 w-4" />
-                            )}
-                            {project?.is_public ? "Public" : "Private"}
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : null}
+                            {project?.is_public ? "Make Private" : "Make Public"}
                         </button>
+                        {project?.is_public && (
+                            <button
+                                onClick={handleCopyLink}
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors"
+                            >
+                                {copied ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
+                                {copied ? "Copied!" : "Copy Link"}
+                            </button>
+                        )}
                     </div>
                 )}
             </div>
