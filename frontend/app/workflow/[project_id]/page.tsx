@@ -1575,49 +1575,60 @@ function WorkflowContent() {
                                                     </button>
                                                 </div>
                                                 {/* Visibility toggle + copy link: full width under the header */}
-                                                <div className="flex items-center justify-between gap-3 mt-4 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
-                                                    <div className="flex items-center gap-1.5 text-sm text-slate-600">
-                                                        {currentProject?.is_public ? (
-                                                            <Globe className="h-4 w-4 text-green-600" />
-                                                        ) : (
-                                                            <Lock className="h-4 w-4 text-slate-400" />
-                                                        )}
-                                                        <span>Currently {currentProject?.is_public ? "Public" : "Private"}</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-2 flex-shrink-0">
-                                                        {currentProject?.is_public && (
+                                                <div className="mt-4 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                                                    {currentProject?.is_public ? (
+                                                        <>
+                                                            <div className="flex items-center gap-1.5 text-sm text-slate-600">
+                                                                <Globe className="h-4 w-4 text-green-600" />
+                                                                <span>Currently Public</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2 mt-2">
+                                                                <button
+                                                                    onClick={handleCopyMapLink}
+                                                                    className="flex flex-1 items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-md transition-colors"
+                                                                >
+                                                                    {mapLinkCopied ? (
+                                                                        <>
+                                                                            <Check className="w-3.5 h-3.5 text-green-600" />
+                                                                            Copied
+                                                                        </>
+                                                                    ) : (
+                                                                        <>
+                                                                            <Copy className="w-3.5 h-3.5" />
+                                                                            Copy Link
+                                                                        </>
+                                                                    )}
+                                                                </button>
+                                                                <button
+                                                                    onClick={handleToggleMapVisibility}
+                                                                    disabled={isTogglingVisibility}
+                                                                    className="flex flex-1 items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors bg-slate-200 text-slate-700 hover:bg-slate-300"
+                                                                >
+                                                                    {isTogglingVisibility ? (
+                                                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                                    ) : null}
+                                                                    Make Private
+                                                                </button>
+                                                            </div>
+                                                        </>
+                                                    ) : (
+                                                        <div className="flex items-center justify-between gap-3">
+                                                            <div className="flex items-center gap-1.5 text-sm text-slate-600">
+                                                                <Lock className="h-4 w-4 text-slate-400" />
+                                                                <span>Currently Private</span>
+                                                            </div>
                                                             <button
-                                                                onClick={handleCopyMapLink}
-                                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-md transition-colors"
+                                                                onClick={handleToggleMapVisibility}
+                                                                disabled={isTogglingVisibility}
+                                                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors bg-blue-600 text-white hover:bg-blue-700 flex-shrink-0"
                                                             >
-                                                                {mapLinkCopied ? (
-                                                                    <>
-                                                                        <Check className="w-3.5 h-3.5 text-green-600" />
-                                                                        Copied
-                                                                    </>
-                                                                ) : (
-                                                                    <>
-                                                                        <Copy className="w-3.5 h-3.5" />
-                                                                        Copy Link
-                                                                    </>
-                                                                )}
+                                                                {isTogglingVisibility ? (
+                                                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                                ) : null}
+                                                                Make Public
                                                             </button>
-                                                        )}
-                                                        <button
-                                                            onClick={handleToggleMapVisibility}
-                                                            disabled={isTogglingVisibility}
-                                                            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                                                                currentProject?.is_public
-                                                                    ? "bg-slate-200 text-slate-700 hover:bg-slate-300"
-                                                                    : "bg-blue-600 text-white hover:bg-blue-700"
-                                                            }`}
-                                                        >
-                                                            {isTogglingVisibility ? (
-                                                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                                            ) : null}
-                                                            {currentProject?.is_public ? "Make Private" : "Make Public"}
-                                                        </button>
-                                                    </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                             {/* KML */}
