@@ -8,3 +8,5 @@ data
 **/.next/
 **/.env
 backend/.env
+**/venv/
+**/.venv/
